@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="331px" height="261px" viewBox="0 0 331 261" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 52.6 (67491) - http://www.bohemiancoding.com/sketch -->
+    <title>Group</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" font-weight="normal">
+        <g id="Group" transform="translate(-1.000000, -4.000000)">
+            <text id="v" font-family="DYMO-Symbols, DYMO Symbols" font-size="102.26" fill="#9B9B9B">
+                <tspan x="0.935" y="141">v</tspan>
+            </text>
+            <text id="2" font-family="DYMO-Symbols, DYMO Symbols" font-size="102.26" fill="#F5A623">
+                <tspan x="53.0639307" y="141">2</tspan>
+            </text>
+            <text id="2" font-family="DYMO-Symbols, DYMO Symbols" font-size="102.26" fill="#4A90E2">
+                <tspan x="279.563931" y="141">2</tspan>
+            </text>
+            <text id="." font-family="DYMO-Symbols, DYMO Symbols" font-size="102.26" fill="#9B9B9B">
+                <tspan x="110.294448" y="141">.</tspan>
+            </text>
+            <text id="." font-family="DYMO-Symbols, DYMO Symbols" font-size="102.26" fill="#9B9B9B">
+                <tspan x="250.294448" y="141">.</tspan>
+            </text>
+            <text id="21" font-family="DYMO-Symbols, DYMO Symbols" font-size="102.26" fill="#B8E986">
+                <tspan x="139.627861" y="141">21</tspan>
+            </text>
+            <text id="Major" font-family="ArialNarrow, Arial Narrow" font-size="20.26" fill="#000000">
+                <tspan x="53.2305322" y="19">Major</tspan>
+            </text>
+            <text id="breaking-changes" font-family="ArialNarrow, Arial Narrow" font-size="20.26" fill="#4A4A4A">
+                <tspan x="42.1360059" y="218">breaking </tspan>
+                <tspan x="42.5910645" y="241">changes</tspan>
+            </text>
+            <text id="features" font-family="ArialNarrow, Arial Narrow" font-size="20.26" fill="#4A4A4A">
+                <tspan x="145.980972" y="218">features</tspan>
+            </text>
+            <text id="bugfixes-and-hotfixe" font-family="ArialNarrow, Arial Narrow" font-size="20.26" fill="#4A4A4A">
+                <tspan x="270.056016" y="218">bugfixes</tspan>
+                <tspan x="287.140498" y="241">and</tspan>
+                <tspan x="272.365933" y="264">hotfixes</tspan>
+            </text>
+            <text id="Minor" font-family="ArialNarrow, Arial Narrow" font-size="20.26" fill="#000000">
+                <tspan x="163.230532" y="19">Minor</tspan>
+            </text>
+            <text id="Patch" font-family="ArialNarrow, Arial Narrow" font-size="20.26" fill="#000000">
+                <tspan x="280.255688" y="19">Patch</tspan>
+            </text>
+        </g>
+    </g>
+</svg>

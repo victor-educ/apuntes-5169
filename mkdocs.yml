@@ -1,0 +1,137 @@
+site_name: Mantenimiento del sistema de contenedores
+site_description: Apuntes de la asignatura Mantenimiento del sistema de contenedores desplegado. Observabilidad, alarmas, seguridad de la monitorización, KPI y pruebas, logs, copias de seguridad, vulnerabilidades y terminación segura.
+site_url: https://victor-educ.github.io/apuntes-5169/
+repo_url: https://github.com/victor-educ/apuntes-5169
+repo_name: victor-educ/apuntes-5169
+edit_uri: edit/main/docs/
+copyright: Víctor Sellés, con apoyo de Claude (Anthropic) · CC BY-SA 4.0
+
+theme:
+  name: material
+  custom_dir: overrides
+  language: es
+  icon:
+    logo: material/wrench-cog
+    repo: fontawesome/brands/github
+  favicon: assets/logo.svg
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue grey
+      accent: deep orange
+      toggle:
+        icon: material/weather-night
+        name: Modo oscuro
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue grey
+      accent: deep orange
+      toggle:
+        icon: material/weather-sunny
+        name: Modo claro
+  font:
+    text: Inter
+    code: JetBrains Mono
+
+extra:
+  version: !ENV [SITE_VERSION, "local"]
+  commit: !ENV [SITE_COMMIT, ""]
+  nav_icons:
+    Inicio: material/home
+    Presentación y evaluación: material/school
+    Calendario: material/calendar-month
+    Laboratorio: material/flask
+    Unidades: material/book-open-page-variant
+    Recursos: material/toolbox
+    PDF: material/file-pdf-box
+    UT1 · Observabilidad de contenedores: material/eye
+    UT2 · Umbrales y alarmas: material/bell-alert
+    UT3 · Seguridad de la monitorización: material/shield-lock
+    UT4 · Indicadores, KPI y pruebas: material/speedometer
+    UT5 · Logs, accesos y rendimiento (empresa): material/text-search
+    UT6 · Copias de seguridad (empresa): material/backup-restore
+    UT7 · Actualización y vulnerabilidades: material/update
+    UT8 · Terminación segura: material/delete-forever
+    Chuleta de comandos: material/console
+    Glosario: material/book-alphabet
+    Bibliografía y enlaces: material/link-variant
+    Despliegue (5166): material/package-variant-closed
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+plugins:
+  - search:
+      lang: es
+  - print-site:
+      add_to_navigation: true
+      print_page_title: PDF
+      add_cover_page: true
+      cover_page_template: docs/assets/templates/portada.tpl
+      add_table_of_contents: true
+      toc_title: Índice
+      toc_depth: 2
+      add_full_urls: false
+      enumerate_headings: false
+      enumerate_figures: false
+      add_print_site_banner: true
+      print_site_banner_template: docs/assets/templates/aviso.tpl
+      print_page_basename: pdf
+      exclude:
+        - calendario.md
+
+nav:
+  - Inicio: index.md
+  - Unidades:
+      - UT1 · Observabilidad de contenedores: ut/ut1-observabilidad.md
+      - UT2 · Umbrales y alarmas: ut/ut2-alarmas.md
+      - UT3 · Seguridad de la monitorización: ut/ut3-seguridad-monitorizacion.md
+      - UT4 · Indicadores, KPI y pruebas: ut/ut4-kpi-pruebas.md
+      - UT5 · Logs, accesos y rendimiento (empresa): ut/ut5-logs-accesos-rendimiento.md
+      - UT6 · Copias de seguridad (empresa): ut/ut6-copias-seguridad.md
+      - UT7 · Actualización y vulnerabilidades: ut/ut7-actualizacion-vulnerabilidades.md
+      - UT8 · Terminación segura: ut/ut8-terminacion-segura.md
+  - Calendario: calendario.md
+  - Recursos:
+      - Presentación y evaluación: modulo.md
+      - Laboratorio: laboratorio.md
+      - Chuleta de comandos: chuleta.md
+      - Glosario: glosario.md
+      - Bibliografía y enlaces: recursos.md
+  - Despliegue (5166): https://victor-educ.github.io/apuntes-5166/

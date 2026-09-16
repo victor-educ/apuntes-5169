@@ -1,0 +1,466 @@
+{
+ "inicio": "2026-10-01",
+ "fin": "2027-06-09",
+ "fe": {
+  "inicio": "2027-04-19",
+  "fin": "2027-06-09"
+ },
+ "festivos": {
+  "2026-10-09": "Dia de la Comunitat Valenciana",
+  "2026-10-12": "Fiesta Nacional",
+  "2026-12-08": "Inmaculada",
+  "2027-03-19": "San José",
+  "2027-05-01": "Día del Trabajo",
+  "2026-12-22": "Navidad",
+  "2026-12-23": "Navidad",
+  "2026-12-24": "Navidad",
+  "2026-12-25": "Navidad",
+  "2026-12-26": "Navidad",
+  "2026-12-27": "Navidad",
+  "2026-12-28": "Navidad",
+  "2026-12-29": "Navidad",
+  "2026-12-30": "Navidad",
+  "2026-12-31": "Navidad",
+  "2027-01-01": "Navidad",
+  "2027-01-02": "Navidad",
+  "2027-01-03": "Navidad",
+  "2027-01-04": "Navidad",
+  "2027-01-05": "Navidad",
+  "2027-01-06": "Navidad",
+  "2027-01-07": "Navidad",
+  "2027-03-01": "Magdalena",
+  "2027-03-02": "Magdalena",
+  "2027-03-03": "Magdalena",
+  "2027-03-04": "Magdalena",
+  "2027-03-05": "Magdalena",
+  "2027-03-25": "Pascua",
+  "2027-03-26": "Pascua",
+  "2027-03-27": "Pascua",
+  "2027-03-28": "Pascua",
+  "2027-03-29": "Pascua",
+  "2027-03-30": "Pascua",
+  "2027-03-31": "Pascua",
+  "2027-04-01": "Pascua",
+  "2027-04-02": "Pascua"
+ },
+ "sesiones": [
+  {
+   "n": 1,
+   "fecha": "2026-10-01",
+   "ut": "UT1",
+   "titulo": "El contenedor de referencia",
+   "que": "Despliegue del servicio del curso (proxy + API + PostgreSQL) en app01 con compose. docker stats, docker logs y docker events mientras se genera tráfico; qué pasa al parar la BD.",
+   "entregable": "",
+   "url": "../ut/ut1-observabilidad/#a11-el-contenedor-de-referencia-sesion-1",
+   "evaluable": false
+  },
+  {
+   "n": 2,
+   "fecha": "2026-10-06",
+   "ut": "UT1",
+   "titulo": "Métricas de recursos",
+   "que": "cAdvisor junto al servicio, scrape desde mon01, gráfica de CPU y memoria por contenedor en Grafana. Etiquetas de compose.",
+   "entregable": "",
+   "url": "../ut/ut1-observabilidad/#a12-metricas-de-recursos-sesion-2",
+   "evaluable": false
+  },
+  {
+   "n": 3,
+   "fecha": "2026-10-08",
+   "ut": "UT1",
+   "titulo": "Instrumentar la aplicación",
+   "que": "Endpoint /metrics en la API con counter de peticiones e histogram de latencia. postgres_exporter en la BD. Comprobación en Prometheus.",
+   "entregable": "",
+   "url": "../ut/ut1-observabilidad/#a13-instrumentar-la-aplicacion-sesion-3",
+   "evaluable": false
+  },
+  {
+   "n": 4,
+   "fecha": "2026-10-13",
+   "ut": "UT1",
+   "titulo": "Logs estructurados",
+   "que": "Logs JSON con request_id, límites del driver json-file en daemon.json, Promtail hacia Loki y comprobación en Grafana Explore.",
+   "entregable": "",
+   "url": "../ut/ut1-observabilidad/#a14-logs-estructurados-sesion-4",
+   "evaluable": false
+  },
+  {
+   "n": 5,
+   "fecha": "2026-10-15",
+   "ut": "UT1",
+   "titulo": "Eventos",
+   "que": "Eventos Docker en Loki. Provocar die, oom y unhealthy y localizarlos.",
+   "entregable": "",
+   "url": "../ut/ut1-observabilidad/#a15-eventos-sesion-5",
+   "evaluable": false
+  },
+  {
+   "n": 6,
+   "fecha": "2026-10-20",
+   "ut": "UT1",
+   "titulo": "Integridad y almacenamiento",
+   "que": "Tabla de comprobaciones completa: comunicación, recepción, integridad, relojes, retención. Corte de red de 3 minutos entre app01 y mon01.",
+   "entregable": "",
+   "url": "../ut/ut1-observabilidad/#a16-integridad-y-almacenamiento-sesion-6",
+   "evaluable": false
+  },
+  {
+   "n": 7,
+   "fecha": "2026-10-22",
+   "ut": "UT1",
+   "titulo": "Práctica evaluable UT1",
+   "que": "Informe del contenedor de referencia integrado en mon01: flujo de datos, configuración, pruebas y resultado del corte de red.",
+   "entregable": "Informe UT1 (RA1 a)",
+   "url": "../ut/ut1-observabilidad/#practica-evaluable",
+   "evaluable": true
+  },
+  {
+   "n": 8,
+   "fecha": "2026-10-27",
+   "ut": "UT2",
+   "titulo": "Umbrales sobre contadores",
+   "que": "Cinco umbrales a partir de la documentación del servicio, con sus consultas PromQL probadas con tráfico real.",
+   "entregable": "",
+   "url": "../ut/ut2-alarmas/#a21-umbrales-sobre-contadores-sesion-8",
+   "evaluable": false
+  },
+  {
+   "n": 9,
+   "fecha": "2026-10-29",
+   "ut": "UT2",
+   "titulo": "Cadenas en logs y eventos",
+   "que": "Mensajes de error conocidos y su consulta LogQL; reglas para oom y unhealthy desde eventos. Pruebas con logcli.",
+   "entregable": "",
+   "url": "../ut/ut2-alarmas/#a22-cadenas-en-logs-y-eventos-sesion-9",
+   "evaluable": false
+  },
+  {
+   "n": 10,
+   "fecha": "2026-11-03",
+   "ut": "UT2",
+   "titulo": "Recording rules",
+   "que": "rules.yml con tasa de peticiones, ratio de errores, latencia p95 y ratio de memoria como métricas grabadas.",
+   "entregable": "",
+   "url": "../ut/ut2-alarmas/#a23-recording-rules-sesion-10",
+   "evaluable": false
+  },
+  {
+   "n": 11,
+   "fecha": "2026-11-05",
+   "ut": "UT2",
+   "titulo": "Reglas de alerta",
+   "que": "Umbrales convertidos en reglas con for, etiquetas y anotaciones con runbook. Ciclo pending → firing.",
+   "entregable": "",
+   "url": "../ut/ut2-alarmas/#a24-reglas-de-alerta-sesion-11",
+   "evaluable": false
+  },
+  {
+   "n": 12,
+   "fecha": "2026-11-10",
+   "ut": "UT2",
+   "titulo": "Alertmanager",
+   "que": "Agrupación, tres rutas, una inhibición y un silencio. Receptores de correo y Telegram.",
+   "entregable": "",
+   "url": "../ut/ut2-alarmas/#a25-alertmanager-sesion-12",
+   "evaluable": false
+  },
+  {
+   "n": 13,
+   "fecha": "2026-11-12",
+   "ut": "UT2",
+   "titulo": "Integración con incidencias",
+   "que": "Receptor webhook que crea y cierra issues en GitLab a partir de las alarmas.",
+   "entregable": "",
+   "url": "../ut/ut2-alarmas/#a26-integracion-con-incidencias-sesion-13",
+   "evaluable": false
+  },
+  {
+   "n": 14,
+   "fecha": "2026-11-17",
+   "ut": "UT2",
+   "titulo": "Verificación completa",
+   "que": "Procedimiento de verificación para cada alarma: provocar, medir tiempos, canales, issue creada y cerrada.",
+   "entregable": "",
+   "url": "../ut/ut2-alarmas/#a27-verificacion-completa-sesion-14",
+   "evaluable": false
+  },
+  {
+   "n": 15,
+   "fecha": "2026-11-19",
+   "ut": "UT2",
+   "titulo": "Práctica evaluable UT2",
+   "que": "Repositorio alerting (rules, alerts, alertmanager, webhook, README), informe de verificación y tabla de categorización.",
+   "entregable": "Repositorio alerting + informe (RA1 b, c, d, e)",
+   "url": "../ut/ut2-alarmas/#practica-evaluable",
+   "evaluable": true
+  },
+  {
+   "n": 16,
+   "fecha": "2026-11-24",
+   "ut": "UT3",
+   "titulo": "Auditoría inicial",
+   "que": "Inventario de puertos en app01, db01 y mon01; escaneo desde otras subredes; matriz de exposición.",
+   "entregable": "",
+   "url": "../ut/ut3-seguridad-monitorizacion/#a31-auditoria-inicial-sesion-16",
+   "evaluable": false
+  },
+  {
+   "n": 17,
+   "fecha": "2026-11-26",
+   "ut": "UT3",
+   "titulo": "Red y firewall",
+   "que": "Exporters en red dedicada o IP de gestión; reglas nftables en cada host y en el firewall de la VPC. Repetir el escaneo.",
+   "entregable": "",
+   "url": "../ut/ut3-seguridad-monitorizacion/#a32-red-y-firewall-sesion-17",
+   "evaluable": false
+  },
+  {
+   "n": 18,
+   "fecha": "2026-12-01",
+   "ut": "UT3",
+   "titulo": "TLS y autenticación",
+   "que": "Certificados de la CA del curso para exporters y Loki; TLS + basic auth; mTLS Promtail-Loki.",
+   "entregable": "",
+   "url": "../ut/ut3-seguridad-monitorizacion/#a33-tls-y-autenticacion-sesion-18",
+   "evaluable": false
+  },
+  {
+   "n": 19,
+   "fecha": "2026-12-03",
+   "ut": "UT3",
+   "titulo": "Práctica evaluable UT3",
+   "que": "Matriz de puertos antes y después, reglas, configuración TLS, evidencias y documento de política.",
+   "entregable": "Informe UT3 (RA1 f, g)",
+   "url": "../ut/ut3-seguridad-monitorizacion/#practica-evaluable",
+   "evaluable": true
+  },
+  {
+   "n": 20,
+   "fecha": "2026-12-10",
+   "ut": "UT4",
+   "titulo": "Fichas de métricas",
+   "que": "Documentar al menos quince métricas del contenedor de referencia con su ficha y clasificarlas en capacidad, rendimiento y calidad.",
+   "entregable": "",
+   "url": "../ut/ut4-kpi-pruebas/#a41-fichas-de-metricas-sesion-20",
+   "evaluable": false
+  },
+  {
+   "n": 21,
+   "fecha": "2026-12-15",
+   "ut": "UT4",
+   "titulo": "Indicadores",
+   "que": "Nueve indicadores como recording rules y panel de KPI, con umbrales de aviso y crítico justificados.",
+   "entregable": "",
+   "url": "../ut/ut4-kpi-pruebas/#a42-indicadores-sesion-21",
+   "evaluable": false
+  },
+  {
+   "n": 22,
+   "fecha": "2026-12-17",
+   "ut": "UT4",
+   "titulo": "Catálogo de alarmas",
+   "que": "Ficha completa (origen, fallo, impacto, análisis, resolución, escalado) para al menos diez alarmas, enlazadas como runbook.",
+   "entregable": "",
+   "url": "../ut/ut4-kpi-pruebas/#a43-catalogo-de-alarmas-sesion-22",
+   "evaluable": false
+  },
+  {
+   "n": 23,
+   "fecha": "2027-01-12",
+   "ut": "UT4",
+   "titulo": "Pruebas funcionales",
+   "que": "Colección newman o suite pytest con diez casos sobre la API, con informe JUnit.",
+   "entregable": "",
+   "url": "../ut/ut4-kpi-pruebas/#a44-pruebas-funcionales-sesion-23",
+   "evaluable": false
+  },
+  {
+   "n": 24,
+   "fecha": "2027-01-14",
+   "ut": "UT4",
+   "titulo": "Calidad de servicio y rendimiento",
+   "que": "Script k6 con umbrales de los SLO; rampas de 10, 50 y 100 usuarios contra pre.",
+   "entregable": "",
+   "url": "../ut/ut4-kpi-pruebas/#a45-calidad-de-servicio-y-rendimiento-sesion-24",
+   "evaluable": false
+  },
+  {
+   "n": 25,
+   "fecha": "2027-01-19",
+   "ut": "UT4",
+   "titulo": "Estrés y seguridad",
+   "que": "Rampa hasta el fallo y tiempo de recuperación; ZAP baseline y trivy image.",
+   "entregable": "",
+   "url": "../ut/ut4-kpi-pruebas/#a46-estres-y-seguridad-sesion-25",
+   "evaluable": false
+  },
+  {
+   "n": 26,
+   "fecha": "2027-01-21",
+   "ut": "UT4",
+   "titulo": "Documentación de pruebas",
+   "que": "Fichas de caso de prueba con evidencias archivadas e informe de pruebas de la versión.",
+   "entregable": "",
+   "url": "../ut/ut4-kpi-pruebas/#a47-documentacion-de-pruebas-sesion-26",
+   "evaluable": false
+  },
+  {
+   "n": 27,
+   "fecha": "2027-01-26",
+   "ut": "UT4",
+   "titulo": "Seguimiento",
+   "que": "Ciclo de revisión diario, semanal y mensual; una revisión semanal ejecutada con datos reales.",
+   "entregable": "",
+   "url": "../ut/ut4-kpi-pruebas/#a48-seguimiento-sesion-27",
+   "evaluable": false
+  },
+  {
+   "n": 28,
+   "fecha": "2027-01-28",
+   "ut": "UT4",
+   "titulo": "Práctica evaluable UT4",
+   "que": "Dossier de operación del servicio: fichas, indicadores, catálogo de alarmas, informe de pruebas y registro de revisión.",
+   "entregable": "Dossier de operación (RA2 a–f)",
+   "url": "../ut/ut4-kpi-pruebas/#practica-evaluable",
+   "evaluable": true
+  },
+  {
+   "n": 29,
+   "fecha": "2027-02-02",
+   "ut": "UT7",
+   "titulo": "Inventario de versiones",
+   "que": "Imágenes y dependencias con versión, digest y fecha. Fijar versiones en compose y Dockerfile.",
+   "entregable": "",
+   "url": "../ut/ut7-actualizacion-vulnerabilidades/#a71-inventario-de-versiones-sesion-29",
+   "evaluable": false
+  },
+  {
+   "n": 30,
+   "fecha": "2027-02-04",
+   "ut": "UT7",
+   "titulo": "Seguimiento automático",
+   "que": "Renovate o Dependabot sobre el repositorio del servicio. Política de actualización.",
+   "entregable": "",
+   "url": "../ut/ut7-actualizacion-vulnerabilidades/#a72-seguimiento-automatico-sesion-30",
+   "evaluable": false
+  },
+  {
+   "n": 31,
+   "fecha": "2027-02-09",
+   "ut": "UT7",
+   "titulo": "Escaneo",
+   "que": "SBOM con Syft; escaneo con Trivy y Grype de aplicación, BD y proxy. Tabla de hallazgos.",
+   "entregable": "",
+   "url": "../ut/ut7-actualizacion-vulnerabilidades/#a73-escaneo-sesion-31",
+   "evaluable": false
+  },
+  {
+   "n": 32,
+   "fecha": "2027-02-11",
+   "ut": "UT7",
+   "titulo": "Investigar y decidir",
+   "que": "Cinco hallazgos investigados en NVD/OSV; decisión justificada. Imagen con base slim.",
+   "entregable": "",
+   "url": "../ut/ut7-actualizacion-vulnerabilidades/#a74-investigar-y-decidir-sesion-32",
+   "evaluable": false
+  },
+  {
+   "n": 33,
+   "fecha": "2027-02-16",
+   "ut": "UT7",
+   "titulo": "Actualización en pre",
+   "que": "PostgreSQL y aplicación actualizados en dev y pre con copia previa; integridad de datos verificada; pruebas de la UT4.",
+   "entregable": "",
+   "url": "../ut/ut7-actualizacion-vulnerabilidades/#a75-actualizacion-en-pre-sesion-33",
+   "evaluable": false
+  },
+  {
+   "n": 34,
+   "fecha": "2027-02-18",
+   "ut": "UT7",
+   "titulo": "Fallo provocado",
+   "que": "Versión que falla al actualizar: análisis, clasificación, rollback o parche en 40 minutos, reporte a desarrollo.",
+   "entregable": "",
+   "url": "../ut/ut7-actualizacion-vulnerabilidades/#a76-fallo-provocado-sesion-34",
+   "evaluable": false
+  },
+  {
+   "n": 35,
+   "fecha": "2027-02-23",
+   "ut": "UT7",
+   "titulo": "Trazabilidad",
+   "que": "Incidencias en GitLab con todos los enlaces; CHANGELOG; etapa de escaneo Trivy en el pipeline.",
+   "entregable": "",
+   "url": "../ut/ut7-actualizacion-vulnerabilidades/#a77-trazabilidad-sesion-35",
+   "evaluable": false
+  },
+  {
+   "n": 36,
+   "fecha": "2027-02-25",
+   "ut": "UT7",
+   "titulo": "Práctica evaluable UT7",
+   "que": "Inventario y política, informe de vulnerabilidades con decisiones, evidencia de actualización, reporte de fallo e incidencias.",
+   "entregable": "Informe UT7 (RA4 d–i)",
+   "url": "../ut/ut7-actualizacion-vulnerabilidades/#practica-evaluable-ut7-sesion-36",
+   "evaluable": true
+  },
+  {
+   "n": 37,
+   "fecha": "2027-03-09",
+   "ut": "UT8",
+   "titulo": "Plan de baja",
+   "que": "Inventario de todo lo que el servicio ha dejado en el entorno y lista de comprobación de baja.",
+   "entregable": "",
+   "url": "../ut/ut8-terminacion-segura/#a81-plan-de-baja-sesion-37",
+   "evaluable": false
+  },
+  {
+   "n": 38,
+   "fecha": "2027-03-11",
+   "ut": "UT8",
+   "titulo": "Liberar la infraestructura",
+   "que": "Baja del entorno pre: compose, imágenes, redes, VM, DNS, reglas, credenciales, proyecto archivado. Verificación de cada punto.",
+   "entregable": "",
+   "url": "../ut/ut8-terminacion-segura/#a82-liberar-la-infraestructura-sesion-38",
+   "evaluable": false
+  },
+  {
+   "n": 39,
+   "fecha": "2027-03-16",
+   "ut": "UT8",
+   "titulo": "Copias y logs",
+   "que": "Destrucción de la clave de restic, borrado de versiones en S3 y de logs rotados, streams de Loki. Prueba con photorec.",
+   "entregable": "",
+   "url": "../ut/ut8-terminacion-segura/#a83-copias-y-logs-sesion-39",
+   "evaluable": false
+  },
+  {
+   "n": 40,
+   "fecha": "2027-03-18",
+   "ut": "UT8",
+   "titulo": "Datos y monitorización",
+   "que": "Anonimizar y borrar con VACUUM FULL; desconfigurar targets, reglas, rutas, dashboards y Promtail.",
+   "entregable": "",
+   "url": "../ut/ut8-terminacion-segura/#a84-datos-y-monitorizacion-sesion-40",
+   "evaluable": false
+  },
+  {
+   "n": 41,
+   "fecha": "2027-03-23",
+   "ut": "UT8",
+   "titulo": "Práctica evaluable UT8",
+   "que": "Acta de baja del entorno pre con lista de comprobación completa y una evidencia por punto.",
+   "entregable": "Acta de baja (RA5 a–d)",
+   "url": "../ut/ut8-terminacion-segura/#practica-evaluable",
+   "evaluable": true
+  }
+ ],
+ "ut": {
+  "UT1": "Observabilidad de contenedores",
+  "UT2": "Umbrales y alarmas",
+  "UT3": "Seguridad de la monitorización",
+  "UT4": "Indicadores, KPI y pruebas",
+  "UT7": "Actualización y vulnerabilidades",
+  "UT8": "Terminación segura"
+ }
+}
