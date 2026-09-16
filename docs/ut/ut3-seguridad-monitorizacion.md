@@ -231,7 +231,7 @@ El `--ctorigdstport` es necesario porque en `DOCKER-USER` el paquete ya ha pasad
 
 ## Reducir: red Docker dedicada y firewall por host
 
-En este apartado cerramos puertos. El objetivo es que, al terminar, un escaneo desde cualquier sitio que no sea mon01 devuelva `filtered` para todos los puertos de la monitorización, y que ese resultado se deba a dos capas independientes: la forma de publicar los puertos y el firewall de cada host, por un lado, y OPNsense en el centro de la VPC, por otro. Si una de las dos falla o alguien la desconfigura, la otra sigue cerrando.
+Cerramos puertos. El objetivo es que, al terminar, un escaneo desde cualquier sitio que no sea mon01 devuelva `filtered` para todos los puertos de la monitorización, y que ese resultado se deba a dos capas independientes: la forma de publicar los puertos y el firewall de cada host, por un lado, y OPNsense en el centro de la VPC, por otro. Si una de las dos falla o alguien la desconfigura, la otra sigue cerrando.
 
 <figure markdown="span">
   ![DMZ con un cortafuegos](../img/dmz-un-firewall.svg){ width="560" }

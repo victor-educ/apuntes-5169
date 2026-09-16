@@ -41,7 +41,7 @@ Un jueves a las cuatro de la tarde llega un aviso: la librería que la API usa p
 
 ## Versiones, etiquetas y digests
 
-Antes de actualizar nada hay que poder decir con exactitud qué hay desplegado, y con contenedores el nombre del compose no siempre identifica el mismo software. En este apartado aprendes a nombrar una imagen sin ambigüedad, a leer lo que promete un número de versión y a escoger la variante de imagen adecuada. Es la base del inventario de la actividad A7.1.
+Antes de actualizar nada hay que poder decir con exactitud qué hay desplegado, y con contenedores el nombre del compose no siempre identifica el mismo software. Aprendes a nombrar una imagen sin ambigüedad, a leer lo que promete un número de versión y a escoger la variante de imagen adecuada. Es la base del inventario de la actividad A7.1.
 
 Una imagen de contenedor se nombra por `repositorio:etiqueta` (`postgres:17.6`) y se identifica de forma inequívoca por su digest (`postgres@sha256:…`), que es el hash SHA-256 del manifiesto. La diferencia importa más de lo que parece: la etiqueta es un puntero que el mantenedor puede mover cuando quiera, el digest es el contenido. Cuando el equipo de PostgreSQL reconstruye `17.6` porque Debian ha publicado un parche de `libssl`, la etiqueta no cambia y el digest sí. Un `docker compose pull` en producción un lunes puede traeros una imagen distinta de la que probasteis el viernes aunque el compose diga lo mismo.
 
@@ -117,7 +117,7 @@ Una regla práctica: para el escáner, cada paquete que no está no puede ser vu
 
 ## Seguir la aparición de versiones
 
-Con las versiones fijadas, el problema pasa a ser el contrario: nada cambia hasta que alguien se entera de que hay una versión nueva y la propone. En este apartado vemos de dónde sale esa información, tres formas de automatizar el aviso (una descartada a propósito) y la política escrita que dice quién decide qué. Ninguna de estas herramientas os avisa sola. Hay que decidir de dónde sale la información y quién la mira.
+Con las versiones fijadas, el problema pasa a ser el contrario: nada cambia hasta que alguien se entera de que hay una versión nueva y la propone. Vemos de dónde sale esa información, tres formas de automatizar el aviso (una descartada a propósito) y la política escrita que dice quién decide qué. Ninguna de estas herramientas os avisa sola. Hay que decidir de dónde sale la información y quién la mira.
 
 ### Fuentes y cómo se leen
 

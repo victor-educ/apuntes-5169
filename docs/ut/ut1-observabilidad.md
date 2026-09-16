@@ -43,7 +43,7 @@ Un jueves a las tres de la tarde la API del servicio del curso empieza a devolve
 
 ## Qué expone un contenedor
 
-En este apartado no montamos nada todavía: el objetivo es que tengas el mapa completo antes de tocar configuración. Vamos a ver cuáles son las cuatro cosas que un contenedor cuenta de sí mismo, quién produce cada una, cómo se mira en la propia máquina con un comando y a qué sistema de mon01 acaba llegando. Las herramientas de la tabla son las de la tabla de arriba; aquí lo que importa es el recorrido de cada flujo.
+No montamos nada todavía: el objetivo es que tengas el mapa completo antes de tocar configuración. Vamos a ver cuáles son las cuatro cosas que un contenedor cuenta de sí mismo, quién produce cada una, cómo se mira en la propia máquina con un comando y a qué sistema de mon01 acaba llegando. Las herramientas de la tabla son las de la tabla de arriba; aquí lo que importa es el recorrido de cada flujo.
 
 Un contenedor en ejecución no es más que un proceso (o varios) con namespaces y cgroups (los dos mecanismos del kernel que lo aíslan del resto y le contabilizan el consumo). Todo lo que queremos saber de él sale por uno de estos cuatro caminos:
 
@@ -378,7 +378,7 @@ Lo que da `stub_status` es poco: `nginx_connections_active`, `nginx_connections_
 
 ## Logs
 
-El tercer flujo es texto, no números, y por eso tiene su propio camino: Docker lo recoge, Promtail lo etiqueta y lo envía, y Loki lo guarda. En este apartado hacemos cuatro cosas en orden: limitar el tamaño de los ficheros de log para que no llenen el disco, conseguir que la API escriba una línea JSON por evento con un identificador de petición, configurar Promtail para que lea esas líneas y las envíe, y montar Loki en mon01 para recibirlas y consultarlas. Al terminar tienes que poder seguir una petición desde nginx hasta la API por su identificador.
+El tercer flujo es texto, no números, y por eso tiene su propio camino: Docker lo recoge, Promtail lo etiqueta y lo envía, y Loki lo guarda. Hacemos cuatro cosas en orden: limitar el tamaño de los ficheros de log para que no llenen el disco, conseguir que la API escriba una línea JSON por evento con un identificador de petición, configurar Promtail para que lea esas líneas y las envíe, y montar Loki en mon01 para recibirlas y consultarlas. Al terminar tienes que poder seguir una petición desde nginx hasta la API por su identificador.
 
 ### El driver de logs de Docker y por qué limitarlo
 
@@ -653,7 +653,7 @@ En Grafana, añadís Loki como fuente de datos (`http://loki:3100` si está en e
 
 ## Eventos del demonio Docker
 
-El cuarto flujo es el más corto y el que menos gente recoge, y es una pena, porque es el que dice por qué se ha caído un contenedor: si lo mató el kernel por memoria, si terminó con error o si alguien lo paró. En este apartado lo recogemos reutilizando el camino de los logs, con un contenedor auxiliar y sin escribir código.
+El cuarto flujo es el más corto y el que menos gente recoge, y es una pena, porque es el que dice por qué se ha caído un contenedor: si lo mató el kernel por memoria, si terminó con error o si alguien lo paró. Lo recogemos reutilizando el camino de los logs, con un contenedor auxiliar y sin escribir código.
 
 El demonio emite un evento cada vez que cambia el estado de un contenedor, imagen, volumen o red. Para el mantenimiento los que importan son los de contenedor:
 
