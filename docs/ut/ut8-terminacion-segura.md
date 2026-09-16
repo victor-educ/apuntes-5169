@@ -13,11 +13,38 @@ Esta es la última unidad en el centro. Durante el curso habéis levantado el se
 - Retirar targets, reglas, rutas, dashboards y conectividad de la monitorización sin disparar alarmas fantasma (CE d).
 - Redactar un acta de baja con evidencias que aguante una auditoría.
 
+## Antes de entrar en detalle
+
+El jueves 12 de marzo, dos días después de que hayáis "dado de baja" el entorno pre parando los contenedores, alguien hace push al repositorio del servicio. El job de pre en Jenkins seguía habilitado, así que construye una imagen nueva con etiqueta `-pre`, la sube al registry e intenta desplegarla en una VM que ya no existe. A la vez, Prometheus lleva dos días con cuatro targets en rojo, Alertmanager ha abierto una incidencia por cada uno y el compañero de guardia ha recibido avisos a las once de la noche por un servicio que todo el mundo sabía que se iba a apagar. Y en MinIO sigue habiendo un repositorio de copias con la base de datos completa de pre, con los correos y teléfonos de los usuarios de prueba, que nadie va a rotar ni a vigilar nunca más. Eso es lo que pasa cuando terminar un servicio se confunde con `docker stop`. Lo que queremos conseguir al final de la unidad es sencillo de decir: que del entorno pre no quede nada que no hayamos decidido conservar, y poder demostrarlo con un acta en la que cada línea lleva su prueba.
+
+| Herramienta o concepto | Qué es, en una frase | Para qué la usamos en esta unidad |
+|---|---|---|
+| ITIL y el cambio normal | Un catálogo de buenas prácticas para gestionar servicios de TI; un "cambio normal" es el que necesita aprobación, evaluación de riesgo y ventana | Para tratar la baja como un cambio con solicitud, aprobación y acta, no como un apagado |
+| RGPD, LOPDGDD y NIST SP 800-88 | Las dos normas de protección de datos que os afectan en España y la guía del instituto de estándares de EE. UU. sobre borrado de soportes | Para decidir qué se conserva, hasta cuándo, y qué método de borrado vale para cada soporte |
+| OpenTofu | La herramienta que describe la infraestructura en ficheros y la crea o destruye a partir de ellos (la conocéis de 5166) | `tofu destroy` deshace el entorno pre que `tofu apply` creó, y `tofu state rm` protege lo que era compartido |
+| Proxmox: `qm`, `pvesh`, vzdump | Los mandos de línea del hipervisor del aula y su sistema de copias de VM | Destruir VM, snapshots y backups vzdump, y liberar IP en el IPAM del SDN |
+| Docker Compose y registry Distribution | Compose gestiona el conjunto de contenedores de un proyecto; el registry es el almacén de imágenes de gitea01 | `compose down -v --rmi all` limpia el host; el borrado por digest y el garbage collect limpian el registry |
+| OPNsense, dnsmasq y la CA del curso | El firewall del laboratorio, el DNS del SDN y la autoridad que firmó los certificados de `*.pre.lab` | Quitar reglas y aliases, borrar registros DNS y revocar certificados publicando una CRL |
+| Jenkins y Gitea | El servidor de integración continua y el gestor de repositorios de 5166 | Borrar credenciales, tokens, deploy keys y webhooks; deshabilitar el job y archivar el repositorio |
+| restic y MinIO | El programa de copias cifradas de la UT6 y el almacén S3 del aula donde guarda el repositorio | Borrado criptográfico (destruir la clave del repositorio) y limpieza de versiones en un bucket versionado |
+| Loki y `logcli` | El almacén de logs de la UT1 y su cliente de consulta por terminal | Enviar peticiones de borrado al compactor de Loki y comprobar que `{env="pre"}` no devuelve nada |
+| Prometheus, Alertmanager (`amtool`) y Grafana | La pila de monitorización que lleváis usando todo el curso; `amtool` es el cliente de terminal de Alertmanager | Silenciar, retirar targets, reglas, rutas y dashboards, borrar series del TSDB y expirar el silencio al final |
+| PostgreSQL | La base de datos del servicio | Entender por qué `DELETE` no borra, usar `VACUUM FULL` y anonimizar con una sal de un solo uso |
+| photorec y testdisk | Dos herramientas de recuperación de ficheros y particiones borrados | Demostrar sobre un volumen de pruebas qué se recupera tras `rm`, tras `shred` y con cifrado |
+
+**Cómo está organizada la unidad.** Empezamos por el marco (la baja como cambio y qué obliga la ley a conservar), porque sin una aprobación y una lista de lo que se guarda no se puede tocar nada. Después el inventario de rastros, que produce la lista de comprobación, y el orden de ejecución, que explica por qué los silencios van al principio y se quitan al final. Con la lista hecha, se libera la infraestructura por capas: Docker, registry, VM, red, certificados y credenciales. Luego cambiamos de escala y entramos en por qué borrar no borra, que es lo que da sentido al borrado criptográfico de copias y logs. Siguen los datos en una base de datos que sobrevive al servicio, la desconfiguración de la monitorización y la prueba con photorec. Todo termina en el acta, que es el entregable de la práctica.
+
+!!! info "Lo que necesitas de la otra asignatura"
+    - El entorno pre que vais a destruir nació con OpenTofu en la [UT5 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/) (diciembre y enero). `tofu destroy` es el inverso exacto de aquel `tofu apply`; tened a mano el repositorio `infra` y el estado.
+    - Las credenciales del pipeline que retiráis (registry, SSH de app01-pre, token de Gitea) se crearon en la [UT6 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), que termina el 24 de marzo, en mitad de esta unidad. Coordinad con el profesor de 5166 qué credencial es de pre y cuál sigue usando dev.
+    - Las reglas de firewall, los aliases y la CA que revocáis vienen de la [UT3 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/) y de la UT3 de esta asignatura.
+    - Justo después de esta unidad, la [UT7 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut7-monitorizacion/) (7 a 14 de abril) monta la pila de monitorización "definitiva". Lo que aquí desconfiguráis (targets, reglas, rutas, dashboards) es el ensayo inverso de esa instalación: cada cosa que retiráis es una que allí tendréis que dar de alta.
+
 ## La baja es un cambio más
 
 Terminar un contenedor "para siempre" no es `docker stop`. Un servicio deja huella en la infraestructura, en la monitorización, en las copias y en los datos, y cada rastro es un coste o un riesgo: datos personales que siguen existiendo después de que el cliente pidiera su supresión, alarmas HostDown que nadie atiende, una IP reservada que impide reutilizar el rango, un token de Jenkins con permisos sobre un repositorio que ya no existe. Por eso la baja se planifica con una lista de comprobación y se documenta como cualquier otro cambio.
 
-En ITIL, la baja de un servicio es un **cambio normal**: pasa por una solicitud (RFC), una evaluación de riesgo, la aprobación de quien tiene autoridad sobre el servicio (en una empresa pequeña el responsable técnico y el dueño del negocio; en una grande, el CAB) y una ventana acordada. No es un cambio estándar (los cambios estándar son los repetitivos y de bajo riesgo, y una baja destruye datos, así que nunca lo es) ni una emergencia. En la práctica eso se traduce en cuatro cosas que tienen que existir antes de tocar nada:
+En ITIL (el catálogo de buenas prácticas de gestión de servicios de TI), la baja de un servicio es un **cambio normal**: pasa por una solicitud (RFC), una evaluación de riesgo, la aprobación de quien tiene autoridad sobre el servicio (en una empresa pequeña el responsable técnico y el dueño del negocio; en una grande, el CAB, el comité que aprueba los cambios) y una ventana acordada. No es un cambio estándar (los cambios estándar son los repetitivos y de bajo riesgo, y una baja destruye datos, así que nunca lo es) ni una emergencia. En la práctica eso se traduce en cuatro cosas que tienen que existir antes de tocar nada:
 
 1. **Confirmación escrita** del responsable del servicio con fecha. Un correo vale; una conversación en el pasillo no. Ese correo va al acta.
 2. **Ventana de ejecución.** Aunque el servicio ya no dé tráfico, la baja toca sistemas compartidos (el firewall, Prometheus, la base de datos común). Se hace en horario en que alguien pueda deshacer un error.
@@ -33,16 +60,16 @@ No sois abogados y yo tampoco, pero un técnico tiene que saber qué preguntar. 
 | Facturas y documentación contable | Código de Comercio, art. 30 | 6 años |
 | Justificantes con trascendencia tributaria | Ley General Tributaria, art. 66 y siguientes | 4 años desde la prescripción |
 | Datos personales de clientes tras el fin de la relación | RGPD art. 5.1.e y 17; LOPDGDD | Bloqueo (art. 32 LOPDGDD) mientras puedan derivarse responsabilidades; después supresión |
-| Logs de acceso con IP o usuario | RGPD (son datos personales); ENS para el sector público | Entre 6 meses y 2 años según finalidad y política; el ENS pide al menos lo que dure el análisis de incidentes |
+| Logs de acceso con IP o usuario | RGPD (son datos personales); ENS (Esquema Nacional de Seguridad) para el sector público | Entre 6 meses y 2 años según finalidad y política; el ENS pide al menos lo que dure el análisis de incidentes |
 | Registros de actividades de tratamiento | RGPD art. 30 | Mientras exista el tratamiento, y se actualiza con la baja |
 
-El mecanismo del artículo 32 de la LOPDGDD (bloqueo de datos) es el que da sentido a "qué se conserva por si acaso": los datos se dejan de tratar, se aíslan con acceso restringido al responsable y a la autoridad, y solo se destruyen cuando prescriben las responsabilidades. Técnicamente eso es un dump cifrado en un sitio al que solo llega el DPO o el responsable, con fecha de destrucción apuntada en el acta. Lo que no puede ser es "lo dejamos en el bucket de siempre porque nunca se sabe".
+El mecanismo del artículo 32 de la LOPDGDD (bloqueo de datos) es el que da sentido a "qué se conserva por si acaso": los datos se dejan de tratar, se aíslan con acceso restringido al responsable y a la autoridad, y solo se destruyen cuando prescriben las responsabilidades. Técnicamente eso es un dump cifrado en un sitio al que solo llega el DPO (el delegado de protección de datos) o el responsable, con fecha de destrucción apuntada en el acta. Lo que no puede ser es "lo dejamos en el bucket de siempre porque nunca se sabe".
 
 El acta tiene que decir, para cada categoría de datos, una de tres cosas: se destruye ahora (y cómo), se bloquea hasta una fecha (y dónde), o se transfiere a otro servicio que hereda el tratamiento.
 
 ## Inventario de rastros
 
-Antes de borrar hay que saber qué hay. Un servicio de un año deja rastros en sitios que nadie recuerda, y el que mejor conoce el sistema se fue hace tres meses. Necesitáis un método, no memoria.
+Antes de borrar hay que saber qué hay. Un servicio de un año deja rastros en sitios que nadie recuerda, y el que mejor conoce el sistema se fue hace tres meses. Necesitáis un método, no memoria. El mapa siguiente agrupa los rastros en seis familias; fijaos en que la mitad no están en el servicio sino alrededor de él (red, identidad, copias, monitorización), y esas son las que se olvidan.
 
 ```mermaid
 mindmap
@@ -118,7 +145,7 @@ curl -s -H "Authorization: token $GT" http://gitea01.dev.lab:3000/api/v1/repos/o
 curl -s -H "Authorization: token $GT" 'http://gitea01.dev.lab:3000/api/v1/packages/ops?type=container' | jq '.[]|{name,version}'
 ```
 
-**DNS y direcciones.** Qué resuelve hoy y qué reservas hay en el IPAM del SDN de Proxmox y en las leases de dnsmasq:
+**DNS y direcciones.** Qué resuelve hoy y qué reservas hay en el IPAM (el registro de qué IP está asignada a quién) del SDN de Proxmox y en las leases de dnsmasq:
 
 ```bash
 dig +short app01.pre.lab @10.10.0.1; dig +short -x 10.20.2.10 @10.10.0.1
@@ -169,7 +196,7 @@ flowchart TD
     J --> K[Verificar todo<br>y firmar el acta]
 ```
 
-El periodo de gracia del paso E es opcional pero muy recomendable: el servicio está parado, nada se ha destruido, y si alguien grita ("el informe mensual tiraba de esa API!") se levanta en un minuto. En una empresa una semana es lo habitual; en el laboratorio lo simulamos entre la sesión 38 y la 39.
+El periodo de gracia del paso E es opcional pero muy recomendable: el servicio está parado, nada se ha destruido, y si alguien grita ("el informe mensual tiraba de esa API") se levanta en un minuto. En una empresa una semana es lo habitual; en el laboratorio lo simulamos entre la sesión 38 y la 39.
 
 Los silencios se quitan al final, no antes, y con criterio: si quitáis el silencio con los targets todavía configurados, salta todo. Primero se retiran los targets y las reglas, se comprueba que no hay alertas pendientes, y entonces se expira el silencio.
 
@@ -207,7 +234,7 @@ Esta es la lista con la que trabajaremos. Cada línea lleva el comando de verifi
 
 ## Liberar los recursos de la infraestructura
 
-La tabla del temario resume el qué. El cómo y el por qué van debajo.
+Aquí empieza la parte de manos en el teclado: vamos a devolver a la infraestructura todo lo que el entorno pre tenía asignado, capa por capa, desde los contenedores hasta los certificados y las credenciales. Cada recurso tiene un comando para liberarlo y otro para comprobar que ya no está, y ese segundo es el que va al acta. La tabla resume el qué; el cómo y el por qué van debajo, por subapartados.
 
 | Recurso | Cómo se libera | Cómo se verifica |
 |---|---|---|
@@ -241,7 +268,7 @@ El volumen borrado con `docker volume rm` es un `rm -rf` de `/var/lib/docker/vol
 
 ### Borrar del registry
 
-Borrar una imagen del host no la quita del registry en gitea01, y ese es el rastro que más se olvida: la imagen `servicio:1.4.2-pre` con el `.env` de pruebas dentro de una capa sigue ahí para quien la pida. La API del registry de Distribution (la imagen `registry:2` que usáis) no borra por etiqueta, borra por **digest** del manifiesto, y solo si el registry arrancó con borrado habilitado (`REGISTRY_STORAGE_DELETE_ENABLED=true`).
+Borrar una imagen del host no la quita del registry en gitea01, y ese es el rastro que más se olvida: la imagen `servicio:1.4.2-pre` con el `.env` de pruebas dentro de una capa sigue ahí para quien la pida. La API del registry de Distribution (la imagen `registry:2` que usáis) no borra por etiqueta, borra por **digest** del manifiesto (la huella SHA-256 que identifica su contenido), y solo si el registry arrancó con borrado habilitado (`REGISTRY_STORAGE_DELETE_ENABLED=true`).
 
 ```bash
 R=http://registry.dev.lab:5000
@@ -290,7 +317,7 @@ qm listsnapshot 210
 qm destroy 210 --purge --destroy-unreferenced-disks 1
 ```
 
-`--purge` quita la VM de los trabajos de backup, de la replicación y de la configuración de HA; sin él, el job de vzdump del domingo fallará con "VM 210 not found" cada semana hasta que alguien lo edite. `--destroy-unreferenced-disks` borra también los discos que quedaron huérfanos en el storage (por ejemplo, un `vm-210-disk-1` que desvinculasteis para probar algo). Los snapshots se destruyen con la VM. Lo que **no** se destruye son los backups vzdump ya hechos ni las plantillas clonadas de esa VM:
+`--purge` quita la VM de los trabajos de backup, de la replicación y de la configuración de HA; sin él, el job de vzdump (las copias de VM de Proxmox) del domingo fallará con "VM 210 not found" cada semana hasta que alguien lo edite. `--destroy-unreferenced-disks` borra también los discos que quedaron huérfanos en el storage (por ejemplo, un `vm-210-disk-1` que desvinculasteis para probar algo). Los snapshots se destruyen con la VM. Lo que **no** se destruye son los backups vzdump ya hechos ni las plantillas clonadas de esa VM:
 
 ```bash
 pvesm list local --vmid 210       # backups vzdump
@@ -310,13 +337,13 @@ pvesh set /cluster/sdn                       # aplicar
 pvesh get /cluster/sdn/ipams/pve/status --output-format json | jq '.[]|select(.ip|startswith("10.20."))'
 ```
 
-Los registros DNS del laboratorio los sirve Unbound en OPNsense (host overrides) o el propio dnsmasq del SDN según cómo lo montarais en la 5166 UT2. En cualquiera de los dos, la verificación es la misma: `dig` con `+short` contra el resolver del laboratorio no devuelve nada, ni en directa ni en inversa. Un DNS que sigue resolviendo un nombre a una IP libre es un problema de seguridad futuro: cuando esa IP se reasigne, `app01.pre.lab` apuntará a una máquina que no es.
+Los registros DNS del laboratorio los sirve Unbound (el resolutor DNS integrado en OPNsense) mediante host overrides o el propio dnsmasq del SDN según cómo lo montarais en la 5166 UT2. En cualquiera de los dos, la verificación es la misma: `dig` con `+short` contra el resolver del laboratorio no devuelve nada, ni en directa ni en inversa. Un DNS que sigue resolviendo un nombre a una IP libre es un problema de seguridad futuro: cuando esa IP se reasigne, `app01.pre.lab` apuntará a una máquina que no es.
 
 En OPNsense, el orden es reglas primero y aliases después, porque un alias en uso no se puede borrar. Las reglas que permitían a mon01 llegar a los exporters de pre (las de la UT3 de esta asignatura) y las de NAT hacia web01 de pre desaparecen; los aliases `pre_front`, `pre_back`, `pre_data` también. Luego `Apply changes` o, por API, `firewall/filter/apply` y `firewall/alias/reconfigure`. La verificación no es mirar la interfaz: es un escaneo desde fuera y desde mon01 que ya no llega a nada, y la matriz de reglas de `operacion/` actualizada en un commit.
 
 ### Certificados: revocar en la CA propia
 
-Los certificados de `*.pre.lab` que emitió la CA del curso siguen siendo válidos hasta su fecha de caducidad aunque la máquina haya desaparecido. Si alguien conserva la clave privada (estaba en un volumen, en un backup, en el estado de OpenTofu), puede suplantar el servicio. Revocar es lo único que lo impide, y solo funciona si los clientes consultan la CRL o un respondedor OCSP.
+Los certificados de `*.pre.lab` que emitió la CA del curso siguen siendo válidos hasta su fecha de caducidad aunque la máquina haya desaparecido. Si alguien conserva la clave privada (estaba en un volumen, en un backup, en el estado de OpenTofu), puede suplantar el servicio. Revocar es lo único que lo impide, y solo funciona si los clientes consultan la CRL (la lista de certificados revocados que publica la CA) o un respondedor OCSP (el servicio que contesta en línea si un certificado concreto está revocado).
 
 ```bash
 cd /etc/ca
@@ -363,10 +390,12 @@ El repositorio del servicio y el Jenkinsfile no se borran: son el registro de c�
 
 ## Por qué borrar no borra
 
-`rm` desvincula el nombre del fichero de sus bloques y marca los bloques como libres. Los datos siguen ahí hasta que otra escritura los pise, y un `photorec` los recupera en minutos. Sobre eso se apilan cuatro mecanismos modernos que hacen que ni siquiera sobrescribir garantice nada:
+Este apartado cambia de escala. Hasta ahora hemos quitado cosas de sistemas que obedecen a un comando; ahora hay que garantizar que unos datos no se puedan recuperar, y para eso hace falta entender qué ocurre en el disco cuando borráis un fichero. La idea con la que tenéis que salir es que el borrado fiable solo se consigue si los datos nunca estuvieron en claro, y por eso la lista de opciones empieza por el cifrado y no por sobrescribir.
 
-- **SSD y wear leveling.** El controlador del SSD reparte las escrituras entre celdas para que se desgasten por igual. Cuando `shred` escribe tres veces sobre el mismo LBA, el controlador escribe en tres páginas físicas distintas y deja la original marcada como inválida, legible con acceso al chip. TRIM (`fstrim`, `blkdiscard`) le dice al controlador que puede borrar esas páginas, pero "puede" no es "debe", y no todos los firmwares lo hacen de inmediato.
-- **Copy-on-write en ZFS y btrfs.** Estos sistemas de ficheros nunca sobrescriben un bloque en su sitio: escriben el nuevo en otro lugar y actualizan los punteros. `shred` en ZFS crea tres copias nuevas y deja la original intacta. Y si hay un snapshot, el bloque original está referenciado y ni siquiera se marca libre. En Proxmox con storage ZFS (`local-zfs`) el disco de la VM es un zvol con esta propiedad.
+`rm` desvincula el nombre del fichero de sus bloques y marca los bloques como libres. Los datos siguen ahí hasta que otra escritura los pise, y un `photorec` (herramienta de recuperación de ficheros borrados) los recupera en minutos. Sobre eso se apilan cuatro mecanismos modernos que hacen que ni siquiera sobrescribir garantice nada:
+
+- **SSD y wear leveling.** El controlador del SSD reparte las escrituras entre celdas para que se desgasten por igual. Cuando `shred` escribe tres veces sobre el mismo LBA (la dirección lógica del bloque, lo que el sistema operativo cree que es "el mismo sitio"), el controlador escribe en tres páginas físicas distintas y deja la original marcada como inválida, legible con acceso al chip. TRIM (`fstrim`, `blkdiscard`) le dice al controlador que puede borrar esas páginas, pero "puede" no es "debe", y no todos los firmwares lo hacen de inmediato.
+- **Copy-on-write en ZFS y btrfs.** Estos sistemas de ficheros nunca sobrescriben un bloque en su sitio: escriben el nuevo en otro lugar y actualizan los punteros. `shred` en ZFS crea tres copias nuevas y deja la original intacta. Y si hay un snapshot, el bloque original está referenciado y ni siquiera se marca libre. En Proxmox con storage ZFS (`local-zfs`) el disco de la VM es un zvol (un volumen de bloques dentro de ZFS) con esta propiedad.
 - **Versionado en el almacenamiento de objetos.** Un bucket S3 o MinIO con versionado activado no borra nunca: `DELETE` crea un marcador de borrado y la versión anterior sigue ahí. Con Object Lock en modo compliance, ni el administrador puede borrarla antes de que venza la retención.
 - **Snapshots del hipervisor y backups.** El snapshot de "antes de la actualización" de la UT7 contiene el disco completo con los datos que acabáis de borrar dentro de la VM. Lo mismo el vzdump de cada domingo.
 
@@ -374,7 +403,7 @@ La consecuencia práctica es que el borrado fiable de un soporte que no control�
 
 ### Opciones de más a menos fiable
 
-**1. Borrado criptográfico.** Si las copias estaban cifradas (restic, borg, gpg, LUKS, S3 con SSE-KMS), se destruye la clave y los datos se vuelven ruido aunque el fichero exista, aunque haya versiones, aunque haya snapshots. Es el método correcto y por eso las copias se cifran desde el principio ([UT6](ut6-copias-seguridad.md)). NIST SP 800-88 lo reconoce como técnica de *Purge* siempre que la clave se haya gestionado bien (nunca almacenada junto a los datos, nunca copiada a sitios que no controláis).
+**1. Borrado criptográfico.** Si las copias estaban cifradas (restic, borg, gpg, LUKS, S3 con SSE-KMS), se destruye la clave y los datos se vuelven ruido aunque el fichero exista, aunque haya versiones, aunque haya snapshots. Es el método correcto y por eso las copias se cifran desde el principio ([UT6](ut6-copias-seguridad.md)). NIST SP 800-88 lo reconoce como técnica de *Purge* (borrado que resiste incluso una recuperación de laboratorio) siempre que la clave se haya gestionado bien (nunca almacenada junto a los datos, nunca copiada a sitios que no controláis).
 
 En restic, el repositorio tiene una clave maestra que se guarda cifrada con cada contraseña en `keys/`. Destruir todos los ficheros de `keys/` y la contraseña equivale a destruir la clave maestra:
 
@@ -389,7 +418,7 @@ restic snapshots
 
 La comprobación final es esa: restic no puede abrir el repositorio con la contraseña correcta porque ya no hay clave que abrir. Si además queréis liberar el espacio, `mc rm --recursive --force --versions s3/backups/pre/` después; pero la irrecuperabilidad ya estaba garantizada antes de eso.
 
-Con borg, la clave está en el repositorio (modo `repokey`) o en `~/.config/borg/keys/` (modo `keyfile`): `borg key export` os dice cuál y dónde, y se destruyen las copias de la clave y la passphrase. Con LUKS, `cryptsetup luksErase /dev/sdb1` borra todos los keyslots de la cabecera (queda la cabecera sin claves; `cryptsetup luksDump` muestra los slots vacíos) y la copia de la cabecera que guardasteis con `luksHeaderBackup` hay que destruirla también. Con KMS en la nube, `aws kms schedule-key-deletion --key-id <id> --pending-window-in-days 7`: el borrado es diferido a propósito y en esos siete días cualquier objeto cifrado con esa clave sigue siendo legible.
+Con borg, la clave está en el repositorio (modo `repokey`) o en `~/.config/borg/keys/` (modo `keyfile`): `borg key export` os dice cuál y dónde, y se destruyen las copias de la clave y la passphrase. Con LUKS, `cryptsetup luksErase /dev/sdb1` borra todos los keyslots de la cabecera (queda la cabecera sin claves; `cryptsetup luksDump` muestra los slots vacíos) y la copia de la cabecera que guardasteis con `luksHeaderBackup` hay que destruirla también. Con KMS (el servicio gestor de claves del proveedor) en la nube, `aws kms schedule-key-deletion --key-id <id> --pending-window-in-days 7`: el borrado es diferido a propósito y en esos siete días cualquier objeto cifrado con esa clave sigue siendo legible.
 
 **2. Borrado en el sistema de copias.** Si el repositorio se conserva porque tiene otros clientes, se borran los snapshots del servicio y se reescribe: `restic forget --tag pre --prune` (o `--host app01-pre`) marca los snapshots y `prune` reempaqueta los packs que los contenían. En borg, `borg delete --glob-archives 'pre-*' repo` y luego `borg compact repo`; sin `compact` borg solo marca los segmentos y el espacio, y los datos, siguen. En los dos casos, los packs antiguos se han borrado del backend, lo cual sobre S3 con versionado significa que hay que ir al punto 3.
 
@@ -412,7 +441,7 @@ mc replicate ls s3/backups                                                      
 
 ### Logs externos
 
-Los logs del servicio están en tres sitios: en Loki, en los ficheros rotados de cada host y en cualquier sitio al que se reenviaran (un SIEM, el correo de las alarmas). En Loki 3.x el borrado por consulta lo hace el **compactor**, y hay que tenerlo configurado para ello:
+Los logs del servicio están en tres sitios: en Loki, en los ficheros rotados de cada host y en cualquier sitio al que se reenviaran (un SIEM, que es el sistema que centraliza eventos de seguridad, o el correo de las alarmas). En Loki 3.x el borrado por consulta lo hace el **compactor**, y hay que tenerlo configurado para ello:
 
 ```yaml
 compactor:
@@ -448,7 +477,7 @@ La verificación tiene dos niveles: una consulta que no devuelve nada, y, sobre 
 
 En el laboratorio la base de datos de pre muere con db01-pre. Pero el caso habitual en una empresa es que la base de datos se conserva porque otros servicios la usan, y lo que hay que borrar son las tablas y los datos de un servicio concreto. Ahí es donde `DELETE` engaña.
 
-PostgreSQL usa MVCC: `DELETE` no borra la fila, marca la tupla como muerta y la deja en la página hasta que `VACUUM` la recicla. `VACUUM` normal libera el espacio para que la propia tabla lo reutilice, pero no lo devuelve al sistema operativo ni sobrescribe nada: los bytes siguen en el fichero de la tabla, legibles con un editor hexadecimal por cualquiera con acceso al directorio de datos o a un backup del mismo. `DROP TABLE` desvincula los ficheros del segmento, con lo que aplica lo del apartado anterior.
+PostgreSQL usa MVCC (control de concurrencia por versiones: cada modificación crea una versión nueva de la fila en vez de tocar la vieja): `DELETE` no borra la fila, marca la tupla como muerta y la deja en la página hasta que `VACUUM` la recicla. `VACUUM` normal libera el espacio para que la propia tabla lo reutilice, pero no lo devuelve al sistema operativo ni sobrescribe nada: los bytes siguen en el fichero de la tabla, legibles con un editor hexadecimal por cualquiera con acceso al directorio de datos o a un backup del mismo. `DROP TABLE` desvincula los ficheros del segmento, con lo que aplica lo del apartado anterior.
 
 ```sql
 -- Antes: ver cuánto hay muerto
@@ -458,7 +487,7 @@ VACUUM FULL pre_sesiones;   -- reescribe la tabla en un fichero nuevo y desvincu
 DROP TABLE pre_sesiones, pre_pedidos CASCADE;
 ```
 
-`VACUUM FULL` bloquea la tabla en exclusiva mientras la reescribe, lo que en una tabla de 50 GB en producción puede ser una hora sin servicio. `pg_repack` hace lo mismo sin bloqueo largo (crea una copia, la sincroniza con triggers y cambia los ficheros al final): `pg_repack -d servicio -t usuarios`. En los dos casos el fichero antiguo se desvincula, no se sobrescribe. Además hay tres sitios más donde viven los datos borrados y que la gente olvida: el **WAL** (cada fila insertada o actualizada está en los segmentos de WAL y en el archivo de WAL si hay PITR configurado, hasta que la retención los recicle), las **réplicas** (la réplica en streaming aplica el DELETE, pero su base backup inicial y sus propios WAL archivados no) y los **dumps sueltos** (el `pg_dump` en `/tmp` que alguien hizo para probar la migración, el fichero en el portátil de desarrollo, el que dejó el pipeline en un workspace de Jenkins).
+`VACUUM FULL` bloquea la tabla en exclusiva mientras la reescribe, lo que en una tabla de 50 GB en producción puede ser una hora sin servicio. `pg_repack` hace lo mismo sin bloqueo largo (crea una copia, la sincroniza con triggers y cambia los ficheros al final): `pg_repack -d servicio -t usuarios`. En los dos casos el fichero antiguo se desvincula, no se sobrescribe. Hay tres sitios más donde viven los datos borrados y que la gente olvida: el **WAL** (el registro de escrituras de PostgreSQL: cada fila insertada o actualizada está en los segmentos de WAL y en el archivo de WAL si hay PITR configurado (recuperación a un punto en el tiempo), hasta que la retención los recicle), las **réplicas** (la réplica en streaming aplica el DELETE, pero su base backup inicial y sus propios WAL archivados no) y los **dumps sueltos** (el `pg_dump` en `/tmp` que alguien hizo para probar la migración, el fichero en el portátil de desarrollo, el que dejó el pipeline en un workspace de Jenkins).
 
 ### Anonimizar cuando hay que conservar estadísticas
 
@@ -490,7 +519,7 @@ Los campos de texto libre (comentarios, notas del pedido, motivo de la devoluci�
 
 Se para el servicio, se borra el volumen o el disco y se aplica al soporte lo del apartado de copias. Con el volumen cifrado con LUKS, se destruyen las claves y listo. Sin cifrado, la única garantía en una VM es la destrucción del disco virtual más la confianza en que el storage del hipervisor no lo conserve en snapshots, que es una confianza que conviene verificar con `zfs list -t snapshot | grep vm-210`.
 
-Quedan las **cachés y colas**: Redis guarda en memoria y, si tiene persistencia, en `dump.rdb` y en el AOF; `FLUSHDB` y borrar los ficheros. RabbitMQ o similar: purgar la cola (`rabbitmqctl purge_queue pedidos-pre`) y borrar el vhost. Un mensaje encolado con datos de un cliente puede sobrevivir años en una cola muerta que nadie consume.
+Quedan las **cachés y colas**: Redis guarda en memoria y, si tiene persistencia, en `dump.rdb` y en el AOF (su fichero de registro de escrituras); `FLUSHDB` y borrar los ficheros. RabbitMQ o similar: purgar la cola (`rabbitmqctl purge_queue pedidos-pre`) y borrar el vhost. Un mensaje encolado con datos de un cliente puede sobrevivir años en una cola muerta que nadie consume.
 
 ## Desconfigurar la monitorización y las alarmas
 
@@ -504,7 +533,7 @@ curl -X POST http://10.10.0.20:9090/-/reload      # necesita --web.enable-lifecy
 curl -s http://10.10.0.20:9090/api/v1/targets | jq '[.data.activeTargets[]|select(.labels.env=="pre")]|length'   # 0
 ```
 
-Quitar el target no borra las series: las muestras siguen en el TSDB hasta que la retención las expulse (15 días por defecto). `count({env="pre"})` devuelve datos hasta entonces. Si el acta necesita que desaparezcan ya, la API de administración lo hace, si Prometheus arrancó con `--web.enable-admin-api`:
+Quitar el target no borra las series: las muestras siguen en el TSDB hasta que la retención las expulse (15 días por defecto); el TSDB es la base de datos de series temporales de Prometheus, sus ficheros en `/prometheus`. `count({env="pre"})` devuelve datos hasta entonces. Si el acta necesita que desaparezcan ya, la API de administración lo hace, si Prometheus arrancó con `--web.enable-admin-api`:
 
 ```bash
 curl -X POST -G http://10.10.0.20:9090/api/v1/admin/tsdb/delete_series --data-urlencode 'match[]={env="pre"}'

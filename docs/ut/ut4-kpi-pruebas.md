@@ -2,7 +2,7 @@
 
 <p class="ut-meta">Módulo 5169 · 18 h · Sesiones 20 a 28 · RA2 CE a, b, c, d, e, f</p>
 
-En la UT1 pusimos el contenedor de referencia a exponer métricas, logs y eventos; en la UT2 convertimos algunas de esas métricas en alarmas con Alertmanager; en la UT3 protegimos la pila de monitorización. Ahora toca ordenar todo eso para que sirva a alguien que no seáis vosotros: documentar qué mide cada contador, definir con fórmula y umbral los indicadores que de verdad describen el servicio, escribir el runbook de cada alarma y, sobre todo, probar el servicio de forma repetible (funcional, carga, estrés, seguridad) y dejar evidencia de cada prueba. Lo que salga de aquí es el dossier de operación que os pedirá cualquier empresa antes de pasar un servicio a producción. En la UT7 estas mismas pruebas serán la verificación de cada actualización, y buena parte de esta unidad entra en el examen de la primera evaluación de abril.
+En la UT1 pusimos el contenedor de referencia a exponer métricas, logs y eventos; en la UT2 convertimos algunas de esas métricas en alarmas con Alertmanager; en la UT3 protegimos la pila de monitorización. Ahora toca ordenar todo eso para que sirva a alguien que no seáis vosotros: documentar qué mide cada contador, definir con fórmula y umbral los indicadores que de verdad describen el servicio, escribir el runbook de cada alarma (la guía de qué hacer cuando salta) y, sobre todo, probar el servicio de forma repetible (funcional, carga, estrés, seguridad) y dejar evidencia de cada prueba. Lo que salga de aquí es el dossier de operación que os pedirá cualquier empresa antes de pasar un servicio a producción. En la UT7 estas mismas pruebas serán la verificación de cada actualización, y buena parte de esta unidad entra en el examen de la primera evaluación de abril.
 
 ## Qué tienes que saber hacer al terminar
 
@@ -13,13 +13,42 @@ En la UT1 pusimos el contenedor de referencia a exponer métricas, logs y evento
 - Documentar cada prueba con una ficha de caso y evidencias archivadas junto a la versión (CE e).
 - Diseñar y ejecutar un ciclo de revisión periódica de indicadores frente a umbrales, dejando registro (CE f).
 
+## Antes de entrar en detalle
+
+Imaginad que el martes a las 10, con la clase entera lanzando peticiones contra `app01`, la API empieza a tardar tres segundos. La alarma `AppSlow` de la UT2 salta, y ahí se acaba lo bueno: quien la recibe no sabe si un p95 de 300 ms es normal, no encuentra escrito qué mirar primero, y nadie sabe si la versión desplegada el viernes ya iba lenta, porque nadie la probó con carga. Lo que falta no es más monitorización, sino la documentación que la acompaña y las pruebas que se adelantan al problema. Al terminar la unidad queremos un dossier en el repositorio del servicio con el que alguien que no lo conoce sepa qué se mide, qué valores son aceptables, qué hacer cuando salta cada alarma y qué pruebas ha pasado cada versión antes de producción.
+
+Las herramientas de monitorización las conocéis de la UT1 y la UT2; las de pruebas son nuevas.
+
+| Herramienta o concepto | Qué es, en una frase | Para qué la usamos en esta unidad |
+|---|---|---|
+| Prometheus y PromQL | La base de datos de métricas de `mon01` y su lenguaje de consulta | Escribir y calcular las fórmulas de los indicadores |
+| Recording rules (reglas grabadas) | Consultas que Prometheus evalúa cada poco y guarda como una serie nueva con nombre propio | Que panel, alerta e informe usen el mismo número |
+| Exporters (cAdvisor, node_exporter, postgres_exporter, blackbox_exporter) | Programas que traducen el estado de un contenedor, una máquina, PostgreSQL o una URL a métricas legibles por Prometheus | Origen de casi todas las métricas que vais a documentar |
+| SLI, SLO y presupuesto de error | La medida de calidad de un servicio, el objetivo comprometido y el margen de fallo que ese objetivo deja | Fijar umbrales con criterio y decidir cuándo se puede desplegar |
+| Runbook | La guía paso a paso, con comandos exactos, para quien recibe una alarma | Que cualquiera resuelva una alarma sin preguntar |
+| Grafana | El visor de paneles conectado a Prometheus | Ver qué le pasa al servidor durante una prueba y capturar la evidencia |
+| pytest y requests | El ejecutor de pruebas de Python y su librería de peticiones HTTP | Pruebas funcionales: llamar a la API y comprobar la respuesta |
+| Postman y newman | Un editor gráfico de peticiones HTTP y su ejecutor de línea de comandos | Alternativa a pytest para las pruebas funcionales |
+| k6 | Un generador de carga que simula muchos usuarios y comprueba si se cumplen los objetivos de latencia y errores | Pruebas de calidad de servicio, rendimiento y estrés |
+| OWASP ZAP | Un escáner de seguridad web; en modo baseline solo observa, no ataca | Detectar cabeceras y cookies mal configuradas en pre |
+| Trivy | Un escáner de vulnerabilidades de imágenes de contenedor | Saber si la imagen lleva paquetes con fallos conocidos |
+| Jenkins e informe JUnit | El servidor de automatización de 5166 y el XML en que las herramientas de pruebas le entregan resultados | Que las pruebas se lancen solas en cada versión y frenen el despliegue si fallan |
+
+Cómo está organizada la unidad. Primero decidimos qué medir (señales doradas, USE y RED), porque sin criterio se documentan 400 contadores y no sirve ninguno. Con ese filtro documentamos las métricas en fichas y las clasificamos. Sobre ellas construimos los indicadores con fórmula y umbrales, y de los indicadores salen las alarmas, que reciben su runbook en el catálogo. Ese es el bloque de monitorización. El segundo son las pruebas: los tipos, la herramienta de cada uno y cómo leer los resultados junto a Grafana; después, cómo documentarlas y meterlas en el pipeline. Cierra el seguimiento periódico, que mantiene vivo todo lo anterior, y los errores frecuentes.
+
+!!! info "Lo que necesitas de la otra asignatura"
+    Esta unidad va del 15 de diciembre al 2 de febrero, en paralelo con la UT5 de 5166 (infraestructura como código con OpenTofu y Ansible, del 11 de diciembre al 27 de enero): [https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/).
+    El entorno `pre` contra el que se lanzan las pruebas de esta unidad (`pre.app.lab`) es el que crea ese repositorio IaC. Mientras no exista, lanzad las pruebas contra `app01` en la VPC dev, que está detrás del firewall desde la UT3.
+    A principios de febrero `pre` ya existe, y es el mismo que la UT7 actualiza y la UT8 destruye con `tofu destroy`.
+    El pipeline de Jenkins en el que se integra la etapa de pruebas se construye en 5166 UT6, del 3 de febrero al 24 de marzo ([https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/)): si al llegar a la A4.7 aún no está, la etapa se prueba en un job aparte de `jenkins01` y se integra en el `Jenkinsfile` cuando exista.
+
 ## Elegir qué medir antes de documentarlo
 
-El error habitual al empezar es documentar los 400 contadores que expone cAdvisor. No se puede vigilar todo y tampoco hace falta. Hay dos métodos clásicos que os van a servir para decidir qué métricas merecen ficha, indicador y alarma.
+El error habitual al empezar es documentar los 400 contadores que expone cAdvisor (el exporter que publica las métricas de cada contenedor). No se puede vigilar todo y tampoco hace falta. Hay dos métodos clásicos que os van a servir para decidir qué métricas merecen ficha, indicador y alarma.
 
 ### Las cuatro señales doradas
 
-El libro de SRE de Google las llama *golden signals* y son el mínimo que hay que tener de cualquier servicio de cara al usuario:
+El libro de SRE de Google (*Site Reliability Engineering*, la forma de operar servicios que Google publicó como libro) las llama *golden signals* y son el mínimo que hay que tener de cualquier servicio de cara al usuario:
 
 - Latencia: cuánto tarda en responder una petición. Conviene separar la latencia de las respuestas correctas de la de los errores, porque un 500 que se devuelve en 2 ms baja la media y disfraza el problema.
 - Tráfico: cuánta demanda recibe el servicio. En una API, peticiones por segundo; en una base de datos, transacciones o sesiones; en un proxy, bytes y conexiones.
@@ -32,7 +61,7 @@ Con estas cuatro señales del servicio del curso ya tenéis un panel útil y las
 
 Brendan Gregg propuso el método USE para diagnosticar recursos físicos: para cada recurso (CPU, memoria, disco, red) mira Utilization (porcentaje de tiempo ocupado), Saturation (cola de trabajo pendiente) y Errors. Tom Wilkie hizo el equivalente para servicios con el método RED: Rate (peticiones por segundo), Errors (peticiones fallidas por segundo) y Duration (distribución de la latencia). Son la misma idea que las señales doradas vista desde dos lados: USE mira hacia dentro (infraestructura, capacidad), RED mira hacia el usuario (calidad, rendimiento).
 
-En el laboratorio la correspondencia es directa. RED de la API sale de las dos métricas que añadisteis en la UT1 (`app_requests_total` y `app_request_seconds_bucket`). USE del contenedor sale de cAdvisor (`container_cpu_usage_seconds_total`, `container_memory_working_set_bytes`, `container_fs_*`, `container_network_*`) y del nodo (`node_*`). USE de PostgreSQL sale de `postgres_exporter` (`pg_stat_activity_count` como saturación de conexiones, `pg_stat_database_*` como tasa y errores). Cuando en la actividad A4.1 os falten métricas de una categoría, recorred USE y RED y aparecerán.
+En el laboratorio la correspondencia es directa. RED de la API sale de las dos métricas que añadisteis en la UT1 (`app_requests_total` y `app_request_seconds_bucket`). USE del contenedor sale de cAdvisor (`container_cpu_usage_seconds_total`, `container_memory_working_set_bytes`, `container_fs_*`, `container_network_*`) y del nodo (`node_*`, que publica node_exporter). USE de PostgreSQL sale de `postgres_exporter` (`pg_stat_activity_count` como saturación de conexiones, `pg_stat_database_*` como tasa y errores). Cuando en la actividad A4.1 os falten métricas de una categoría, recorred USE y RED y aparecerán.
 
 ## Documentar las métricas
 
@@ -49,7 +78,7 @@ Antes de vigilar un sistema hay que saber qué mide cada contador, quién lo pro
 | Categoría | Rendimiento |
 | Uso | Latencia p95 (KPI 2); alerta `AppSlow` |
 
-Sobre los campos hay tres detalles que marcan la diferencia entre una ficha útil y una de relleno. El tipo determina qué funciones de PromQL tienen sentido: `rate()` solo sobre counters, `histogram_quantile()` solo sobre los `_bucket` de un histogram, y a un gauge se le aplica `avg_over_time()` o `predict_linear()`. La unidad debe ser la base (segundos, bytes), como manda la convención de nombres de Prometheus, y la conversión a ms o GiB se hace en Grafana. La referencia es lo que permite ir al origen cuando la métrica se comporta raro: fichero y función del código propio, o la página del exporter y su versión.
+Sobre los campos hay tres detalles que marcan la diferencia entre una ficha útil y una de relleno. El tipo dice cómo se comporta el valor: un counter solo sube (como un cuentakilómetros), un gauge sube y baja (como un termómetro) y un histogram reparte cada observación en cubos por rango de valor. El tipo determina qué funciones de PromQL (el lenguaje de consultas de Prometheus) tienen sentido: `rate()` solo sobre counters, `histogram_quantile()` solo sobre los `_bucket` de un histogram, y a un gauge se le aplica `avg_over_time()` o `predict_linear()`. La unidad debe ser la base (segundos, bytes), como manda la convención de nombres de Prometheus, y la conversión a ms o GiB se hace en Grafana. La referencia es lo que permite ir al origen cuando la métrica se comporta raro: fichero y función del código propio, o la página del exporter y su versión.
 
 ### Las tres categorías con ejemplos del laboratorio
 
@@ -59,7 +88,7 @@ Capacidad responde a "¿cuándo se llenará?" y son casi siempre gauges o cocien
 
 | Métrica | Tipo | Origen | Qué mide |
 |---|---|---|---|
-| `container_memory_working_set_bytes{name="app"}` | gauge | cAdvisor | Memoria que el kernel no puede reclamar; es la que cuenta para el OOM killer |
+| `container_memory_working_set_bytes{name="app"}` | gauge | cAdvisor | Memoria que el kernel no puede reclamar; es la que cuenta para el OOM killer (el mecanismo del kernel que mata un proceso cuando se agota la memoria) |
 | `container_spec_memory_limit_bytes{name="app"}` | gauge | cAdvisor | Límite `mem_limit` de compose; sin límite cAdvisor devuelve un número enorme, no cero |
 | `node_filesystem_avail_bytes{mountpoint="/data"}` | gauge | node_exporter en db01 | Bytes disponibles para usuarios no root (distinto de `_free_bytes`, que incluye la reserva del 5 %) |
 | `pg_stat_activity_count{datname="app"}` | gauge | postgres_exporter | Conexiones abiertas por estado (`state="active"`, `"idle"`) |
@@ -88,7 +117,7 @@ La última fila es deliberada. Ninguna herramienta os va a dar la calidad del da
 
 ## Indicadores: fórmulas y umbrales
 
-Un indicador combina contadores en un valor con significado para alguien que no conoce el código. "El contenedor lleva 1.234.567 segundos de CPU" no dice nada; "la API va al 62 % de su cuota de CPU" sí. El marco que se usa en la industria para hablar de indicadores es el de SLI, SLO y SLA:
+Un indicador (KPI, *key performance indicator*) combina contadores en un valor con significado para alguien que no conoce el código. "El contenedor lleva 1.234.567 segundos de CPU" no dice nada; "la API va al 62 % de su cuota de CPU" sí. El marco que se usa en la industria para hablar de indicadores es el de SLI, SLO y SLA:
 
 - SLI (*service level indicator*): la medida, expresada normalmente como cociente de eventos buenos entre eventos totales. Disponibilidad = peticiones correctas / peticiones totales.
 - SLO (*service level objective*): el valor comprometido internamente para ese SLI en una ventana. Disponibilidad ≥ 99,5 % en 30 días.
@@ -117,7 +146,7 @@ Tasa de errores del 3 %    → burn rate 6   → presupuesto agotado en 5 días
 Tasa de errores del 7,2 %  → burn rate 14,4 → presupuesto agotado en 50 horas
 ```
 
-Por eso las alarmas basadas en SLO no se disparan por "errores > 1 %" a secas, sino por burn rate en dos ventanas a la vez (por ejemplo, burn rate 14,4 sostenido en la última hora y también en los últimos 5 minutos): la ventana larga evita el ruido y la corta comprueba que el problema sigue activo. En PromQL, con las reglas grabadas de la UT2:
+Por eso las alarmas basadas en SLO no se disparan por "errores > 1 %" a secas, sino por burn rate en dos ventanas a la vez (por ejemplo, burn rate 14,4 sostenido en la última hora y también en los últimos 5 minutos): la ventana larga evita el ruido y la corta comprueba que el problema sigue activo. En PromQL, con las reglas grabadas de la UT2 (recording rules: consultas que Prometheus evalúa cada poco y guarda como una serie nueva):
 
 ```promql
 # 2 % del presupuesto mensual consumido en 1 h y el problema sigue vivo
@@ -127,6 +156,8 @@ Por eso las alarmas basadas en SLO no se disparan por "errores > 1 %" a secas, s
 Necesitáis grabar `app:errors:ratio1h` además del `ratio5m` que ya tenéis. El capítulo "Alerting on SLOs" del *SRE Workbook* (enlazado al final) tiene la tabla completa de ventanas y burn rates; no hace falta memorizarla, sí entender por qué existe.
 
 ### Los nueve indicadores del servicio
+
+Esta tabla es el núcleo de la unidad: los nueve números que describen el servicio del curso, cada uno con la fórmula que lo calcula, la categoría a la que pertenece y los dos umbrales (aviso y crítico) que después se convierten en alarmas. Cuando leáis p95 pensad en el percentil 95, el valor que el 95 % de las peticiones no supera.
 
 | Indicador | Fórmula (PromQL) | Categoría | Umbral aviso | Umbral crítico |
 |---|---|---|---|---|
@@ -142,7 +173,7 @@ Necesitáis grabar `app:errors:ratio1h` además del `ratio5m` que ya tenéis. El
 
 Cada fórmula tiene un porqué y al menos una trampa. Repasadlas una a una porque en la A4.2 las vais a implementar como recording rules y en el examen os voy a preguntar por ellas.
 
-**Disponibilidad.** El cociente excluye del numerador los 5xx pero mantiene los 4xx, porque un 404 o un 401 es una respuesta correcta a una petición incorrecta y no es culpa del servicio. La trampa es la ventana: `rate(...[30d])` obliga a Prometheus a leer 30 días de muestras de todas las series de `app_requests_total` cada vez que se evalúa, y con una etiqueta `route` de alta cardinalidad eso tarda segundos. Lo correcto es grabar `app:requests:rate5m` y `app:errors:rate5m` como reglas y calcular la disponibilidad mensual sobre ellas con `sum_over_time`, o usar directamente `increase()` sobre la regla grabada. `rate` sobre 30 días exige que la retención de Prometheus supere 30 días (en mon01 está en 45 d por esta razón).
+**Disponibilidad.** El cociente excluye del numerador los 5xx pero mantiene los 4xx, porque un 404 o un 401 es una respuesta correcta a una petición incorrecta y no es culpa del servicio. La trampa es la ventana: `rate(...[30d])` obliga a Prometheus a leer 30 días de muestras de todas las series de `app_requests_total` cada vez que se evalúa, y con una etiqueta `route` de alta cardinalidad (muchos valores distintos, una serie por cada uno) eso tarda segundos. Lo correcto es grabar `app:requests:rate5m` y `app:errors:rate5m` como reglas y calcular la disponibilidad mensual sobre ellas con `sum_over_time`, o usar directamente `increase()` sobre la regla grabada. `rate` sobre 30 días exige que la retención de Prometheus supere 30 días (en mon01 está en 45 d por esta razón).
 
 **Latencia p95.** `histogram_quantile` no calcula el percentil real: estima en qué cubo cae el 95 % acumulado y hace una interpolación lineal dentro de ese cubo. Con los cubos por defecto del cliente Python (0,005, 0,01, 0,025, 0,05, 0,075, 0,1, 0,25, 0,5, 0,75, 1, 2,5, 5, 7,5, 10 s), si el p95 real está en 320 ms el resultado será cualquier valor entre 250 y 500 ms según el reparto, y con pocos cubos en la zona de interés la gráfica da saltos. Dos consecuencias prácticas: definid los cubos en `api/metrics.py` alrededor del SLO (por ejemplo 0,1, 0,2, 0,3, 0,4, 0,5, 0,75, 1, 2, 5), y no pongáis un umbral de 500 ms si tenéis un cubo en 500 ms, porque el valor estimado se pegará al borde. La segunda trampa es el `sum by(le)`: si agregáis quitando `le`, la función no tiene con qué trabajar y devuelve NaN. Si el 95 % de las peticiones supera el último cubo finito, el resultado es el límite de ese cubo (10 s), no un valor mayor. Un p95 es la latencia que el 5 % de peticiones más lentas supera: con 20 peticiones/s son 60 usuarios por minuto viendo algo peor que el número del panel.
 
@@ -154,9 +185,9 @@ Cada fórmula tiene un porqué y al menos una trampa. Repasadlas una a una porqu
 
 **Memoria.** Se usa `working_set` y no `usage` porque `usage` incluye la caché de páginas, que el kernel puede liberar sin afectar al proceso. El OOM killer actúa cuando el working set alcanza el límite, así que el 90 % del límite es un aviso real de que estáis a un pico de un reinicio. Igual que con la CPU, sin `mem_limit` en compose el denominador es un número enorme y el indicador queda en 0 % para siempre, lo que os da falsa tranquilidad.
 
-**Disco de la base de datos.** Se usa `avail` y no `free`: ext4 reserva por defecto un 5 % para root, y PostgreSQL no corre como root. Con 100 GiB de volumen, cuando `free` marca 5 GiB, PostgreSQL ya no puede escribir. El umbral del 10 % es agresivo a propósito: PostgreSQL con el disco lleno no responde a las escrituras y, si el WAL no puede crecer, se para entero.
+**Disco de la base de datos.** Se usa `avail` y no `free`: ext4 reserva por defecto un 5 % para root, y PostgreSQL no corre como root. Con 100 GiB de volumen, cuando `free` marca 5 GiB, PostgreSQL ya no puede escribir. El umbral del 10 % es agresivo a propósito: PostgreSQL con el disco lleno no responde a las escrituras y, si el WAL (el diario de escrituras que PostgreSQL guarda antes de tocar las tablas) no puede crecer, se para entero.
 
-**Días hasta disco lleno.** `predict_linear` ajusta una recta por mínimos cuadrados sobre los últimos 7 días de la serie y la extrapola 30 días (30 × 86.400 s). Si el valor previsto es negativo, el disco se llena antes de un mes. La ventana de 7 días absorbe los ciclos semanales (las copias del domingo, los `VACUUM` de la noche); una ventana de 1 h daría avisos con cada carga masiva. Para pintar directamente los días que quedan en un panel se puede usar `node_filesystem_avail_bytes{mountpoint="/data"} / -deriv(node_filesystem_avail_bytes{mountpoint="/data"}[7d]) / 86400`, que da un valor sin sentido (negativo) cuando el disco está vaciándose: en Grafana se limita el eje a valores positivos. La trampa de cualquier predicción lineal es que un borrado grande la deja ciega durante una semana.
+**Días hasta disco lleno.** `predict_linear` ajusta una recta por mínimos cuadrados sobre los últimos 7 días de la serie y la extrapola 30 días (30 × 86.400 s). Si el valor previsto es negativo, el disco se llena antes de un mes. La ventana de 7 días absorbe los ciclos semanales (las copias del domingo, los `VACUUM` de la noche, la limpieza interna de PostgreSQL); una ventana de 1 h daría avisos con cada carga masiva. Para pintar directamente los días que quedan en un panel se puede usar `node_filesystem_avail_bytes{mountpoint="/data"} / -deriv(node_filesystem_avail_bytes{mountpoint="/data"}[7d]) / 86400`, que da un valor sin sentido (negativo) cuando el disco está vaciándose: en Grafana se limita el eje a valores positivos. La trampa de cualquier predicción lineal es que un borrado grande la deja ciega durante una semana.
 
 **Conexiones de la base de datos.** `pg_stat_activity_count` viene desglosado por estado y base de datos, de ahí el `sum`. El límite es `max_connections`, 100 por defecto. Los umbrales del 70 y el 85 % son relativamente bajos porque el agotamiento de conexiones es brusco: un pool mal dimensionado en la API pasa de 40 a 100 en segundos cuando la BD se ralentiza, y a partir de ahí todo son `FATAL: too many clients`. Este indicador es el candidato natural para probar el estrés en la A4.6.
 
@@ -197,6 +228,8 @@ Y una regla de higiene: cada vez que una alarma salta y el runbook no resuelve e
 
 ### Dos runbooks más
 
+Dos fichas más, escritas con el mismo esquema, para que veáis cómo cambia el contenido según la alarma: una de fallo brusco (la base de datos deja de responder) y una de aviso con margen (el disco se llenará en una semana).
+
 | Campo | PgDown |
 |---|---|
 | Origen | `pg_up == 0` durante 1 min (postgres_exporter no consigue conectar) o `probe_success{instance="db01:5432"} == 0` |
@@ -209,9 +242,9 @@ Y una regla de higiene: cada vez que una alarma salta y el runbook no resuelve e
 | Campo | DiskWillFillIn7d |
 |---|---|
 | Origen | `predict_linear(node_filesystem_avail_bytes{mountpoint="/data"}[7d], 7*86400) < 0` durante 1 h |
-| Posible fallo | Crecimiento normal de datos sin plan de capacidad; logs de PostgreSQL o de la aplicación sin rotación; copias locales (`pg_dump`) acumuladas en el mismo volumen; tabla sin `VACUUM` con bloat |
+| Posible fallo | Crecimiento normal de datos sin plan de capacidad; logs de PostgreSQL o de la aplicación sin rotación; copias locales (`pg_dump`) acumuladas en el mismo volumen; tabla sin `VACUUM` con bloat (espacio que siguen ocupando filas ya borradas) |
 | Impacto | Ninguno inmediato. Si no se actúa, en menos de una semana PostgreSQL deja de escribir y salta PgDown |
-| Análisis | 1. Panel "capacidad db01": pendiente de la gráfica de 30 días y fecha estimada. 2. `du -xsh /data/* \| sort -h \| tail` para ver qué crece. 3. `docker exec postgres psql -U postgres -c "select relname, pg_size_pretty(pg_total_relation_size(oid)) from pg_class order by pg_total_relation_size(oid) desc limit 10"`. 4. `ls -la /data/backups` (¿hay copias que ya están en restic?). 5. Comprobar `logrotate` en `/var/lib/docker/containers` si el crecimiento está fuera de `/data` |
+| Análisis | 1. Panel "capacidad db01": pendiente de la gráfica de 30 días y fecha estimada. 2. `du -xsh /data/* \| sort -h \| tail` para ver qué crece. 3. `docker exec postgres psql -U postgres -c "select relname, pg_size_pretty(pg_total_relation_size(oid)) from pg_class order by pg_total_relation_size(oid) desc limit 10"`. 4. `ls -la /data/backups` (¿hay copias que ya están en restic, la herramienta de copias de la UT6?). 5. Comprobar `logrotate` en `/var/lib/docker/containers` si el crecimiento está fuera de `/data` |
 | Resolución | Copias locales ya replicadas: borrar las de más de 7 días. Logs: activar rotación (`max-size` en el driver `json-file`). Bloat: `VACUUM (VERBOSE)` de la tabla en ventana de baja carga. Crecimiento legítimo: abrir tarea de ampliación del disco virtual en Proxmox (`qm resize`) y `resize2fs`, con copia previa |
 | Escalado | Si la fecha estimada es inferior a 3 días, tratar como crítico y avisar al responsable de infraestructura en el día |
 
@@ -245,11 +278,11 @@ flowchart LR
     E -. antes de prod y tras cambios de capacidad .-> E
 ```
 
-Las pruebas funcionales son rápidas (segundos) y se lanzan en cada commit. Las de calidad y rendimiento necesitan un entorno desplegado y varios minutos, así que van por versión. El estrés puede tumbar el entorno, por lo que no se automatiza en cada versión: se lanza a mano, en pre, antes de la primera puesta en producción y cuando cambia la capacidad (más CPU, otro tamaño de pool, otra VM). La seguridad va en cada versión porque una imagen base nueva puede traer CVE nuevas sin que el código cambie.
+Las pruebas funcionales son rápidas (segundos) y se lanzan en cada commit. Las de calidad y rendimiento necesitan un entorno desplegado y varios minutos, así que van por versión. El estrés puede tumbar el entorno, por lo que no se automatiza en cada versión: se lanza a mano, en pre, antes de la primera puesta en producción y cuando cambia la capacidad (más CPU, otro tamaño de pool, otra VM). La seguridad va en cada versión porque una imagen base nueva puede traer CVE nuevas (vulnerabilidades conocidas, publicadas con un identificador) sin que el código cambie.
 
 ### Pruebas funcionales con pytest
 
-Una prueba funcional contra la API es una petición HTTP y una serie de afirmaciones sobre la respuesta. Con `pytest` y `requests`:
+Una prueba funcional contra la API es una petición HTTP y una serie de afirmaciones sobre la respuesta. Con `pytest` (el ejecutor de pruebas de Python) y `requests` (su librería para hacer peticiones HTTP), el fichero queda así; fijaos en que el fixture `token` inicia sesión una sola vez y que cada función prueba una cosa con `assert`:
 
 ```python
 # tests/functional/test_items.py
@@ -288,18 +321,18 @@ def test_unknown_item_is_404(token):
 
 Fijaos en el reparto: un caso correcto, uno de autenticación, uno de validación y uno de recurso inexistente. Los diez casos que pide la A4.4 deben cubrir los tres grupos (correctos, errores esperados, validación); una suite con diez casos que solo comprueban `status == 200` no prueba que el servicio falle bien, y fallar bien es la mitad del trabajo de una API. La contraseña de prueba va en variable de entorno (en Jenkins, una credencial), nunca en el fichero.
 
-La ejecución con informe JUnit, que es el formato que Jenkins y Gitea entienden:
+La ejecución con informe JUnit (un XML con un resultado por caso, que es el formato que Jenkins y Gitea entienden):
 
 ```bash
 pip install pytest requests
 API_URL=https://pre.app.lab/api API_TEST_PASS=... pytest tests/functional -v --junitxml=reports/pytest.xml
 ```
 
-`pytest` devuelve 0 si todo pasa y 1 si algo falla, que es lo que necesita el pipeline.
+`pytest` devuelve 0 si todo pasa y 1 si algo falla, que es lo que necesita el pipeline (la cadena de etapas automáticas de Jenkins que construye, prueba y despliega).
 
 ### Pruebas funcionales con Postman y newman
 
-Postman es cómodo para diseñar la petición con la interfaz gráfica; newman es su ejecutor de línea de comandos, que es lo que se lleva al pipeline. Una colección exportada (formato v2.1) es un JSON con las peticiones y sus scripts de comprobación:
+Postman es cómodo para diseñar la petición con la interfaz gráfica; newman es su ejecutor de línea de comandos, que es lo que se lleva al pipeline. Una colección exportada (formato v2.1) es un JSON con las peticiones y sus scripts de comprobación. Fijaos en el bloque `event`: es donde van las afirmaciones, escritas en JavaScript con `pm.test`, y equivale a los `assert` de pytest:
 
 ```json
 {
@@ -461,7 +494,7 @@ k6 run --out json=tests/evidence/1.4.2/k6-carga.json \
 echo "código de salida: $?"
 ```
 
-`--out json` escribe una línea por muestra (con 100 VU durante 13 min son cientos de MB; es la evidencia completa pero no la que se lee). `--summary-export` escribe un JSON pequeño con los agregados por métrica y umbral, que es el que se adjunta al informe y el que un script puede consultar (`jq '.metrics.http_req_duration.values["p(95)"]'`). Para tener las métricas de k6 al lado de las del servicio en Grafana, lo que de verdad interesa, k6 puede escribir directamente en Prometheus por remote write:
+`--out json` escribe una línea por muestra (con 100 VU durante 13 min son cientos de MB; es la evidencia completa pero no la que se lee). `--summary-export` escribe un JSON pequeño con los agregados por métrica y umbral, que es el que se adjunta al informe y el que un script puede consultar (con `jq`, el filtro de línea de comandos para JSON: `jq '.metrics.http_req_duration.values["p(95)"]'`). Para tener las métricas de k6 al lado de las del servicio en Grafana, lo que de verdad interesa, k6 puede escribir directamente en Prometheus por remote write (la API con la que Prometheus acepta que otro programa le mande series):
 
 ```bash
 K6_PROMETHEUS_RW_SERVER_URL=http://10.10.0.20:9090/api/v1/write \
@@ -514,7 +547,7 @@ La captura del panel es evidencia obligatoria en la A4.5 y la A4.6, y tiene que 
 
 Las pruebas de seguridad de esta unidad son las dos que caben en un pipeline sin intervención humana. El análisis en profundidad (pentest, escaneo activo de ZAP) se ve en la UT7 con la gestión de vulnerabilidades.
 
-ZAP en modo baseline lanza la araña contra la URL durante un minuto y aplica solo las reglas pasivas: no envía ataques, solo observa las respuestas, así que es seguro contra pre e incluso contra prod. Detecta cabeceras de seguridad ausentes, cookies sin `Secure` o `HttpOnly`, información de versión en `Server`, formularios sin protección CSRF, contenido mixto:
+ZAP (OWASP Zed Attack Proxy, el escáner de aplicaciones web de la fundación OWASP) en modo baseline lanza la araña (el rastreador que sigue los enlaces de la página) contra la URL durante un minuto y aplica solo las reglas pasivas: no envía ataques, solo observa las respuestas, así que es seguro contra pre e incluso contra prod. Detecta cabeceras de seguridad ausentes, cookies sin `Secure` o `HttpOnly`, información de versión en `Server`, formularios sin protección CSRF (falsificación de peticiones desde otro sitio), contenido mixto:
 
 ```bash
 mkdir -p tests/evidence/1.4.2/zap
@@ -608,7 +641,7 @@ Firmado: vsl · Revisado: ...
 
 ### La puerta de pruebas en el pipeline de Jenkins
 
-En la 5166 UT6 montasteis el pipeline de despliegue en jenkins01 (https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/). Lo que se añade aquí es una etapa de pruebas entre el despliegue en pre y el despliegue en prod, que solo deja pasar si todos los códigos de salida son cero, y que archiva las evidencias con el número de build:
+El pipeline de despliegue en jenkins01 se monta en la UT6 de la asignatura de despliegue (https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), que empieza justo cuando esta unidad termina; mientras no exista, las pruebas se lanzan como un job aparte en jenkins01 y se integran en el Jenkinsfile en cuanto haya etapa de deploy. Lo que se añade es una etapa de pruebas entre el despliegue en pre y el despliegue en prod, que solo deja pasar si todos los códigos de salida son cero, y que archiva las evidencias con el número de build:
 
 ```groovy
 stage('Pruebas en pre') {

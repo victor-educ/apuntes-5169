@@ -13,6 +13,36 @@ Una regla desde el principio: todo dato de la empresa que aparezca en las eviden
 - Analizar un fallo o un reinicio a partir del código de salida, los volcados de memoria y los registros de error, llegar a una hipótesis, corregir el origen y verificar que no se repite (CE 3c).
 - Tomar una línea base de rendimiento de CPU, memoria, disco y red, compararla con un periodo de carga y proponer una acción justificada (CE 3d).
 
+## Antes de entrar en detalle
+
+Un caso que ya os ha pasado en el laboratorio: el jueves a las tres de la tarde la API de `app01` empieza a devolver algún 502. Nadie mira nada porque "funciona casi siempre". El lunes se descubre que el contenedor lleva cuatro días reiniciándose cada veinte minutos por falta de memoria, que una IP de fuera probó ochenta usuarios distintos por SSH y que el disco está al 94 % porque nadie configuró la rotación de logs. Nada era grave el jueves; el lunes son tres incidencias a la vez. Lo que queremos conseguir cabe en una frase: sentaros diez minutos cada mañana delante de un sistema real, ver lo que va mal antes de que se note, y contarlo de forma que otra persona pueda actuar.
+
+| Herramienta o concepto | Qué es, en una frase | Para qué la usamos en esta unidad |
+|---|---|---|
+| journald y `journalctl` | El registro central de systemd con lo que escriben los servicios y el kernel, y el comando para leerlo | Buscar errores por prioridad y servicio, y vigilar el disco que ocupa |
+| `docker logs` | El comando que muestra lo que un contenedor ha escrito por pantalla | Revisar los errores de las últimas 24 h contenedor por contenedor |
+| Loki y LogQL | La base de datos de logs de UT1 y su lenguaje de consulta, parecido al de Prometheus | Guardar las búsquedas en un panel de Grafana y convertirlas en alertas |
+| logrotate | Un programa que cada noche comprime y borra logs antiguos para que el disco no se llene | Comprobar que los logs de nginx y de la aplicación tienen retención |
+| fail2ban | Un vigilante que lee los logs, cuenta los fallos de cada IP y la bloquea un rato en el firewall | Cortar la fuerza bruta contra SSH, nginx y la aplicación |
+| CrowdSec | Lo mismo que fail2ban, con una lista de IPs maliciosas compartida entre quienes lo usan | Alternativa con varios hosts o cuando se bloquea en OPNsense |
+| nftables | El firewall del kernel de Linux, el mismo de UT3 | Ver con vuestros ojos que la IP bloqueada lo está de verdad |
+| cgroups y OOM killer | El mecanismo del kernel que limita la memoria de un contenedor, y el proceso que mata al que se pasa | Entender por qué un contenedor muere con código 137 |
+| Core dumps (gdb, py-spy, jmap) | Una copia de la memoria de un proceso al morir, y las herramientas que la leen según el lenguaje | Saber en qué función ha reventado un servicio en vez de adivinarlo |
+| Prometheus, node_exporter, cAdvisor y `sar` | La pila de métricas de mon01 (recolector y agentes de host y contenedores), y el grabador a fichero que la sustituye si no hay servidor | Tomar la línea base de CPU, memoria, disco y red y compararla con un día de carga |
+| Método USE | Tres preguntas por recurso (uso, saturación, errores) para no dejarse nada | Recorrer CPU, memoria, disco y red con el mismo guion |
+
+Cómo está organizada la unidad: primero cómo trabajar en la empresa, porque marca qué podéis tocar y qué no. Los cuatro apartados técnicos van en el orden de los criterios de evaluación, que es también el de la rutina diaria. Primero los logs (CE 3a), porque ahí aparece todo lo demás. Después los accesos (CE 3b), un tipo concreto de log con su patrón y su herramienta de respuesta. Después los fallos y reinicios (CE 3c), que juntan lo que dice el log con lo que dice el kernel. Y por último el rendimiento (CE 3d), que necesita una semana de datos: empezad a grabarlos el primer día aunque sea lo último que analicéis.
+
+!!! info "Lo que necesitas de la otra asignatura"
+    Mientras hacéis esta unidad estáis también en la empresa con la UT4 de 5166, Nube pública
+    ([https://victor-educ.github.io/apuntes-5166/ut/ut4-nube-publica/](https://victor-educ.github.io/apuntes-5166/ut/ut4-nube-publica/)).
+    Son las mismas semanas y, casi seguro, los mismos sistemas: la nube de la empresa donde en 5166 desplegáis es
+    donde aquí revisáis logs, accesos y rendimiento, así que acordad con el tutor un único sistema para las dos
+    asignaturas y reutilizad las evidencias que sirvan para ambas (una captura de Grafana anonimizada vale en las dos).
+    De 5166 os hacen falta además dos cosas anteriores: el firewall nftables de la UT3, para entender dónde mete
+    fail2ban su tabla, y la pila de monitorización de la UT7 (abril), que es la versión definitiva del mon01 sobre
+    el que se construyen los paneles de línea base.
+
 ## Cómo trabajar en la empresa
 
 Cada empresa tiene sus herramientas. Unas tendrán Loki y Grafana como en mon01, otras tendrán Elastic y Kibana, Graylog, Datadog, o simplemente ficheros en `/var/log` y un `grep`. Lo que evaluamos no es la herramienta, es el método: qué buscáis, cómo lo justificáis y qué hacéis con lo que encontráis. Por eso cada apartado de esta unidad da primero el método y después los comandos para el caso más habitual (Linux con Docker, journald y nginx), con su equivalente en Loki cuando existe. Si en la empresa hay otra cosa, adaptad el comando y anotad en la evidencia cuál habéis usado.
@@ -39,13 +69,13 @@ Ese esquema es lo que al final de la estancia tenéis que entregar convertido en
 
 ## Revisar los archivos de registro (CE 3a)
 
-Los logs se leen de forma periódica y sistemática, no solo cuando algo falla. La diferencia entre un administrador que "mira los logs cuando pasa algo" y uno que los revisa cada mañana es que el segundo detecta el problema una semana antes, cuando todavía es una línea rara y no una caída. En UT1 montasteis Loki para tener los logs centralizados; en la empresa el sitio donde están los logs os lo dirán, y puede ser cualquiera de estos: ficheros en `/var/log`, el journal de systemd, `docker logs` o `docker compose logs`, o una plataforma central.
+Los logs se leen de forma periódica y sistemática, no solo cuando algo falla. La diferencia entre un administrador que "mira los logs cuando pasa algo" y uno que los revisa cada mañana es que el segundo detecta el problema una semana antes, cuando todavía es una línea rara y no una caída. En UT1 montasteis Loki para tener los logs centralizados; en la empresa el sitio donde están los logs os lo dirán, y puede ser cualquiera de estos: ficheros en `/var/log`, el journal de systemd (el registro central donde systemd guarda lo que escriben los servicios), `docker logs` o `docker compose logs`, o una plataforma central.
 
 ### Qué buscar
 
 - Niveles ERROR y FATAL, y excepciones no controladas: en Java o Python se reconocen por la traza de pila (varias líneas que empiezan por `at ...` o `File "..."`), en Go por `panic:` seguido de `goroutine`. Una excepción no controlada que se repite cada pocos minutos es un bug que alguien tiene que mirar aunque el servicio siga respondiendo.
 - Salidas inesperadas: reinicios del servicio, `timeout`, `connection refused`, `connection reset by peer`, `out of memory`, `too many open files`, `no space left on device`, códigos HTTP 5xx en el proxy. Cada uno apunta a una capa distinta: `connection refused` es que no había nadie escuchando (el backend estaba caído o reiniciando), `timeout` es que había alguien pero no respondió a tiempo, `502` en nginx es el primero visto desde el proxy, `504` es el segundo.
-- Cambios de volumen. El doble de líneas de lo habitual suele ser un bucle de reintentos o un escáner; el silencio total es peor, porque significa que el servicio no está escribiendo (colgado, disco lleno, o el agente de logs muerto). Loki lo mide con `count_over_time` y Prometheus con la métrica `promtail_sent_entries_total` o su equivalente en Alloy; sin nada de eso, `wc -l` sobre el fichero de hoy comparado con el de ayer.
+- Cambios de volumen. El doble de líneas de lo habitual suele ser un bucle de reintentos o un escáner; el silencio total es peor, porque significa que el servicio no está escribiendo (colgado, disco lleno, o el agente de logs muerto). Loki lo mide con `count_over_time` y Prometheus con la métrica `promtail_sent_entries_total` o su equivalente en Alloy (Promtail y Alloy son los agentes que recogen los logs del host y los envían a Loki); sin nada de eso, `wc -l` sobre el fichero de hoy comparado con el de ayer.
 - Avisos que anuncian un fallo futuro: `deprecated`, certificados que caducan (`certificate will expire`), `disk usage above 85%`, reconexiones a la base de datos, `slow query` en PostgreSQL si tiene activado `log_min_duration_statement`.
 
 ### Comandos para la revisión diaria
@@ -71,7 +101,7 @@ awk -v d="$(date -d '-1 day' +%d/%b/%Y)" '$4 ~ d && $9 ~ /^5/' /var/log/nginx/ac
 
 `journalctl -p` acepta el nombre o el número de prioridad syslog (0 emerg a 7 debug); `-p err` equivale a `-p 0..3`. Docker escribe stdout y stderr por separado y `docker logs` los devuelve en los dos descriptores, de ahí el `2>&1` antes del `grep`.
 
-En Loki, las mismas búsquedas con LogQL. La ventaja no es la sintaxis, es que la consulta se guarda en un panel de Grafana y no depende de que os acordéis del comando.
+En Loki, las mismas búsquedas con LogQL, su lenguaje de consulta: el selector entre llaves elige el flujo de logs y lo que va detrás lo filtra o lo cuenta. La ventaja no es la sintaxis, es que la consulta se guarda en un panel de Grafana y no depende de que os acordéis del comando.
 
 ```text
 {job="docker", container="app"} |~ "ERROR|FATAL|Exception"
@@ -89,7 +119,7 @@ En Grafana 12 estas consultas van a un dashboard "Revisión diaria" con cuatro p
 
 ### Un script diario que resuma errores
 
-Cuando no hay plataforma central, o como complemento a ella, un script en cron que resuma los errores por tipo y lo envíe por correo o a un canal de chat es lo que mantiene la rutina viva los días que no os acordáis. Este es un ejemplo mínimo que podéis llevar a la empresa y adaptar; lo importante es que agrupa, no que vuelque.
+Cuando no hay plataforma central, o como complemento a ella, un script en cron (el planificador de tareas de Linux) que resuma los errores por tipo y lo envíe por correo o a un canal de chat es lo que mantiene la rutina viva los días que no os acordáis. Este es un ejemplo mínimo que podéis llevar a la empresa y adaptar; lo importante es que agrupa, no que vuelque.
 
 ```bash
 #!/usr/bin/env bash
@@ -204,7 +234,7 @@ Un sistema expuesto a Internet recibe intentos de acceso desde el minuto uno. Un
 | VPN | WireGuard no registra handshakes por defecto; OpenVPN en su log; OPNsense en Sistema > Registro | Conexiones, orígenes, fallos de autenticación |
 | Firewall | OPNsense, `nft monitor`, `journalctl -k` con reglas `log` | Conexiones rechazadas, escaneos de puertos |
 
-En Debian 13 sin rsyslog instalado, `auth.log` no existe y todo está en el journal; `journalctl _COMM=sshd --since today` es el equivalente. Si la empresa centraliza en Loki con Alloy o Promtail, el job suele llamarse `auth` o `syslog` y ahí van todas las búsquedas de abajo con `|=`.
+En Debian 13 sin rsyslog instalado (rsyslog es el servicio clásico que reparte los mensajes del sistema en ficheros de `/var/log`), `auth.log` no existe y todo está en el journal; `journalctl _COMM=sshd --since today` es el equivalente. Si la empresa centraliza en Loki con Alloy o Promtail, el job suele llamarse `auth` o `syslog` y ahí van todas las búsquedas de abajo con `|=`.
 
 ### Qué se busca: patrones de fuerza bruta y password spraying
 
@@ -231,7 +261,7 @@ May  4 04:09:14 web01 sshd[19051]: Invalid user deploy from 198.51.100.7 port 40
 May  4 04:11:58 web01 sshd[19068]: Invalid user ubuntu from 198.51.100.7 port 40790
 ```
 
-Un intento cada tres minutos no dispara un `findtime = 10m` con `maxretry = 5`. Por eso la detección de spraying se hace contando usuarios distintos por IP en ventanas largas, no intentos.
+Un intento cada tres minutos no dispara un `findtime = 10m` con `maxretry = 5` (los dos parámetros con los que fail2ban decide cuándo bloquear, que se explican más abajo: cuántos fallos y en qué ventana de tiempo). Por eso la detección de spraying se hace contando usuarios distintos por IP en ventanas largas, no intentos.
 
 ```bash
 # Fuerza bruta: intentos fallidos por IP, hoy
@@ -256,7 +286,7 @@ Otras dos señales que no son fuerza bruta pero se revisan en el mismo pase: acc
 
 ### Detección en Loki y alerta
 
-La regla que se apuntó en el original, ampliada. En Loki 3.x las reglas de alerta van en el ruler (`ruler.yaml` o un fichero en el directorio de reglas), con la misma sintaxis que Prometheus, y disparan a Alertmanager como las de UT2.
+La regla que se apuntó en el original, ampliada. En Loki 3.x las reglas de alerta van en el ruler, el componente que evalúa consultas cada cierto tiempo igual que hace Prometheus con sus reglas (`ruler.yaml` o un fichero en el directorio de reglas), con la misma sintaxis que Prometheus, y disparan a Alertmanager como las de UT2.
 
 ```yaml
 groups:
@@ -288,7 +318,7 @@ La segunda es la de spraying: extrae usuario e IP con `regexp`, agrupa por los t
 
 ![Logo de fail2ban](../img/fail2ban-logo.png){ .logo-inline }
 
-fail2ban lee ficheros de log (o el journal), aplica expresiones regulares (filtros) y, cuando una IP supera `maxretry` fallos dentro de `findtime`, ejecuta una acción de bloqueo durante `bantime`. Cada combinación de filtro más acción es una jail. La configuración de fábrica está en `/etc/fail2ban/jail.conf` y no se toca; lo vuestro va en `/etc/fail2ban/jail.local` o en ficheros bajo `/etc/fail2ban/jail.d/`, que se cargan encima.
+fail2ban lee ficheros de log (o el journal), aplica expresiones regulares (filtros) y, cuando una IP supera `maxretry` fallos dentro de `findtime`, ejecuta una acción de bloqueo durante `bantime`. Cada combinación de filtro más acción es una jail. La configuración de fábrica está en `/etc/fail2ban/jail.conf` y no se toca; lo vuestro va en `/etc/fail2ban/jail.local` o en ficheros bajo `/etc/fail2ban/jail.d/`, que se cargan encima. El `jail.local` de abajo es uno completo para un host con SSH y nginx; las tres líneas que más problemas evitan o causan son `ignoreip`, `backend` y `bantime.increment`, y son las que hay que entender antes de copiarlo.
 
 ```ini
 # /etc/fail2ban/jail.local
@@ -350,7 +380,7 @@ findtime = 15m
 bantime  = 2h
 ```
 
-Aquí hay un detalle de contenedores: fail2ban corre en el host y necesita leer el log de la aplicación. Si la aplicación escribe a stdout, el fichero está en `/var/lib/docker/containers/<id>/<id>-json.log` (cada línea envuelta en JSON, la regex tiene que contemplarlo) y cambia de nombre al recrear el contenedor; es más limpio que la aplicación escriba a un volumen montado, o usar `backend = systemd` con el driver de logs `journald` y `journalmatch = CONTAINER_NAME=app` en la jail. Y la IP que ve la aplicación detrás de nginx es la del proxy, no la del cliente, salvo que nginx pase `X-Forwarded-For` o `X-Real-IP` y la aplicación lo registre. Sin eso, el filtro banearía a nginx.
+Aquí hay un detalle de contenedores: fail2ban corre en el host y necesita leer el log de la aplicación. Si la aplicación escribe a stdout, el fichero está en `/var/lib/docker/containers/<id>/<id>-json.log` (cada línea envuelta en JSON, la regex tiene que contemplarlo) y cambia de nombre al recrear el contenedor; es más limpio que la aplicación escriba a un volumen montado, o usar `backend = systemd` con el driver de logs `journald` y `journalmatch = CONTAINER_NAME=app` en la jail. Y la IP que ve la aplicación detrás de nginx es la del proxy, no la del cliente, salvo que nginx pase `X-Forwarded-For` o `X-Real-IP` (cabeceras HTTP en las que el proxy pone la IP original del cliente) y la aplicación lo registre. Sin eso, el filtro banearía a nginx.
 
 Para probar un filtro antes de activarlo se usa `fail2ban-regex`, que dice cuántas líneas casan y cuáles no:
 
@@ -371,7 +401,7 @@ fail2ban-client reload                       # recarga sin perder baneos
 fail2ban-client banned                       # todas las IPs baneadas por jail
 ```
 
-El bloqueo lo aplica la acción. Con `banaction = nftables-multiport`, fail2ban crea una tabla `inet f2b-table` (el nombre exacto depende de la versión) con un set por jail y una regla que descarta el tráfico de las IPs del set en los puertos de la jail. Se comprueba directamente con nftables, que es donde de verdad se ve si el bloqueo existe:
+El bloqueo lo aplica la acción. Con `banaction = nftables-multiport`, fail2ban crea una tabla `inet f2b-table` (el nombre exacto depende de la versión) con un set por jail y una regla que descarta el tráfico de las IPs del set en los puertos de la jail. Se comprueba directamente con nftables (el firewall del kernel que ya manejasteis en UT3), que es donde de verdad se ve si el bloqueo existe:
 
 ```bash
 nft list table inet f2b-table
@@ -450,7 +480,7 @@ docker compose ps -a         # muestra "Exited (137) 2 hours ago"
 
 ### OOM: el kernel y los cgroups
 
-Cuando un contenedor tiene `mem_limit` (Compose) o `--memory`, Docker lo traduce a `memory.max` en el cgroup v2 del contenedor. Si el uso llega al límite, el kernel invoca al OOM killer dentro de ese cgroup y mata el proceso que más memoria consume (lo normal, el principal), y el contenedor sale con 137. Si no hay límite, el contenedor puede consumir toda la RAM del host y el OOM killer global mata lo que le parezca, que puede ser otro contenedor o PostgreSQL. Por eso todo contenedor en producción lleva límite: mejor que muera él solo que el host entero.
+Cuando un contenedor tiene `mem_limit` (Compose) o `--memory`, Docker lo traduce a `memory.max` en el cgroup v2 del contenedor (los cgroups son el mecanismo del kernel con el que Docker acota la CPU y la memoria de cada contenedor). Si el uso llega al límite, el kernel invoca al OOM killer dentro de ese cgroup y mata el proceso que más memoria consume (lo normal, el principal), y el contenedor sale con 137. Si no hay límite, el contenedor puede consumir toda la RAM del host y el OOM killer global mata lo que le parezca, que puede ser otro contenedor o PostgreSQL. Por eso todo contenedor en producción lleva límite: mejor que muera él solo que el host entero.
 
 ```bash
 # Mensajes del OOM killer, con marca de tiempo legible
@@ -470,13 +500,13 @@ cat /sys/fs/cgroup/system.slice/docker-$CG.scope/memory.stat | head -20
 docker stats --no-stream app
 ```
 
-`memory.events` guarda un contador `oom_kill` que no se pierde entre reinicios del proceso (sí del contenedor), y es la forma más limpia de saber si hubo OOM aunque el mensaje del kernel ya no esté. `anon-rss` en el mensaje del kernel es la memoria realmente usada por el proceso; `total-vm` es la reservada y no dice mucho. En Prometheus, `container_memory_working_set_bytes` de cAdvisor es lo que compara Docker contra el límite (excluye la caché de ficheros reclamable), y `container_oom_events_total` cuenta los OOM; un panel con el working set y el límite `container_spec_memory_limit_bytes` superpuestos muestra la fuga como una rampa que sube hasta tocar la línea y cae en vertical.
+`memory.events` guarda un contador `oom_kill` que no se pierde entre reinicios del proceso (sí del contenedor), y es la forma más limpia de saber si hubo OOM aunque el mensaje del kernel ya no esté. `anon-rss` en el mensaje del kernel es la memoria realmente usada por el proceso; `total-vm` es la reservada y no dice mucho. En Prometheus, `container_memory_working_set_bytes` de cAdvisor (el exporter que publica las métricas de cada contenedor) es lo que compara Docker contra el límite (excluye la caché de ficheros reclamable), y `container_oom_events_total` cuenta los OOM; un panel con el working set y el límite `container_spec_memory_limit_bytes` superpuestos muestra la fuga como una rampa que sube hasta tocar la línea y cae en vertical.
 
 Una fuga de memoria y un pico de carga se ven distinto en ese panel: la fuga es una rampa constante, día tras día, hasta el OOM; el pico es un escalón que coincide con un evento (la copia de seguridad, un informe pesado, un ataque). La corrección es diferente: la fuga se arregla en el código (o se mitiga con reinicios programados mientras se arregla), el pico con más límite o con menos carga.
 
 ### Core dumps en contenedores
 
-Un core dump es la imagen de la memoria del proceso en el momento de morir por señal (SIGSEGV, SIGABRT). Por defecto en un host Linux con systemd los captura `systemd-coredump` y se listan con `coredumpctl`. En un contenedor hay dos obstáculos: `core_pattern` es del kernel y por tanto del host, no del contenedor (un `|/usr/lib/systemd/systemd-coredump ...` del host se ejecuta en el espacio de nombres del host y a veces no puede leer el binario del contenedor), y el `ulimit -c` del contenedor suele ser 0.
+Un core dump es la imagen de la memoria del proceso en el momento de morir por señal (SIGSEGV, SIGABRT). Por defecto en un host Linux con systemd los captura `systemd-coredump` y se listan con `coredumpctl`. En un contenedor hay dos obstáculos: `core_pattern` (el parámetro del kernel que dice dónde y cómo se escribe el dump) es del kernel y por tanto del host, no del contenedor (un `|/usr/lib/systemd/systemd-coredump ...` del host se ejecuta en el espacio de nombres del host y a veces no puede leer el binario del contenedor), y el `ulimit -c` del contenedor suele ser 0.
 
 ```bash
 # En el host
@@ -503,7 +533,7 @@ services:
 
 El directorio `/var/crash` tiene que existir dentro del contenedor en la misma ruta que indica `core_pattern`, porque el kernel escribe la ruta interpretada desde el espacio de nombres de montaje del proceso que murió. Y hay que vigilar el tamaño: un dump de una JVM con 4 GB de heap ocupa 4 GB.
 
-Análisis según el runtime:
+Análisis según el runtime, con una herramienta por lenguaje: gdb es el depurador clásico de binarios nativos (C, C++, Go, Rust) y es el que lee el dump; py-spy inspecciona un proceso Python vivo sin pararlo; jcmd, jmap y jstack son las utilidades de la JVM para volcar memoria e hilos. En el bloque, fijaos en que gdb se ejecuta dentro de la misma imagen que murió y en que Java no necesita el dump del kernel porque genera el suyo.
 
 ```bash
 # C/C++/Go/Rust: gdb básico sobre el dump, con el mismo binario y bibliotecas
@@ -533,7 +563,7 @@ Para gdb el detalle importante es que el binario y las bibliotecas tienen que se
 
 ### Registros de error de la aplicación
 
-Aparte de stdout, muchos runtimes dejan su propio informe de fallo: la JVM escribe `hs_err_pid<N>.log` en el directorio de trabajo cuando muere por un error fatal (con la traza, los hilos y el estado de memoria; es lo primero que se busca en un 134 de Java); Node deja la traza en stderr y con `--report-on-fatalerror` genera un JSON de diagnóstico; PostgreSQL escribe en `/var/log/postgresql/postgresql-17-main.log` (o stdout en el contenedor oficial) y ahí está el `FATAL: too many connections` o el `server process was terminated by signal 9` que explica un 137 del contenedor de la aplicación media hora después. Para un front en el navegador, los errores están en el cliente y no en el servidor: sin un servicio tipo Sentry o GlitchTip que los recoja, solo se ven en la consola del usuario, y la evidencia es la captura que os manden.
+Aparte de stdout, muchos runtimes dejan su propio informe de fallo: la JVM escribe `hs_err_pid<N>.log` en el directorio de trabajo cuando muere por un error fatal (con la traza, los hilos y el estado de memoria; es lo primero que se busca en un 134 de Java); Node deja la traza en stderr y con `--report-on-fatalerror` genera un JSON de diagnóstico; PostgreSQL escribe en `/var/log/postgresql/postgresql-17-main.log` (o stdout en el contenedor oficial) y ahí está el `FATAL: too many connections` o el `server process was terminated by signal 9` que explica un 137 del contenedor de la aplicación media hora después. Para un front en el navegador, los errores están en el cliente y no en el servidor: sin un servicio tipo Sentry o GlitchTip (plataformas que reciben los errores del navegador y del servidor y los agrupan) que los recoja, solo se ven en la consola del usuario, y la evidencia es la captura que os manden.
 
 ### El método y la plantilla de informe
 
@@ -575,7 +605,7 @@ quantile_over_time(0.95, (100 * (1 - avg by (instance) (rate(node_cpu_seconds_to
 
 Si no hay Prometheus, la línea base se toma con `sar` (paquete `sysstat`), que graba cada 10 minutos en `/var/log/sysstat/` y guarda un mes por defecto: `sar -u -f /var/log/sysstat/sa04` da la CPU de todo el día 4, `sar -r` la memoria, `sar -d` el disco, `sar -n DEV` la red. Activadlo la primera semana en la empresa si no está (`ENABLED="true"` en `/etc/default/sysstat`), porque la semana de datos es el requisito de A5.4 y no se puede recuperar hacia atrás.
 
-Se guarda como tabla, con lo mínimo que hace falta para comparar después: por recurso, valor medio, p95 y máximo, en horario laboral y fuera de él, más las tres o cuatro horas concretas que definen la forma (pico de la mañana, batch nocturno). Y se guarda con fecha y con la versión de la aplicación desplegada en ese momento, porque una línea base tomada con la versión 1.4 no sirve para juzgar la 1.6 si el despliegue cambió el consumo.
+Se guarda como tabla, con lo mínimo que hace falta para comparar después: por recurso, valor medio, p95 (el valor que el 95 % de las muestras no supera, para que un pico aislado no distorsione) y máximo, en horario laboral y fuera de él, más las tres o cuatro horas concretas que definen la forma (pico de la mañana, batch nocturno). Y se guarda con fecha y con la versión de la aplicación desplegada en ese momento, porque una línea base tomada con la versión 1.4 no sirve para juzgar la 1.6 si el despliegue cambió el consumo.
 
 | Recurso | Métrica | Media laboral | p95 laboral | Máximo | Media nocturna | Hora del pico |
 |---|---|---|---|---|---|---|
@@ -608,11 +638,11 @@ Dos comandos que merecen explicación aparte. `vmstat 1 5` da cinco muestras de 
 
 La comparación con la línea base termina en una propuesta. Las propuestas tipo, para que no os quedéis en "la CPU está alta":
 
-- CPU del contenedor limitada por CFS (`throttled_periods` creciente con uso por debajo del 100 % del host): subir `cpus:` en el Compose o quitar el límite si el host tiene margen. Caso muy frecuente con límites puestos "por si acaso" a 0.5 CPU.
+- CPU del contenedor limitada por CFS, el planificador del kernel que frena al contenedor cuando agota su cuota `cpus:` (`throttled_periods` creciente con uso por debajo del 100 % del host): subir `cpus:` en el Compose o quitar el límite si el host tiene margen. Caso muy frecuente con límites puestos "por si acaso" a 0.5 CPU.
 - Memoria del contenedor con rampa hasta el límite y OOM: fuga; pedir corrección a desarrollo y, mientras, reinicio programado en la ventana de menor carga, con `restart` y monitorización del contador de OOM. Si no es rampa sino escalón, subir el límite y justificarlo con el nuevo consumo.
 - Disco con `await` alto y `wa` alto en la ventana de la copia de seguridad: mover la copia, limitar su E/S con `ionice -c3` o `pg_dump` con `--jobs` menor, o pedir almacenamiento más rápido para la BD.
 - Disco lleno o cerca: revisar la retención de logs (apartado anterior), `docker system df` y `docker system prune` de imágenes huérfanas, dumps olvidados en `/var/crash`.
-- Red con retransmisiones: mirar primero el enlace físico o virtual (`ip -s link`, errores en la interfaz), después la MTU si hay túneles (WireGuard o VXLAN restan cabecera; 1420 o 1450 son valores habituales), después el firewall que pueda estar descartando.
+- Red con retransmisiones: mirar primero el enlace físico o virtual (`ip -s link`, errores en la interfaz), después la MTU (el tamaño máximo de paquete de la interfaz) si hay túneles (WireGuard o VXLAN restan cabecera; 1420 o 1450 son valores habituales), después el firewall que pueda estar descartando.
 - Latencia p95 alta con todos los recursos del host tranquilos: el cuello está fuera (base de datos, servicio externo, DNS) o en el pool de conexiones de la aplicación; se ve en el log de la aplicación y en las métricas de la BD (`pg_stat_activity`, consultas lentas), no en `top`.
 - Carga muy por encima de la línea base sin ninguna causa interna: mirar los accesos. Un escáner o un ataque a la API se ve antes en `req/s` por IP que en la CPU.
 

@@ -2,7 +2,7 @@
 
 <p class="ut-meta">Módulo 5169 · 14 h · Formación en empresa (19 abr a 9 jun 2027) · RA4 CE a, b, c</p>
 
-Hasta la UT5 todo el módulo ha transcurrido en el laboratorio del centro, sobre el servicio del curso (nginx en web01, API en app01, PostgreSQL en db01). Esta unidad y la UT5 se cursan durante la formación en empresa, y el objeto de trabajo pasa a ser un servicio real de la empresa que os acoge: revisáis o montáis sus copias de seguridad, comprobáis que llegan a un medio externo y las restauráis en un entorno de pruebas. Lo que aprendáis aquí lo vais a necesitar en la UT7 (antes de actualizar hay que poder volver atrás) y en la UT8 (terminar un servicio incluye destruir sus copias de forma controlada, y el repositorio restic que dejasteis en MinIO en el laboratorio es justo el que se destruye allí).
+Hasta la UT5 todo el módulo ha transcurrido en el laboratorio del centro, sobre el servicio del curso (nginx en web01, API en app01, PostgreSQL en db01). Esta unidad y la UT5 se cursan durante la formación en empresa, y el objeto de trabajo pasa a ser un servicio real de la empresa que os acoge: revisáis o montáis sus copias de seguridad, comprobáis que llegan a un medio externo y las restauráis en un entorno de pruebas. Lo que aprendáis aquí lo vais a necesitar en la UT7 (antes de actualizar hay que poder volver atrás) y en la UT8 (terminar un servicio incluye destruir sus copias de forma controlada, y el repositorio restic (la herramienta de copias del curso) que dejasteis en MinIO (el almacenamiento de objetos del laboratorio) es justo el que se destruye allí).
 
 Estas páginas son guía de referencia y lista de evidencias. No se sacan datos de la empresa: lo que entregáis son configuraciones, listados y capturas anonimizadas (nombres de host, rutas y buckets pueden cambiarse por genéricos; el contenido de un dump nunca sale de allí).
 
@@ -16,6 +16,30 @@ Estas páginas son guía de referencia y lista de evidencias. No se sacan datos 
 - Restaurar periódicamente una copia en una plataforma de pruebas, medir el tiempo y dejar registro (CE 4c).
 - Redactar un plan de copias y restauración de dos páginas que alguien que no seas tú pueda ejecutar.
 
+## Antes de entrar en detalle
+
+Un lunes a las 9, en la empresa, alguien lanza `docker compose down -v` en el host equivocado y el volumen de PostgreSQL se va con los pedidos de tres años. "Hay copia", dice el tutor: está en `/var/backups` del mismo host, así que también se ha ido. Queda la de la semana pasada en el NAS, y el dump ocupa 0 bytes desde hace dos meses porque a la orden le faltaba un flag. Es lo normal en un servicio cuyas copias nadie ha restaurado nunca. Al final de la unidad tienes que poder decir tres cosas de un servicio, con pruebas: qué se copia y cuándo, dónde está la copia fuera del host, y cuánto tarda en volver a funcionar porque lo has restaurado tú con el cronómetro en marcha.
+
+| Herramienta o concepto | Qué es, en una frase | Para qué la usamos en esta unidad |
+|---|---|---|
+| restic | Programa de copias que trocea los ficheros, guarda solo los trozos nuevos y cifra todo lo que envía | Copiar, retener, verificar y restaurar; la herramienta principal |
+| BorgBackup y borgmatic | Un programa parecido a restic que trabaja por SSH; borgmatic lo configura desde un YAML | Reconocer la alternativa habitual en empresas con NAS |
+| pg_dump y pg_restore (mysqldump en MySQL) | Utilidades del propio motor que vuelcan la base de datos a un fichero consistente y lo cargan de vuelta | Obtener una copia de la base de datos que arranca seguro |
+| S3 y MinIO | Almacenamiento de objetos por HTTP, organizado en cubos (*buckets*); S3 es el de Amazon y MinIO su equivalente instalable en casa | Destino externo de las copias |
+| mc | El cliente de línea de comandos de MinIO | Activar versionado, retención y ciclo de vida en el bucket |
+| systemd timers y cron | Los dos programadores de tareas de Linux; el timer de systemd añade log propio y recuperación de ejecuciones perdidas | Lanzar la copia cada noche sin intervención |
+| node_exporter y Prometheus | El agente de métricas del host, que también lee métricas propias de un fichero; Prometheus las recoge | Alerta por ausencia: enterarse de que la copia no se ha hecho |
+| Healthchecks.io | Servicio que espera un "sigo vivo" periódico y avisa cuando no llega | La misma alerta cuando la empresa no tiene Prometheus |
+| age y sops | Dos herramientas pequeñas para cifrar ficheros | Cifrar el `.env` con las contraseñas antes de copiarlo |
+| Regla 3-2-1, RPO y RTO | Cuántas copias y dónde; cuántos datos puedes perder; cuánto puede tardar en volver el servicio | Los números con los que se juzga una copia y se mide la restauración |
+| Versionado y Object Lock | Dos ajustes del bucket que conservan versiones anteriores e impiden borrar durante un plazo | Proteger la copia frente a un atacante o un error en el host |
+| Snapshots de VM (Proxmox) | Instantánea del disco entero de una máquina virtual | Entender por qué no sustituyen a la copia de aplicación |
+
+**Cómo está organizada la unidad.** Empieza por qué se copia y qué no, porque el error más caro es copiar lo equivocado. Siguen los números (3-2-1, RPO y RTO), que deciden frecuencia y destino antes de escribir una línea, y los tipos de copia, necesarios para entender por qué restic los mezcla todos. Con eso se entra en restic a fondo, programar la copia y verificar que se ha ejecutado, que juntos cubren el CE 4a. Destinos y políticas es lo que en la empresa se audita (CE 4b); restaurar es la prueba real de todo lo anterior (CE 4c); y el plan como documento va el último porque recoge lo demás.
+
+!!! info "Lo que necesitas de la otra asignatura"
+    Esta unidad y la UT5 se hacen en la empresa, del 19 de abril al 9 de junio, a la vez que la [UT4 Nube pública de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut4-nube-publica/). Las dos trabajan sobre el mismo sitio: la nube o el CPD de la empresa es donde están los buckets a los que llegan las copias, y las cuentas, regiones y políticas de acceso que allí se explican son las que aquí compruebas en la A6.2. Si el destino de la empresa es S3, Azure Blob o B2 de verdad, la parte de credenciales, ubicación de datos y coste de descarga la tienes en esa unidad de 5166; aquí se da por sabida. Del laboratorio te llevas el repositorio restic contra MinIO y la pila de mon01 (Prometheus y Alertmanager, de 5169 UT1 y UT2), que es donde va la alerta de ausencia si la empresa no tiene la suya.
+
 ## Qué se copia y qué no
 
 De un servicio en contenedores se copia lo que no se puede reconstruir desde el código. Las imágenes están en el registry y el código en Git; copiarlos otra vez es gastar espacio y, peor, dar una sensación de seguridad falsa. Lo que sí hay que copiar cabe en tres cajones:
@@ -26,7 +50,7 @@ De un servicio en contenedores se copia lo que no se puede reconstruir desde el 
 
 ### Dump lógico frente a copia del volumen
 
-Una base de datos escribe en disco de forma continua. Si copias el directorio del volumen mientras PostgreSQL está en marcha, obtienes ficheros de distintos instantes: un fichero de datos que ya tiene la transacción y un WAL que todavía no. Ese conjunto puede no arrancar, o arrancar con datos corruptos que no descubres hasta meses después. Hay dos maneras limpias de resolverlo:
+Una base de datos escribe en disco de forma continua. Si copias el directorio del volumen mientras PostgreSQL está en marcha, obtienes ficheros de distintos instantes: un fichero de datos que ya tiene la transacción y un WAL (el registro de transacciones, *write-ahead log*) que todavía no. Ese conjunto puede no arrancar, o arrancar con datos corruptos que no descubres hasta meses después. Hay dos maneras limpias de resolverlo:
 
 **Dump lógico.** El propio motor genera un fichero consistente (una instantánea transaccional) que además es portable entre versiones y arquitecturas. Para PostgreSQL:
 
@@ -38,11 +62,11 @@ docker compose exec -T db pg_dump -U app -Fc app > /var/backups/app.dump
 docker compose exec -T db pg_dumpall -U postgres --globals-only > /var/backups/globals.sql
 ```
 
-El `-T` desactiva la asignación de TTY; sin él, la salida por `>` se corrompe. `-Fc` produce el formato custom, que se restaura con `pg_restore` y admite `-j 4` para paralelizar y `-t tabla` para sacar una sola tabla. `pg_dumpall` sin `--globals-only` vuelca todo el clúster en SQL plano, útil para migraciones, poco práctico como copia diaria de una base de 40 GB.
+El `-T` desactiva la asignación de TTY (terminal interactivo); sin él, la salida por `>` se corrompe. `-Fc` produce el formato custom, que se restaura con `pg_restore` y admite `-j 4` para paralelizar y `-t tabla` para sacar una sola tabla. `pg_dumpall` sin `--globals-only` vuelca todo el clúster en SQL plano, útil para migraciones, poco práctico como copia diaria de una base de 40 GB.
 
-Para MySQL o MariaDB el equivalente es `mysqldump --single-transaction --routines --triggers --events app > app.sql`. El `--single-transaction` abre una transacción con lectura consistente para que el volcado corresponda a un instante, sin bloquear tablas InnoDB; si hay tablas MyISAM no sirve y toca `--lock-tables`. Para MongoDB, `mongodump --archive --gzip`.
+Para MySQL o MariaDB el equivalente es `mysqldump --single-transaction --routines --triggers --events app > app.sql`. El `--single-transaction` abre una transacción con lectura consistente para que el volcado corresponda a un instante, sin bloquear tablas InnoDB (el motor de almacenamiento habitual de MySQL); si hay tablas del motor antiguo MyISAM no sirve y toca `--lock-tables`. Para MongoDB, `mongodump --archive --gzip`.
 
-**Copia del volumen con el servicio parado o congelado.** Si la base de datos es enorme y el dump tarda más de lo que permite la ventana, se para el contenedor (o se hace `pg_start_backup`/copia física con `pg_basebackup`) y se copia el directorio. Para el resto de volúmenes (ficheros subidos) la copia directa es lo normal:
+**Copia del volumen con el servicio parado o congelado.** Si la base de datos es enorme y el dump tarda más de lo que permite la ventana, se para el contenedor (o se hace una copia física con `pg_basebackup`, que admite PITR, recuperación a un instante concreto, si se archiva el WAL) y se copia el directorio. Para el resto de volúmenes (ficheros subidos) la copia directa es lo normal:
 
 ```bash
 # Copiar un volumen con nombre sin conocer su ruta en el host
@@ -50,7 +74,7 @@ docker run --rm -v app_uploads:/data:ro -v /var/backups:/backup alpine \
   tar czf /backup/uploads.tgz -C /data .
 ```
 
-Con restic no hace falta ni el tar: se le pasa directamente `/var/lib/docker/volumes/app_uploads/_data` y él deduplica fichero a fichero.
+Con restic no hace falta el tar: se le pasa la ruta del volumen y deduplica fichero a fichero.
 
 | Método | Consistencia | Portabilidad | Tamaño | Cuándo |
 |---|---|---|---|---|
@@ -63,9 +87,11 @@ Con restic no hace falta ni el tar: se le pasa directamente `/var/lib/docker/vol
 
 Los ficheros subidos por usuarios se copian tal cual; el único cuidado es que no cambien a mitad de copia (un fichero de 2 GB que se está subiendo). restic detecta la modificación y avisa, y se puede repetir esa ruta. La configuración va toda al mismo snapshot que los datos, para que una restauración devuelva un conjunto coherente.
 
-Los secretos merecen aparte. El `.env` con la contraseña de la base de datos, las claves de API y los certificados privados tienen que estar en la copia (sin ellos no se restaura nada), pero no pueden viajar en claro a un bucket que gestiona otro equipo. Dos opciones válidas: cifrarlos antes con `age` o `sops` y copiar el fichero cifrado, o confiar en el cifrado del repositorio restic (todo lo que entra está cifrado con AES-256 y autenticado con Poly1305; el destino solo ve blobs). En la mayoría de empresas veréis las dos a la vez: el repositorio cifra, y además los secretos van cifrados con una clave que custodia otra persona.
+Los secretos merecen aparte. El `.env` con la contraseña de la base de datos, las claves de API y los certificados privados tienen que estar en la copia (sin ellos no se restaura nada), pero no pueden viajar en claro a un bucket que gestiona otro equipo. Dos opciones válidas: cifrarlos antes con `age` o `sops` (dos herramientas de cifrado de ficheros) y copiar el fichero cifrado, o confiar en el cifrado del repositorio restic (todo lo que entra está cifrado con AES-256 y autenticado con Poly1305; el destino solo ve blobs). En la mayoría de empresas veréis las dos a la vez: el repositorio cifra, y además los secretos van cifrados con una clave que custodia otra persona.
 
 ## Regla 3-2-1, RPO y RTO
+
+Antes de tocar ninguna herramienta hay que saber con qué vara se mide una copia. Aquí fijamos tres números que decide la empresa, no el técnico, y con los que se justifica todo lo que viene después: frecuencia, destino y método de restauración.
 
 La regla **3-2-1** es el mínimo defendible: tres copias de los datos (la de producción y dos más), en dos soportes distintos (disco local y almacenamiento de objetos, por ejemplo), y una fuera del sitio (otro centro de datos, otra región de la nube, una cinta en una caja fuerte). La variante **3-2-1-1-0**, que se ha extendido con el ransomware, añade una copia *offline* o inmutable (que nadie con credenciales del host pueda borrar) y cero errores en la verificación (las copias se comprueban y restauran, no se dan por buenas).
 
@@ -74,18 +100,22 @@ Los dos parámetros que fija la empresa, no el técnico:
 - **RPO** (*Recovery Point Objective*): cuántos datos se pueden perder, medido en tiempo. Fija la frecuencia de copia. Si el RPO es 24 h, una copia diaria a las 02:30 vale. Si es 1 h, o copias cada hora o archivas el WAL de PostgreSQL de forma continua.
 - **RTO** (*Recovery Time Objective*): cuánto puede tardar el servicio en volver. Fija el método de restauración y dónde está la copia. Un RTO de 4 h permite descargar 30 GB de un bucket remoto y hacer un `pg_restore`; un RTO de 15 min exige una réplica en caliente o un snapshot local.
 
-Con números: una tienda con 200 pedidos al día y copia diaria a las 02:30 tiene un RPO real de hasta 24 h; si el disco muere a las 02:00, se pierden 199 pedidos. Si la empresa dice que solo puede perder una hora de pedidos, la copia diaria no cumple, por muy bien que funcione. Y si el RTO es de 2 h pero la restauración de prueba tardó 3 h 40 min, el plan está mal aunque la copia sea perfecta. Por eso se mide.
+Con números: una tienda con 200 pedidos al día y copia diaria a las 02:30 tiene un RPO real de hasta 24 h; si el disco muere a las 02:00, se pierden 199 pedidos. Si la empresa dice que solo puede perder una hora de pedidos, la copia diaria no cumple, por muy bien que funcione. Y si el RTO es de 2 h pero la restauración de prueba tardó 3 h 40 min, el plan está mal aunque la copia sea perfecta.
 
 ## Tipos de copia y snapshots
+
+En la documentación de cualquier herramienta y en la conversación con el tutor van a salir las copias completas, incrementales y diferenciales. Se definen aquí para que sepas de qué hablan y por qué con restic o borg la distinción casi deja de importar; al final, por qué un snapshot del hipervisor no cuenta como copia.
 
 - **Completa**: todo, cada vez. Simple de restaurar (un solo conjunto), cara en espacio y tiempo.
 - **Incremental**: solo lo que cambió desde la última copia (completa o incremental). Barata; restaurar exige la completa más toda la cadena, y un eslabón corrupto rompe lo que viene después.
 - **Diferencial**: lo que cambió desde la última completa. Restaurar necesita dos conjuntos; cada diferencial crece hasta la siguiente completa.
 - **Deduplicada**: la que hacen restic y borg. Los ficheros se trocean en bloques de tamaño variable (*content-defined chunking*), cada bloque se identifica por su hash y solo se almacenan los bloques nuevos. Cada snapshot es lógicamente completo (se restaura solo, sin cadenas), pero cuesta lo que un incremental. Es la razón por la que la distinción clásica ha dejado de importar en la práctica.
 
-Aparte están los **snapshots del hipervisor** (Proxmox, `vzdump` con modo *snapshot*) y los del sistema de ficheros (ZFS, LVM). Son instantáneas del disco de la VM entera: rápidos, cómodos para volver atrás antes de una actualización, y engañosos como copia de seguridad. Un snapshot en el mismo almacenamiento que la VM desaparece con él; capta la base de datos en caliente con los mismos problemas de consistencia que copiar el volumen (aunque el *guest agent* de QEMU con `fsfreeze` mitiga parte); y restaurar un fichero suelto obliga a levantar la VM entera. La combinación habitual en empresa es ambas cosas: copia de VM con Proxmox Backup Server para recuperar el host en bloque, y copia de aplicación con restic para recuperar datos con granularidad. Cómo se hace el snapshot de VM lo visteis en [5166 UT1](https://victor-educ.github.io/apuntes-5166/ut/ut1-virtualizacion/).
+Aparte están los **snapshots del hipervisor** (Proxmox, `vzdump` con modo *snapshot*) y los del sistema de ficheros (ZFS, LVM). Son instantáneas del disco de la VM entera: rápidos, cómodos para volver atrás antes de una actualización, y engañosos como copia de seguridad. Un snapshot en el mismo almacenamiento que la VM desaparece con él; capta la base de datos en caliente con los mismos problemas de consistencia que copiar el volumen (aunque el *guest agent* de QEMU con `fsfreeze`, que congela un instante el sistema de ficheros del invitado, mitiga parte); y restaurar un fichero suelto obliga a levantar la VM entera. La combinación habitual en empresa es ambas cosas: copia de VM con Proxmox Backup Server para recuperar el host en bloque, y copia de aplicación con restic para recuperar datos con granularidad. Cómo se hace el snapshot de VM lo visteis en [5166 UT1](https://victor-educ.github.io/apuntes-5166/ut/ut1-virtualizacion/).
 
 ## restic a fondo
+
+Con restic se hace casi todo lo que sigue: copiar, retener, verificar y restaurar. Este apartado es su referencia; no hay que memorizar las opciones, sino saber que existen para reconocerlas en el script de la empresa. El bloque de comandos es lo mínimo; la lista de puntos, lo que separa una prueba de una copia en producción.
 
 restic (versión 0.18 en el laboratorio) es un programa de un solo binario, escrito en Go, que crea repositorios deduplicados y cifrados en local, SFTP, S3 y compatibles (MinIO, Backblaze B2), Azure, GCS o su propio `rest-server`. Todo lo que se configura son variables de entorno y flags.
 
@@ -112,7 +142,7 @@ Puntos que importan al usarlo en serio:
 - **Retención**: `restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --keep-yearly 2 --prune`. `forget` borra los snapshots; sin `--prune` los datos siguen ocupando espacio hasta que se ejecute `restic prune`, que reempaqueta y elimina blobs huérfanos. `prune` es lento y toma un bloqueo exclusivo, así que se programa aparte (semanal) y no en cada copia. `--max-unused 5%` limita cuánto reempaqueta.
 - **Verificación**: `restic check` valida la estructura del repositorio con los índices; `--read-data` descarga y verifica cada blob (caro con 500 GB en un bucket remoto); `--read-data-subset=5%` o `--read-data-subset=1/10` lo hace por partes, de forma que en 10 ejecuciones lo has leído todo.
 - **Restauración**: `restic restore latest --target /restore` restaura el último snapshot; `--include /var/backups/app.dump` saca solo esa ruta; `--host` y `--tag` seleccionan el snapshot cuando hay varios. `restic ls latest` y `restic find app.dump` localizan ficheros sin restaurar; `restic diff id1 id2` muestra qué cambió entre dos snapshots.
-- **Montaje**: `restic mount /mnt/restic` expone el repositorio por FUSE, con un directorio por snapshot (`/mnt/restic/snapshots/latest/...`). Es la forma más rápida de recuperar un fichero suelto o de inspeccionar qué hay dentro sin restaurar nada. Necesita el paquete `fuse3`.
+- **Montaje**: `restic mount /mnt/restic` expone el repositorio por FUSE (un sistema de ficheros en espacio de usuario: el repositorio aparece como un directorio normal), con un directorio por snapshot (`/mnt/restic/snapshots/latest/...`). Es la forma más rápida de recuperar un fichero suelto o de inspeccionar qué hay dentro sin restaurar nada. Necesita el paquete `fuse3`.
 - **Rendimiento**: la primera copia va limitada por CPU (hash y cifrado) y por la subida; las siguientes solo leen ficheros cambiados si los metadatos coinciden (por defecto compara tamaño, mtime e inodo). `--read-concurrency 4` acelera en discos rápidos; `RESTIC_PACK_SIZE=64` (MiB) reduce el número de objetos en S3 para repositorios grandes; `limit-upload` acota el ancho de banda en la ventana nocturna. La caché local en `RESTIC_CACHE_DIR` es lo que más se nota: sin ella cada operación descarga los índices del bucket.
 - **Bloqueos**: si una copia muere a medias (reinicio del host), queda un lock y la siguiente falla con "repository is already locked". `restic unlock` lo limpia; antes de hacerlo, asegurarse de que no hay otro proceso restic vivo.
 - **Contraseña**: `restic key add` y `restic key remove` gestionan varias claves para el mismo repositorio; cambiarla según la política de la empresa es añadir la nueva, verificar que abre el repo y quitar la antigua. Perderla equivale a perder el repositorio entero; en la empresa preguntad dónde está custodiada.
@@ -140,7 +170,7 @@ BorgBackup hace lo mismo con otra filosofía: repositorio en local o por SSH (co
 
 ## Programar la copia
 
-El script hace de orquestador: vuelca la base de datos, lanza restic, aplica retención y verifica. Lo que se ejecuta cada noche en el laboratorio es este:
+El script hace de orquestador: vuelca la base de datos, lanza restic, aplica retención y verifica, y al terminar escribe una métrica que node_exporter (el agente de Prometheus de la UT1) recoge. Lo que se ejecuta cada noche en el laboratorio es este; fíjate en el `set -euo pipefail` de la cabecera y en que la métrica se escribe solo al final:
 
 ```bash
 #!/bin/bash
@@ -179,7 +209,7 @@ El `set -euo pipefail` es lo que convierte cualquier fallo intermedio en un cód
 
 ### systemd timers
 
-Una unit de servicio `oneshot` y un timer que la dispara:
+Una unit de servicio `oneshot` (se ejecuta, termina y no queda residente) y un timer que la dispara:
 
 ```ini
 # /etc/systemd/system/backup-app.service
@@ -217,7 +247,7 @@ WantedBy=timers.target
 
 ### cron y contenedor programador
 
-Con cron la línea equivalente en `/etc/cron.d/backup-app` es `30 2 * * * root /usr/local/bin/backup-app.sh >> /var/log/backup-app.log 2>&1`. Funciona en cualquier sitio y es lo que veréis en muchas empresas; sus carencias frente al timer son las que acabáis de leer: no recupera ejecuciones perdidas, el log lo gestionas tú y el fallo solo se ve si alguien lee el correo de root. Cuando el host no es vuestro (una plataforma gestionada donde solo tenéis Docker), el programador va en un contenedor: ofelia lee etiquetas de los otros contenedores (`ofelia.job-exec.backup.schedule: "0 30 2 * * *"`, `ofelia.job-exec.backup.command: "pg_dump ..."`) y ejecuta comandos dentro de ellos; o un sidecar Alpine con `crond` que monta el socket de Docker. Ambos tienen el mismo problema: el contenedor programador necesita acceso al socket o a los volúmenes, y eso es un privilegio grande que hay que documentar.
+Con cron la línea equivalente en `/etc/cron.d/backup-app` es `30 2 * * * root /usr/local/bin/backup-app.sh >> /var/log/backup-app.log 2>&1`. Funciona en cualquier sitio y es lo que veréis en muchas empresas; sus carencias frente al timer son las que acabáis de leer: no recupera ejecuciones perdidas, el log lo gestionas tú y el fallo solo se ve si alguien lee el correo de root. Cuando el host no es vuestro (una plataforma gestionada donde solo tenéis Docker), el programador va en un contenedor: ofelia lee etiquetas de los otros contenedores (`ofelia.job-exec.backup.schedule: "0 30 2 * * *"`, `ofelia.job-exec.backup.command: "pg_dump ..."`) y ejecuta comandos dentro de ellos; o un *sidecar* (contenedor auxiliar que acompaña al principal) Alpine con `crond` que monta el socket de Docker. Ambos tienen el mismo problema: el contenedor programador necesita acceso al socket o a los volúmenes, y eso es un privilegio grande que hay que documentar.
 
 ```mermaid
 flowchart LR
@@ -240,7 +270,7 @@ Una copia programada que nadie mira deja de funcionar en silencio: caduca la cre
 
 1. **Código de salida.** El `set -e` del script y `Type=oneshot` hacen que systemd marque la unit como `failed`. `systemctl is-failed backup-app.service` lo consulta; `OnFailure` avisa.
 2. **Log.** `journalctl -u backup-app.service --since yesterday`. restic imprime al final de cada copia cuántos ficheros nuevos, cambiados y sin cambios, y cuántos datos se han añadido. Un "Added to the repository: 0 B" tres días seguidos en una aplicación viva es sospechoso aunque el código de salida sea 0.
-3. **El repositorio.** `restic snapshots --latest 1 --tag app` devuelve fecha, host, tags y rutas del último snapshot. Comprobar que la fecha es de hoy y que el tamaño (`restic stats latest`) está en el rango esperado. Esto es lo que mira quien audita: no el log del host, sino lo que hay en el destino.
+3. **El repositorio.** `restic snapshots --latest 1 --tag app` devuelve fecha, host, tags y rutas del último snapshot. Comprobar que la fecha es de hoy y que el tamaño (`restic stats latest`) está en el rango esperado. Es lo que mira quien audita.
 4. **Alerta por ausencia** (*dead man's switch*). Las tres anteriores fallan si el host que copia está apagado, si el timer se deshabilitó o si el script no llega ni a arrancar. La única forma de detectarlo es que otro sistema espere una señal y avise cuando no llega.
 
 Con la pila de monitorización de mon01 se hace con la métrica que escribe el script y el *textfile collector* de node_exporter (arrancado con `--collector.textfile.directory=/var/lib/node_exporter/textfile_collector`):
@@ -263,7 +293,7 @@ groups:
 
 Las 26 h dejan margen a `RandomizedDelaySec` y a una copia que tarde más de lo habitual sin generar ruido cada noche. La segunda regla cubre el caso en que la métrica desaparece (node_exporter caído, fichero borrado): sin `absent()`, la primera expresión no devuelve nada y no salta. En la UT2 vimos cómo enrutar estas alertas en Alertmanager; aquí solo hay que añadirlas.
 
-Si la empresa no tiene Prometheus, o el host que copia está fuera de su red de monitorización, el mismo patrón se hace con un servicio externo tipo [healthchecks.io](https://healthchecks.io/docs/): se crea un *check* con periodo 24 h y gracia 2 h, y el script hace `curl -fsS -m 10 --retry 3 https://hc-ping.com/<uuid>` al terminar bien (y `.../<uuid>/fail` en el `trap ERR`). Si no llega el ping, avisa por correo, Slack o webhook. Healthchecks se puede autoalojar en un contenedor si la política de la empresa no permite servicios externos.
+Si la empresa no tiene Prometheus, o el host que copia está fuera de su red de monitorización, el mismo patrón se hace con un servicio externo tipo [healthchecks.io](https://healthchecks.io/docs/): se crea un *check* con periodo 24 h y gracia 2 h, y el script hace `curl -fsS -m 10 --retry 3 https://hc-ping.com/<uuid>` al terminar bien (y `.../<uuid>/fail` en el `trap ERR`, el manejador que bash ejecuta cuando falla un comando). Si no llega el ping, avisa por correo, Slack o webhook. Healthchecks se puede autoalojar en un contenedor si la política de la empresa no permite servicios externos.
 
 ## Destinos y políticas
 
@@ -271,36 +301,36 @@ La copia local en `/var/backups` del propio host no es una copia: se pierde con 
 
 | Destino | Acceso desde restic | Puntos a favor | Puntos en contra |
 |---|---|---|---|
-| S3 / MinIO (propio o de otro CPD) | `s3:` nativo | Versionado, Object Lock, políticas IAM por bucket | Coste por GB y por petición en nube; latencia en `prune` |
+| S3 / MinIO (propio o de otro CPD) | `s3:` nativo | Versionado, Object Lock, políticas IAM (permisos por credencial) por bucket | Coste por GB y por petición en nube; latencia en `prune` |
 | NAS por SFTP o NFS | `sftp:` o ruta local | Barato, rápido en LAN | Mismo edificio; permisos difíciles de hacer *append-only* |
-| Nube pública (B2, S3, Azure Blob) | nativo | Fuera del sitio sin esfuerzo | Egress al restaurar; cifrado en cliente obligatorio; ubicación |
-| Cinta LTO | Vía intermedio (restic no escribe en cinta) | Offline de verdad, décadas de retención | Lento, requiere robot o disciplina manual |
+| Nube pública (B2, S3, Azure Blob) | nativo | Fuera del sitio sin esfuerzo | Egress (pago por descargar) al restaurar; cifrado en cliente obligatorio; ubicación |
+| Cinta LTO (cinta magnética) | Vía intermedio (restic no escribe en cinta) | Offline de verdad, décadas de retención | Lento, requiere robot o disciplina manual |
 | Disco externo rotado | ruta local | Trivial, offline | Depende de que alguien lo cambie; se olvida |
 
 Las **políticas** que hay que respetar y comprobar, y que son el contenido de la A6.2:
 
-**Almacenamiento.** Cifrado en cliente (el repositorio restic ya lo hace; en nube pública es obligatorio, no opcional). Ubicación permitida: si el servicio trata datos personales, el RGPD (artículo 32, seguridad del tratamiento; y el capítulo V sobre transferencias internacionales) condiciona dónde puede estar la copia; un bucket en `eu-west-1` o `eu-south-2` vale, uno en `us-east-1` exige garantías adicionales que probablemente la empresa no quiere gestionar. Y protección contra borrado: el host que copia no debe poder destruir las copias. En S3/MinIO se consigue con dos mecanismos combinados: **versionado del bucket** (`mc version enable minio/backups`), que conserva las versiones anteriores de un objeto sobrescrito o borrado, y **Object Lock** en modo *compliance* con un periodo de retención (`mc retention set --default COMPLIANCE 30d minio/backups`), que impide que nadie, ni el administrador, borre un objeto antes de que venza. Las credenciales que usa el script tienen una política IAM con `s3:PutObject`, `s3:GetObject` y `s3:ListBucket` pero sin `s3:DeleteObject`; con eso restic puede hacer `backup` y `check`, pero no `forget --prune`, que se ejecuta desde otro host con otras credenciales (o con `rest-server --append-only` si el destino es el servidor REST de restic). Un atacante con acceso al host de producción no puede entonces borrar la copia, que es exactamente el escenario del ransomware moderno: primero cifran o destruyen las copias, luego el dato en producción.
+**Almacenamiento.** Cifrado en cliente (el repositorio restic ya lo hace; en nube pública es obligatorio, no opcional). Ubicación permitida: si el servicio trata datos personales, el RGPD (artículo 32, seguridad del tratamiento; y el capítulo V sobre transferencias internacionales) condiciona dónde puede estar la copia; un bucket en `eu-west-1` o `eu-south-2` vale, uno en `us-east-1` exige garantías adicionales que probablemente la empresa no quiere gestionar. Y protección contra borrado: el host que copia no debe poder destruir las copias. En S3/MinIO se consigue con dos mecanismos combinados: **versionado del bucket** (`mc version enable minio/backups`, con `mc`, el cliente de línea de comandos de MinIO), que conserva las versiones anteriores de un objeto sobrescrito o borrado, y **Object Lock** en modo *compliance* con un periodo de retención (`mc retention set --default COMPLIANCE 30d minio/backups`), que impide que nadie, ni el administrador, borre un objeto antes de que venza. Las credenciales que usa el script tienen una política IAM con `s3:PutObject`, `s3:GetObject` y `s3:ListBucket` pero sin `s3:DeleteObject`; con eso restic puede hacer `backup` y `check`, pero no `forget --prune`, que se ejecuta desde otro host con otras credenciales (o con `rest-server --append-only` si el destino es el servidor REST de restic). Un atacante con acceso al host de producción no puede entonces borrar la copia, que es el primer paso del ransomware moderno.
 
-**Rotación.** La política escrita dice cuántas diarias, semanales, mensuales y anuales se conservan; los flags `--keep-*` tienen que coincidir con ella, y el listado del destino también. Es habitual que la política diga "6 mensuales" y el `forget` lleve dos años con `--keep-monthly 12` porque alguien lo cambió para una migración. Se comprueba con `restic snapshots --group-by tags` y contando.
+**Rotación.** La política escrita dice cuántas diarias, semanales, mensuales y anuales se conservan; los flags `--keep-*` tienen que coincidir con ella, y el listado del destino también. Se comprueba con `restic snapshots --group-by tags` y contando.
 
-**Limpieza.** `prune` programado y ejecutándose (con lock exclusivo, en horario que no coincida con la copia); espacio ocupado dentro de lo previsto (`restic stats --mode raw-data`, `mc du minio/backups`); y copias caducadas realmente eliminadas, lo que con versionado y Object Lock exige además una regla de ciclo de vida en el bucket (`mc ilm rule add --expire-delete-marker --noncurrent-expire-days 30 minio/backups`) para que las versiones no actuales se borren cuando venza la retención. Sin esa regla el bucket crece para siempre y nadie entiende por qué el `prune` no libera espacio.
+**Limpieza.** `prune` programado y ejecutándose (con lock exclusivo, en horario que no coincida con la copia); espacio ocupado dentro de lo previsto (`restic stats --mode raw-data`, `mc du minio/backups`); y copias caducadas realmente eliminadas, lo que con versionado y Object Lock exige además una regla de ciclo de vida en el bucket (`mc ilm rule add --expire-delete-marker --noncurrent-expire-days 30 minio/backups`) para que las versiones no actuales se borren cuando venza la retención.
 
 La comprobación es siempre la misma: listar el destino (`restic snapshots`, `aws s3 ls --recursive`, `mc ls --versions`, listado de la NAS) y compararlo línea a línea con la política. Lo que no coincide va a la tabla de cumplimiento con una fecha de corrección.
 
 !!! warning "Las credenciales del bucket no son secretos de segunda"
-    Con `AWS_SECRET_ACCESS_KEY` y `RESTIC_PASSWORD` en el mismo fichero, quien lea `/etc/restic/env` tiene las copias enteras de la empresa. Ese fichero va con `chmod 600`, propietario root, fuera de cualquier repositorio Git y, si la empresa tiene Vault o similar, se sirve desde allí en tiempo de ejecución.
+    Con `AWS_SECRET_ACCESS_KEY` y `RESTIC_PASSWORD` en el mismo fichero, quien lea `/etc/restic/env` tiene las copias enteras de la empresa. Ese fichero va con `chmod 600`, propietario root, fuera de cualquier repositorio Git y, si la empresa tiene Vault (un gestor de secretos) o similar, se sirve desde allí en tiempo de ejecución.
 
 ## Restaurar: el mantenimiento preventivo
 
 Una copia que no se ha restaurado nunca no es una copia; es una esperanza. La restauración periódica (mensual como mínimo, y siempre antes de una actualización mayor) es la tarea de mantenimiento preventivo de esta unidad, y la que cubre el CE 4c. El procedimiento, paso a paso, con el cronómetro en marcha desde el primer comando:
 
 1. **Elegir la copia.** Normalmente la última: `restic snapshots --latest 1 --tag app`. Anotar el ID corto.
-2. **Preparar la plataforma de pruebas.** Una VM limpia o un `docker compose` con proyecto distinto (`-p app_restore`) en un host que no sea producción. Nunca sobre producción, ni "solo para mirar". Comprobar que tiene Docker, restic, espacio en disco (el doble del tamaño del dump) y acceso al destino.
+2. **Preparar la plataforma de pruebas.** Una VM limpia o un `docker compose` con proyecto distinto (`-p app_restore`) en un host que no sea producción. Comprobar que tiene Docker, restic, espacio en disco (el doble del tamaño del dump) y acceso al destino.
 3. **Restaurar.** `restic restore <id> --target /restore`. Anotar cuánto tarda; en un bucket remoto esta suele ser la fase larga.
 4. **Levantar la base de datos vacía** con la versión de imagen que dice `/restore/var/backups/app-images.json`, y cargar: `psql -U postgres -f /restore/var/backups/globals.sql` para los roles, y `pg_restore -U app -d app -j 4 /restore/var/backups/app.dump`. Los errores de "role already exists" al cargar globals son normales si la imagen ya creó el rol.
 5. **Restaurar los volúmenes de ficheros** copiando `/restore/var/lib/docker/volumes/app_uploads/_data` al volumen nuevo, y colocar `compose.yml` y el `.env` descifrado.
 6. **Levantar el servicio** y verificar: la aplicación arranca; los datos están (`SELECT count(*) FROM pedidos`, el último registro por fecha, un fichero subido que se abre); pruebas funcionales básicas (login, una búsqueda, generar un informe). Comparar los recuentos con los de producción a la hora de la copia si es posible.
-7. **Parar el cronómetro** y comparar con el RTO. Si el RTO es 4 h y has tardado 1 h 20 min, bien; si has tardado 5 h, el plan tiene un problema y es preferible descubrirlo hoy.
+7. **Parar el cronómetro** y comparar con el RTO. Si has tardado más, el plan tiene un problema y es preferible descubrirlo hoy.
 8. **Registrar**: fecha, snapshot usado, quién, tiempo por fase, resultado, incidencias encontradas y qué se corrigió. **Destruir** el entorno de pruebas (contiene datos reales de la empresa) y borrar `/restore`.
 
 ```mermaid
@@ -338,8 +368,6 @@ Lo que la empresa necesita al final no es el script, sino un documento que otra 
 6. **Verificación**: qué se mira a diario (alerta de ausencia, log), qué mensualmente (restauración de prueba, `check`), quién lo hace.
 7. **Procedimiento de restauración**: los ocho pasos anteriores adaptados, con comandos literales y rutas reales, y el de fichero suelto.
 8. **Registro**: tabla con las restauraciones de prueba realizadas (fecha, snapshot, tiempo, resultado).
-
-Un plan que no cabe en dos páginas suele ser señal de que el servicio es más complejo de lo que se creía, o de que está describiendo tres servicios a la vez.
 
 ## Errores frecuentes en el laboratorio
 
