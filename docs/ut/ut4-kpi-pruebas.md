@@ -778,7 +778,7 @@ Diseña el ciclo de revisión (diario/semanal/mensual) para tu servicio, con dur
 
 ## Práctica evaluable
 
-**Práctica evaluable UT4 (sesión 28, 28 de enero de 2027).** Entrega el dossier de operación del servicio: fichas de métricas, tabla de indicadores con fórmulas y umbrales, catálogo de alarmas con runbooks, informe de pruebas de la versión con casos y evidencias, y el registro de la revisión periódica. Todo en el repositorio del servicio en Gitea, con un `README` en la raíz que enlace cada parte.
+**Práctica evaluable UT4 (sesión 28, 2 de febrero de 2027).** Entrega el dossier de operación del servicio: fichas de métricas, tabla de indicadores con fórmulas y umbrales, catálogo de alarmas con runbooks, informe de pruebas de la versión con casos y evidencias, y el registro de la revisión periódica. Todo en el repositorio del servicio en Gitea, con un `README` en la raíz que enlace cada parte.
 
 Entregables:
 

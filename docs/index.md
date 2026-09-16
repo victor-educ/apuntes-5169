@@ -98,7 +98,7 @@ flowchart LR
 | [UT7](ut/ut7-actualizacion-vulnerabilidades.md) | Actualización y gestión de vulnerabilidades | 16 | Centro | RA4 d–i |
 | [UT8](ut/ut8-terminacion-segura.md) | Terminación segura del contenedor | 10 | Centro | RA5 a–d |
 
-Las unidades del centro van seguidas de octubre a marzo. Las cuatro sesiones de abril anteriores a la formación en empresa quedan para recuperación de entregas y repaso.
+Las unidades del centro van seguidas de octubre a marzo. Las tres sesiones de abril anteriores a la formación en empresa quedan para recuperación de entregas y repaso.
 
 ## Cómo usar estos apuntes
 
