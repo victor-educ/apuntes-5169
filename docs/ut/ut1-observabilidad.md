@@ -2,7 +2,7 @@
 
 <p class="ut-meta">Módulo 5169 · 14 h · Sesiones 1 a 7 · RA1 CE a</p>
 
-Esta es la primera unidad del módulo y se apoya en lo que se construye en la asignatura de despliegue: el servicio del curso (proxy nginx en web01, API con Docker Compose en app01 y PostgreSQL en db01) y una VM mon01 (10.10.0.20) con una pila de Prometheus y Grafana (la base de datos de métricas y el visor de gráficas). La versión definitiva de esa pila se monta en [5166 UT7](https://victor-educ.github.io/apuntes-5166/ut/ut7-monitorizacion/), que este curso llega en abril, y la VPC dev con su firewall no existe hasta diciembre; por eso en octubre trabajamos sobre un entorno provisional (lo detalla el aviso de más abajo): en la sesión 1 levantamos una pila mínima con el compose que os doy en clase y la cambiáis por la definitiva cuando llegue. Aquí no desplegamos nada nuevo del servicio: lo que hacemos es sacar de él todo lo que cuenta sobre su estado (métricas de recursos, métricas de aplicación, logs y eventos), llevarlo a mon01 y demostrar con pruebas que llega entero, a tiempo y se guarda. Ese "demostrar" es la mitad de la unidad y el criterio de evaluación lo dice explícitamente: integrar y verificar comunicación, integridad y almacenamiento. Sin datos fiables, la UT2 (umbrales y alarmas) no tiene sobre qué trabajar.
+Esta es la primera unidad del módulo y se apoya en lo que se construye en la asignatura de despliegue: el servicio del curso (proxy nginx en web01, API con Docker Compose en app01 y PostgreSQL en db01) y una VM mon01 (10.10.0.20) con una pila de Prometheus y Grafana (la base de datos de métricas y el visor de gráficas). La pila definitiva se monta en [5166 UT7](https://victor-educ.github.io/apuntes-5166/ut/ut7-monitorizacion/), que llega en abril, y la VPC dev con su firewall no existe hasta diciembre, así que en octubre trabajamos sobre un entorno provisional: en la sesión 1 levantamos una pila mínima con el compose que os doy en clase y la cambiáis por la definitiva cuando llegue. Aquí no desplegamos nada nuevo del servicio: lo que hacemos es sacar de él todo lo que cuenta sobre su estado (métricas de recursos, métricas de aplicación, logs y eventos), llevarlo a mon01 y demostrar con pruebas que llega entero, a tiempo y se guarda. Ese "demostrar" es la mitad de la unidad y el criterio de evaluación lo dice explícitamente: integrar y verificar comunicación, integridad y almacenamiento. Sin datos fiables, la UT2 (umbrales y alarmas) no tiene sobre qué trabajar.
 
 Al servicio desplegado en app01 lo llamaremos durante todo el módulo el **contenedor de referencia**. Se mantiene vivo hasta la UT8, donde se da de baja de forma controlada.
 
@@ -18,32 +18,32 @@ Al servicio desplegado en app01 lo llamaremos durante todo el módulo el **conte
 
 ## Antes de entrar en detalle
 
-Un jueves a las tres de la tarde la API del servicio del curso empieza a devolver errores 500. Nadie se entera hasta el viernes, cuando un compañero intenta usarla y avisa por el grupo. Entras en app01, haces `docker logs` y el fichero pesa 4 GB y no hay quien lo lea; miras `docker stats` y la CPU va bien, así que no sabes si fue la base de datos, la memoria o un despliegue a medias. Lo que pasó se ha perdido y solo puedes reiniciar y cruzar los dedos. Esta unidad existe para que esa escena no se repita: al terminarla, todo lo que el contenedor cuenta de sí mismo (cuánto consume, cuántas peticiones atiende y cuánto tardan, qué escribe en sus logs y cuándo arranca, muere o se reinicia) llega a una máquina aparte, mon01, se guarda ahí varios días y puedes demostrar con comandos que llega completo y a tiempo. En una frase: que el servicio se pueda vigilar desde fuera sin entrar en la máquina.
+Un jueves a las tres de la tarde la API del curso empieza a devolver errores 500 y nadie se entera hasta el viernes. Entras en app01: el fichero de logs pesa 4 GB, la CPU va bien y no sabes si fue la base de datos, la memoria o un despliegue a medias. Esta unidad existe para que esa escena no se repita: todo lo que el contenedor cuenta de sí mismo (cuánto consume, cuántas peticiones atiende y cuánto tardan, qué escribe en sus logs y cuándo arranca o muere) llega a otra máquina, mon01, se guarda varios días y puedes demostrar con comandos que llega completo y a tiempo. En una frase: que el servicio se pueda vigilar desde fuera sin entrar en la máquina.
 
 | Herramienta o concepto | Qué es, en una frase | Para qué la usamos en esta unidad |
 |---|---|---|
-| cgroups v2 | La contabilidad del kernel de Linux: unos ficheros en `/sys/fs/cgroup` donde apunta cuánta CPU, memoria y disco gasta cada grupo de procesos | Leer a mano el consumo real de un contenedor antes de fiarte de una gráfica |
-| cAdvisor | Un contenedor de Google que lee esos ficheros para todos los contenedores del host y los publica en una página de texto | Sacar las métricas de recursos de app01 sin escribir código |
-| Prometheus y PromQL | Una base de datos de series numéricas que cada 15 s va a buscar los datos a cada máquina; PromQL es su lenguaje de consulta | Guardar todas las métricas en mon01 y hacer las consultas de comprobación |
-| prometheus_client y prom-client | Las librerías oficiales de Prometheus para Python y Node: unas pocas líneas que cuentan peticiones y miden tiempos dentro de la API | Instrumentar la API para saber si funciona, no solo cuánto consume |
-| Exporters (postgres_exporter, nginx-prometheus-exporter) | Programas auxiliares que preguntan a PostgreSQL o a nginx por su interfaz nativa y traducen la respuesta al formato de Prometheus | Vigilar lo que no podemos modificar por dentro |
-| Driver de logs json-file | El mecanismo con que Docker recoge lo que el contenedor escribe por pantalla y lo guarda en un fichero por contenedor | Limitar el tamaño de esos ficheros y dejarlos listos para que un agente los lea |
-| Promtail | Un agente de Grafana Labs que lee los logs de los contenedores, les pone etiquetas (host, contenedor, servicio) y los envía por HTTP a Loki | Sacar los logs de app01 hacia mon01, con reintentos si la red falla |
-| Loki, LogQL y logcli | La base de datos de logs de Grafana Labs, que guarda el texto comprimido e indexa solo unas pocas etiquetas; LogQL es su lenguaje de consulta y logcli su cliente de terminal | Guardar y buscar los logs en mon01 |
-| Grafana | El visor: una web que dibuja gráficas a partir de Prometheus y de Loki | Ver métricas y logs del mismo instante en la misma pantalla |
-| docker events | El flujo de avisos del demonio Docker: un contenedor ha arrancado, ha muerto, se ha quedado sin memoria | Recoger esos avisos en Loki con un contenedor auxiliar, sin programar nada |
-| remote_write | El modo en que un Prometheus pequeño envía sus muestras a otro central, con cola en disco por si la red se corta | Comparar en la sesión 6 qué se pierde con scrape y qué con remote_write |
-| chrony y nftables | chrony mantiene en hora la VM por NTP; nftables es el cortafuegos del kernel de Linux | Sincronizar relojes para que Loki no rechace líneas, y cortar la red a propósito para ver qué aguanta la cadena |
+| cgroups v2 | La contabilidad del kernel de Linux: ficheros en `/sys/fs/cgroup` con lo que gasta cada grupo de procesos | Leer a mano el consumo real de un contenedor |
+| cAdvisor | Un contenedor de Google que lee esos ficheros de todos los contenedores y los publica como texto | Sacar las métricas de recursos de app01 sin escribir código |
+| Prometheus y PromQL | Una base de datos de series numéricas que cada 15 s va a buscar los datos a cada máquina; PromQL es su lenguaje de consulta | Guardar las métricas en mon01 y consultarlas |
+| prometheus_client y prom-client | Las librerías de Prometheus para Python y Node: unas líneas que cuentan peticiones y miden tiempos dentro de la API | Saber si la API funciona, no solo cuánto consume |
+| Exporters (postgres_exporter, nginx-prometheus-exporter) | Programas auxiliares que preguntan a PostgreSQL o a nginx y traducen la respuesta al formato de Prometheus | Vigilar lo que no podemos modificar por dentro |
+| Driver de logs json-file | El mecanismo con que Docker guarda en un fichero por contenedor lo que este escribe por pantalla | Limitar esos ficheros y dejarlos listos para un agente |
+| Promtail | Un agente de Grafana Labs que lee los logs de los contenedores, les pone etiquetas y los envía por HTTP a Loki | Llevar los logs de app01 a mon01 |
+| Loki, LogQL y logcli | La base de datos de logs de Grafana Labs, que indexa solo unas pocas etiquetas; LogQL es su lenguaje de consulta y logcli su cliente de terminal | Guardar y buscar los logs en mon01 |
+| Grafana | La web que dibuja gráficas a partir de Prometheus y de Loki | Ver métricas y logs del mismo instante en la misma pantalla |
+| docker events | Los avisos del demonio Docker: un contenedor ha arrancado, ha muerto, se ha quedado sin memoria | Recogerlos en Loki con un contenedor auxiliar |
+| remote_write | Un Prometheus pequeño que envía sus muestras a otro central, con cola en disco por si la red se corta | Comparar en la sesión 6 qué se pierde con scrape y qué con remote_write |
+| chrony y nftables | chrony mantiene en hora la VM por NTP; nftables es el cortafuegos del kernel de Linux | Sincronizar relojes y cortar la red a propósito para ver qué aguanta |
 
-**Cómo está organizada la unidad.** Empezamos por "Qué expone un contenedor", el mapa de los cuatro flujos (métricas de recursos, métricas de aplicación, logs y eventos) y de las flechas entre app01 y mon01; sin ese mapa el resto son piezas sueltas. Después van los cuatro flujos en orden de dificultad: primero las métricas de recursos, porque ya existen y solo hay que leerlas; luego las de aplicación, porque hay que tocar código; después los logs, que traen su propio agente y su propia base de datos; y por último los eventos, que reutilizan el camino de los logs. Sigue el apartado de scrape y remote_write, que explica cómo viajan las métricas y por qué eso importa cuando la red falla. Cierra la verificación, que necesita todas las piezas montadas y es lo que más pesa en la práctica.
+**Cómo está organizada la unidad.** Empezamos por "Qué expone un contenedor", el mapa de los cuatro flujos entre app01 y mon01; sin ese mapa el resto son piezas sueltas. Después van los flujos en orden de dificultad: métricas de recursos, porque ya existen y solo hay que leerlas; métricas de aplicación, porque hay que tocar código; logs, con su propio agente y base de datos; y eventos, que reutilizan el camino de los logs. Sigue scrape y remote_write, que explica cómo viajan las métricas y qué pasa cuando la red falla. Cierra la verificación, que necesita todas las piezas montadas.
 
 !!! info "Lo que necesitas de la otra asignatura"
-    Esta unidad se hace sobre un entorno provisional, porque la VPC y el firewall de [5166 UT2 y UT3](https://victor-educ.github.io/apuntes-5166/ut/ut2-vpc/) no existen hasta noviembre y diciembre, y la pila de monitorización de [5166 UT7](https://victor-educ.github.io/apuntes-5166/ut/ut7-monitorizacion/) no llega hasta abril. Lo que tienes que traer de 5166 son las dos VM creadas en la [sesión 3 de 5166 UT1 desde la plantilla cloud-init](https://victor-educ.github.io/apuntes-5166/ut/ut1-virtualizacion/), en el bridge del aula (vmbr0): `app01` con el servicio del curso en compose y `mon01` con Prometheus, Alertmanager y Grafana levantados con el compose que os doy en la sesión 1. Loki lo añadimos aquí.
-    Las IP 10.10.x.x de los ejemplos son las de la VPC dev; en el entorno provisional sustituidlas por las que tengan vuestras VM en vmbr0, y las reglas de OPNsense no aplican todavía. Cuando 5166 termine la UT3 (9 dic), las VM se mueven a la VPC dev detrás del firewall: eso se hace en la UT3 de este módulo, que coincide en fechas.
+    Esta unidad se hace sobre un entorno provisional: la VPC y el firewall de [5166 UT2 y UT3](https://victor-educ.github.io/apuntes-5166/ut/ut2-vpc/) no existen hasta noviembre y diciembre, y la pila de monitorización de [5166 UT7](https://victor-educ.github.io/apuntes-5166/ut/ut7-monitorizacion/) no llega hasta abril. Lo que traes de 5166 son las dos VM creadas en la [sesión 3 de 5166 UT1 desde la plantilla cloud-init](https://victor-educ.github.io/apuntes-5166/ut/ut1-virtualizacion/), en el bridge del aula (vmbr0): `app01` con el servicio del curso en compose y `mon01` con Prometheus, Alertmanager y Grafana levantados con el compose que os doy en la sesión 1. Loki lo añadimos aquí.
+    Las IP 10.10.x.x de los ejemplos son las de la VPC dev: en el entorno provisional usad las de vuestras VM en vmbr0, y las reglas de OPNsense no aplican todavía. Cuando 5166 termine la UT3 (2 dic), las VM pasan a la VPC dev detrás del firewall; se hace en la UT3 de este módulo.
 
 ## Qué expone un contenedor
 
-No montamos nada todavía: el objetivo es que tengas el mapa completo antes de tocar configuración. Vamos a ver cuáles son las cuatro cosas que un contenedor cuenta de sí mismo, quién produce cada una, cómo se mira en la propia máquina con un comando y a qué sistema de mon01 acaba llegando. Las herramientas de la tabla son las de la tabla de arriba; aquí lo que importa es el recorrido de cada flujo.
+Aquí no montamos nada todavía: primero el mapa completo. Vamos a ver qué cuatro cosas cuenta un contenedor de sí mismo, quién produce cada una, cómo se mira en la propia máquina y a qué sistema de mon01 llega.
 
 Un contenedor en ejecución no es más que un proceso (o varios) con namespaces y cgroups (los dos mecanismos del kernel que lo aíslan del resto y le contabilizan el consumo). Todo lo que queremos saber de él sale por uno de estos cuatro caminos:
 
@@ -90,7 +90,7 @@ Fijaos en la dirección de las flechas: las métricas las **tira** Prometheus (p
 
 ## Métricas de recursos: cgroups v2 y cAdvisor
 
-Aquí sacamos el primer flujo, el más sencillo porque ya existe sin que hagamos nada: el kernel lleva la cuenta de lo que consume cada contenedor y solo hay que leerla. Primero la leemos a mano para saber qué significa cada número, después la publicamos con cAdvisor para que Prometheus la recoja, y al final hacemos las tres consultas en PromQL (el lenguaje de consulta de Prometheus) que van a estar en el panel de Grafana toda la unidad. Lo que más problemas da no es el consumo en sí, sino qué etiqueta identifica a cada contenedor y cuántas series generamos.
+Aquí sacamos el primer flujo, el más sencillo porque ya existe: el kernel lleva la cuenta de lo que consume cada contenedor y solo hay que leerla. Primero la leemos a mano para saber qué significa cada número, después la publicamos con cAdvisor para que Prometheus la recoja, y al final hacemos las consultas en PromQL (el lenguaje de consulta de Prometheus) que irán al panel de Grafana. Lo que más problemas da es qué etiqueta identifica a cada contenedor y cuántas series generamos.
 
 ### De dónde salen los números
 
@@ -111,7 +111,7 @@ cat /sys/fs/cgroup/system.slice/docker-$ID.scope/cpu.stat
 grep -E '^(anon|file|inactive_file|active_file) ' /sys/fs/cgroup/system.slice/docker-$ID.scope/memory.stat
 ```
 
-Con cgroups v1 (lo que os encontraréis todavía en hosts viejos y en alguna documentación) la jerarquía estaba partida por controlador (`/sys/fs/cgroup/memory/docker/<id>/memory.usage_in_bytes`, `/sys/fs/cgroup/cpu/...`). En v2 hay un único árbol y los ficheros se llaman distinto. Merece la pena saber leerlos a mano porque cuando cAdvisor da un número raro, esto es la fuente de verdad.
+Con cgroups v1 (lo que os encontraréis todavía en hosts viejos y en alguna documentación) la jerarquía estaba partida por controlador (`/sys/fs/cgroup/memory/docker/<id>/memory.usage_in_bytes`, `/sys/fs/cgroup/cpu/...`). En v2 hay un único árbol y los ficheros se llaman distinto. Cuando cAdvisor da un número raro, esto es la fuente de verdad.
 
 `docker stats` lee exactamente estos ficheros cada segundo y los formatea. cAdvisor hace lo mismo pero para todos los contenedores a la vez, guarda un histórico corto en memoria y lo expone en `/metrics` en formato Prometheus. No hay magia: las métricas `container_*` son estos ficheros con etiquetas.
 
@@ -159,7 +159,7 @@ services:
     restart: unless-stopped
 ```
 
-Cosas a saber de este fichero. `privileged` y `/dev/kmsg` hacen falta para que lea eventos OOM del kernel; sin ellos funciona pero `container_oom_events_total` nunca sube. `--docker_only` quita del listado los cgroups de systemd que no son contenedores (servicios del host), que no aportan nada y multiplican las series. `--housekeeping_interval=10s` baja el consumo de CPU del propio cAdvisor (por defecto muestrea cada segundo, y cAdvisor comiéndose el 5 % de la CPU de app01 es un clásico). El puerto: cAdvisor escucha en 8080 dentro del contenedor, pero en app01 ese puerto ya lo ocupa la API que consume web01, así que lo publicamos en 8081 (la tabla de puertos del laboratorio dice 8080 para cAdvisor; en app01 no puede ser).
+Cosas a saber de este fichero. `privileged` y `/dev/kmsg` hacen falta para que lea eventos OOM del kernel; sin ellos funciona pero `container_oom_events_total` nunca sube. `--docker_only` quita del listado los cgroups de systemd que no son contenedores (servicios del host), que no aportan nada y multiplican las series. `--housekeeping_interval=10s` baja el consumo de CPU del propio cAdvisor (por defecto muestrea cada segundo, y cAdvisor comiéndose el 5 % de la CPU de app01 es un clásico). El puerto: cAdvisor escucha en 8080 dentro del contenedor, pero en app01 ese puerto ya lo ocupa la API que consume web01, así que lo publicamos en 8081.
 
 ### Etiquetas y cardinalidad
 
@@ -258,7 +258,7 @@ Si la API corre con gunicorn (el servidor que ejecuta la aplicación Python en p
 
 ### Node con prom-client
 
-Si la API es Node con Express, la librería oficial es prom-client y el patrón es el mismo: un contador y un histograma por petición y un servidor aparte en 9102. Fíjate en que aquí el endpoint `/metrics` se sirve a mano y en que `collectDefaultMetrics` da métricas del proceso sin registrar nada:
+Si la API es Node con Express, la librería es prom-client y el patrón es el mismo, con el servidor aparte en 9102. Fíjate en que aquí el endpoint `/metrics` se sirve a mano:
 
 ```javascript
 // metrics.js
@@ -301,7 +301,7 @@ metricsApp.listen(9102);
 module.exports = { instrument };
 ```
 
-Con esto, `curl localhost:9102/metrics` devuelve las mismas series que en la versión Python más las `app_nodejs_*` del proceso. `collectDefaultMetrics` es gratis y muy útil: `app_nodejs_eventloop_lag_seconds` es el primer síntoma de una API Node saturada, mucho antes que la CPU.
+`curl localhost:9102/metrics` devuelve las mismas series que en Python más las `app_nodejs_*` del proceso. `collectDefaultMetrics` es gratis y muy útil: `app_nodejs_eventloop_lag_seconds` es el primer síntoma de una API Node saturada, mucho antes que la CPU.
 
 ### Nombres y etiquetas: convenciones
 
@@ -343,7 +343,7 @@ GRANT CONNECT ON DATABASE servicio TO postgres_exporter;
     depends_on: [db]
 ```
 
-Las métricas que os importan: `pg_up` (1 si consigue conectar; es la primera alarma de UT2), `pg_stat_database_numbackends` (conexiones abiertas, comparadlas con `max_connections`), `pg_stat_database_xact_commit` y `xact_rollback` (con `rate()`), `pg_stat_database_blks_hit` frente a `blks_read` (acierto de caché), `pg_locks_count`, `pg_database_size_bytes`. Si necesitáis algo propio (filas de una tabla de pedidos, edad del pedido más antiguo sin procesar), el exporter admite consultas personalizadas en un fichero YAML pasado con `--extend.query-path`. Ese mecanismo está marcado como obsoleto en las versiones actuales aunque sigue funcionando; si desaparece, la alternativa mantenida es [sql_exporter](https://github.com/burningalchemist/sql_exporter), que hace exactamente eso y para cualquier base de datos.
+Las métricas que os importan: `pg_up` (1 si consigue conectar; es la primera alarma de UT2), `pg_stat_database_numbackends` (conexiones abiertas, comparadlas con `max_connections`), `pg_stat_database_xact_commit` y `xact_rollback` (con `rate()`), `pg_stat_database_blks_hit` frente a `blks_read` (acierto de caché), `pg_locks_count`, `pg_database_size_bytes`. Si necesitáis algo propio (filas de una tabla de pedidos, edad del pedido más antiguo sin procesar), el exporter admite consultas personalizadas en un fichero YAML pasado con `--extend.query-path`. Ese mecanismo está marcado como obsoleto en las versiones actuales aunque sigue funcionando; si desaparece, la alternativa mantenida es [sql_exporter](https://github.com/burningalchemist/sql_exporter), que hace lo mismo para cualquier base de datos.
 
 ```yaml
 # queries.yaml
@@ -374,11 +374,11 @@ docker run -d --name nginx-exporter --network host \
   --nginx.scrape-uri=http://127.0.0.1:8081/stub_status
 ```
 
-Lo que da `stub_status` es poco: `nginx_connections_active`, `nginx_connections_waiting`, `nginx_http_requests_total` y `nginx_up`. No hay códigos de respuesta ni latencias por ruta; para eso, en nginx de código abierto, la vía es el log de acceso en JSON parseado en Loki (lo hacemos en la sección de logs) o el módulo VTS de terceros. Es una limitación real que os encontraréis en empresa: nginx Plus sí expone todo eso por API, la versión libre no.
+Lo que da `stub_status` es poco: `nginx_connections_active`, `nginx_connections_waiting`, `nginx_http_requests_total` y `nginx_up`. No hay códigos de respuesta ni latencias por ruta; para eso, en nginx de código abierto, la vía es el log de acceso en JSON parseado en Loki (lo hacemos en la sección de logs) o el módulo VTS de terceros. nginx Plus sí expone todo eso por API; la versión libre no.
 
 ## Logs
 
-El tercer flujo es texto, no números, y por eso tiene su propio camino: Docker lo recoge, Promtail lo etiqueta y lo envía, y Loki lo guarda. Hacemos cuatro cosas en orden: limitar el tamaño de los ficheros de log para que no llenen el disco, conseguir que la API escriba una línea JSON por evento con un identificador de petición, configurar Promtail para que lea esas líneas y las envíe, y montar Loki en mon01 para recibirlas y consultarlas. Al terminar tienes que poder seguir una petición desde nginx hasta la API por su identificador.
+El tercer flujo es texto, no números, y por eso tiene su propio camino: Docker lo recoge, Promtail lo etiqueta y lo envía, y Loki lo guarda. Hacemos cuatro cosas en orden: limitar el tamaño de los ficheros de log, conseguir que la API escriba una línea JSON por evento con un identificador de petición, configurar Promtail para que las lea y las envíe, y montar Loki en mon01 para guardarlas y consultarlas. Al terminar podrás seguir una petición desde nginx hasta la API por su identificador.
 
 ### El driver de logs de Docker y por qué limitarlo
 
@@ -403,7 +403,7 @@ Otros drivers que vais a ver:
 | `loki` | Plugin de Docker que empuja directamente a Loki sin agente intermedio | Tentador, pero si Loki no responde el plugin bloquea el demonio o pierde líneas según configuración; y si el plugin falla, `docker` entero se resiente. Prefiero el agente |
 | `none` | Descarta todo | Contenedores muy ruidosos cuya salida no importa |
 
-Desde Docker 20.10 existe el **dual logging**: aunque uses `journald` o `loki`, Docker guarda una copia local para que `docker logs` siga funcionando. Está bien saberlo para no llevarse sustos, pero no cambia la recomendación: `json-file` con límites y un agente que lea los ficheros. El agente añade contexto (host, contenedor, servicio), transforma, reintenta y no toca el demonio.
+Desde Docker 20.10 existe el **dual logging**: aunque uses `journald` o `loki`, Docker guarda una copia local para que `docker logs` siga funcionando. No cambia la recomendación: `json-file` con límites y un agente que lea los ficheros, añada contexto, reintente y no toque el demonio.
 
 ### Logs estructurados: JSON con request_id
 
@@ -460,7 +460,7 @@ Tres normas para que esto funcione después en Loki: una línea por evento (nada
 
 ### Promtail
 
-![Loki](../img/loki-logo.png){ .logo-inline } Promtail es el agente de Grafana Labs para enviar logs a Loki. Tiene una advertencia que hay que hacer en 2026: Grafana lo ha declarado **al final de su vida** (sin cambios desde febrero de 2025, fin de soporte en marzo de 2026) en favor de [Grafana Alloy](https://grafana.com/docs/alloy/latest/), que hace lo mismo y además métricas y trazas con una configuración en su propio lenguaje. Lo usamos igualmente porque su configuración es YAML corto, se entiende en una sesión y todos los conceptos (descubrimiento, relabel, pipeline, posiciones, reintentos) se trasladan uno a uno a Alloy; en empresa os encontraréis las dos cosas y muchos Promtail que nadie ha migrado. Para pasar de uno a otro existe `alloy convert --source-format=promtail`.
+![Loki](../img/loki-logo.png){ .logo-inline } Promtail es el agente de Grafana Labs para enviar logs a Loki. Tiene una advertencia que hay que hacer en 2026: Grafana lo ha declarado **al final de su vida** (sin cambios desde febrero de 2025, fin de soporte en marzo de 2026) en favor de [Grafana Alloy](https://grafana.com/docs/alloy/latest/), que hace lo mismo y además métricas y trazas con una configuración en su propio lenguaje. Lo usamos igualmente porque su configuración es YAML corto, se entiende en una sesión y todos los conceptos (descubrimiento, relabel, pipeline, posiciones, reintentos) se trasladan uno a uno a Alloy; en empresa os encontraréis las dos cosas. Para pasar de uno a otro existe `alloy convert --source-format=promtail`.
 
 Promtail hace cuatro cosas en orden: **descubre** de dónde leer, **etiqueta** cada origen con relabel (reglas que copian, renombran o descartan etiquetas), **procesa** cada línea con un pipeline y **envía** lotes a Loki por HTTP, guardando en un fichero de posiciones hasta dónde ha leído.
 
@@ -577,7 +577,7 @@ sequenceDiagram
 
 Loki es "Prometheus para logs": mismo modelo de etiquetas, misma filosofía de indexar poco. Solo indexa las etiquetas del stream y el rango de tiempo; el texto se guarda comprimido en **chunks** y se busca por fuerza bruta dentro de los chunks que las etiquetas seleccionan. Por eso es barato y por eso las consultas sin etiquetas (`{host=~".+"} |= "error"` en 7 días) son lentas: hay que descomprimir todo.
 
-Internamente tiene varios componentes (distributor recibe los push, ingester los acumula en memoria y los escribe como chunks, querier responde consultas, compactor aplica retención, y el índice TSDB, el mismo formato que usa Prometheus). En producción se reparten en varios procesos; para el laboratorio y para muchas empresas pequeñas se ejecuta todo en un binario (`-target=all`, el modo "monolítico") con almacenamiento en disco local. Del fichero, fíjate en `limits_config` (cuánto acepta y cuánto tiempo guarda) y en `compactor` (quién borra lo viejo); el resto es la parte fija del modo monolítico:
+Internamente tiene varios componentes (distributor recibe los push, ingester los acumula en memoria y los escribe como chunks, querier responde consultas, compactor aplica retención, y el índice TSDB, el mismo formato que usa Prometheus). En producción se reparten en varios procesos; para el laboratorio y para muchas empresas pequeñas se ejecuta todo en un binario (`-target=all`, el modo "monolítico") con almacenamiento en disco local. Fíjate en `limits_config` (cuánto acepta y cuánto guarda) y en `compactor` (quién borra lo viejo); el resto es fijo:
 
 ```yaml
 # /opt/monitoring/loki/loki.yml en mon01
@@ -653,7 +653,7 @@ En Grafana, añadís Loki como fuente de datos (`http://loki:3100` si está en e
 
 ## Eventos del demonio Docker
 
-El cuarto flujo es el más corto y el que menos gente recoge, y es una pena, porque es el que dice por qué se ha caído un contenedor: si lo mató el kernel por memoria, si terminó con error o si alguien lo paró. Lo recogemos reutilizando el camino de los logs, con un contenedor auxiliar y sin escribir código.
+El cuarto flujo es el más corto y el que dice por qué se ha caído un contenedor: si lo mató el kernel por memoria, si terminó con error o si alguien lo paró. Lo recogemos reutilizando el camino de los logs, con un contenedor auxiliar y sin escribir código.
 
 El demonio emite un evento cada vez que cambia el estado de un contenedor, imagen, volumen o red. Para el mantenimiento los que importan son los de contenedor:
 
@@ -689,7 +689,7 @@ Dos avisos. El contenedor auxiliar solo captura eventos mientras está en marcha
 
 ## Enviar las métricas a un sistema remoto: scrape y remote_write
 
-Hasta aquí hemos dado por hecho que las métricas llegan a mon01. Este apartado explica cómo viajan, porque hay dos formas de hacerlo con comportamientos distintos cuando la red falla: en la primera, Prometheus va a buscarlas; en la segunda, se las envían. Tienes que entender las dos para interpretar la prueba de corte de red de la sesión 6.
+Hasta aquí hemos dado por hecho que las métricas llegan a mon01. Este apartado explica cómo viajan, porque hay dos formas con comportamientos distintos cuando la red falla: en la primera Prometheus va a buscarlas, en la segunda se las envían. Las dos aparecen en la prueba de corte de red de la sesión 6.
 
 <figure markdown="span">
   ![Arquitectura de Prometheus](../img/prometheus-arquitectura.svg){ width="640" }
@@ -741,7 +741,7 @@ scrape_configs:
       - targets: ["loki:3100"]
 ```
 
-Todos los targets están en subredes distintas de la de gestión, así que en OPNsense tienen que existir reglas que permitan desde 10.10.0.20 hacia esos puertos. Esto aplica cuando las VM estén en la VPC; en el entorno provisional del bridge del aula no hay firewall entre ellas y este paso todavía no toca. Si un target sale `context deadline exceeded` en lugar de `connection refused`, casi seguro es el firewall (los paquetes se descartan sin respuesta); `connection refused` es que el puerto no está escuchando en la máquina.
+Todos los targets están en subredes distintas de la de gestión, así que en OPNsense tienen que existir reglas que permitan desde 10.10.0.20 hacia esos puertos. En el entorno provisional del bridge del aula no hay firewall entre las VM y este paso todavía no toca. Si un target sale `context deadline exceeded` en lugar de `connection refused`, casi seguro es el firewall (los paquetes se descartan sin respuesta); `connection refused` es que el puerto no está escuchando en la máquina.
 
 **remote_write** es la alternativa cuando el scrape no puede hacerse: el target está detrás de NAT (una red privada cuyas direcciones mon01 no puede alcanzar directamente), en una red que mon01 no alcanza, o queréis tolerancia a cortes. Se despliega un Prometheus pequeño junto al servicio (en app01, con retención de horas) que hace el scrape en local y **empuja** las muestras al central. Ese Prometheus local guarda un WAL (write-ahead log) en disco y una cola en memoria: si el central no responde, reintenta con backoff y, al volver, envía lo acumulado desde el WAL. Con dos horas de WAL aguanta cortes largos sin perder nada.
 
@@ -768,7 +768,7 @@ remote_write:
 
 El Prometheus central tiene que arrancar con `--web.enable-remote-write-receiver` para aceptar escrituras en `/api/v1/write`. En Prometheus 3 el protocolo de remote write tiene versión 2.0 (más compacto, con metadatos); por defecto se sigue usando la 1.0 y no hace falta tocar nada. Las métricas del emisor que dicen si va bien: `prometheus_remote_storage_samples_pending` (cola), `prometheus_remote_storage_samples_retried_total`, `prometheus_remote_storage_samples_failed_total` (perdidas de verdad) y `prometheus_remote_storage_highest_timestamp_in_seconds` frente a `prometheus_remote_storage_queue_highest_sent_timestamp_seconds` (retraso en segundos).
 
-En el laboratorio la práctica se hace con scrape directo, que es lo que tiene cualquier empresa con una red plana; el remote_write lo montamos en la sesión 6 en paralelo para comparar el comportamiento ante el corte. Es el mismo mecanismo que usan los servicios gestionados (Grafana Cloud, Amazon Managed Prometheus, Thanos Receive): un Prometheus local que escribe hacia fuera.
+En el laboratorio la práctica se hace con scrape directo, que es lo que tiene cualquier empresa con una red plana; el remote_write lo montamos en la sesión 6 en paralelo para comparar el comportamiento ante el corte. Es el mismo mecanismo que usan los servicios gestionados (Grafana Cloud, Amazon Managed Prometheus, Thanos Receive).
 
 ## Verificar la integración
 

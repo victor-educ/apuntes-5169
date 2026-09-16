@@ -1,6 +1,6 @@
 # Mantenimiento del sistema de contenedores
 
-<p class="ut-meta">Apuntes de la asignatura · Curso de especialización · 110 h (82 en el centro, 28 en empresa) · Curso 2026-27</p>
+<p class="ut-meta">Apuntes de la asignatura · Curso de especialización · 112 h (84 en el centro, 28 en empresa) · Curso 2026-27</p>
 
 Aquí están los apuntes de toda la asignatura, unidad por unidad, con las actividades de cada sesión y las prácticas evaluables. Es el mismo material que se trabaja en clase, ampliado con lo que no cabe en dos horas y con enlaces a la documentación oficial.
 
@@ -95,7 +95,7 @@ flowchart LR
 | [UT4](ut/ut4-kpi-pruebas.md) | Indicadores, KPI y pruebas del servicio | 18 | Centro | RA2 a–f |
 | [UT5](ut/ut5-logs-accesos-rendimiento.md) | Explotación de logs, accesos y rendimiento | 14 | Empresa | RA3 a–d |
 | [UT6](ut/ut6-copias-seguridad.md) | Copias de seguridad y restauración | 14 | Empresa | RA4 a, b, c |
-| [UT7](ut/ut7-actualizacion-vulnerabilidades.md) | Actualización y gestión de vulnerabilidades | 16 | Centro | RA4 d–i |
+| [UT7](ut/ut7-actualizacion-vulnerabilidades.md) | Actualización y gestión de vulnerabilidades | 14 | Centro | RA4 d–i |
 | [UT8](ut/ut8-terminacion-segura.md) | Terminación segura del contenedor | 10 | Centro | RA5 a–d |
 
 Las unidades del centro van seguidas de octubre a marzo. Las tres sesiones de abril anteriores a la formación en empresa quedan para recuperación de entregas y repaso.

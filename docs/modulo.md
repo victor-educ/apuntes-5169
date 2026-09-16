@@ -1,6 +1,6 @@
 # Presentación y evaluación
 
-<p class="ut-meta">Módulo 5169 · Mantenimiento del sistema de contenedores desplegado · 110 h · Clases martes y jueves, 2 h por sesión</p>
+<p class="ut-meta">Módulo 5169 · Mantenimiento del sistema de contenedores desplegado · 112 h · Clases martes y jueves, 2 h por sesión</p>
 
 ## De qué va la asignatura
 
@@ -72,12 +72,12 @@ Cinco resultados de aprendizaje. Los resumo con mis palabras y digo en qué unid
 | Evaluación | Qué entra | Peso |
 |------------|-----------|-----:|
 | Prácticas evaluables UT1, UT2, UT3, UT4 | Informes, repositorios y el dossier de operación | 40 % de la 1ª evaluación |
-| Examen 1ª evaluación | UT1 a UT4, prueba práctica en el laboratorio | 60 % de la 1ª evaluación |
+| Examen 1ª evaluación (28 ene 2027) | UT1 a UT4, prueba práctica en el laboratorio | 60 % de la 1ª evaluación |
 | Prácticas evaluables UT7, UT8 | Informe de vulnerabilidades y actualización; acta de baja | 40 % de la 2ª evaluación |
-| Examen 2ª evaluación | UT7 y UT8, prueba práctica en el laboratorio | 60 % de la 2ª evaluación |
+| Examen 2ª evaluación (23 mar 2027) | UT7 y UT8, prueba práctica en el laboratorio | 60 % de la 2ª evaluación |
 | Formación en empresa | UT5 y UT6 con ficha de evidencias firmada por el tutor | Según el plan de FE del centro |
 
-Los exámenes se hacen en las sesiones de recuperación de abril, antes de la formación en empresa; la fecha exacta se fija en clase con al menos dos semanas de antelación. Cada práctica evaluable lleva su tabla de criterios y pesos al final de la unidad. Una entrega fuera de plazo sin causa justificada se corrige sobre el 50 %.
+Los exámenes son las sesiones 29 (28 de enero de 2027) y 42 (23 de marzo de 2027), integradas en el calendario de cada evaluación. Cada práctica evaluable lleva su tabla de criterios y pesos al final de la unidad. Una entrega fuera de plazo sin causa justificada se corrige sobre el 50 %.
 
 !!! warning "Lo que no se admite"
     Informes sin evidencias (capturas o salidas de comandos con fecha), repositorios con secretos en el historial, datos reales de la empresa sin anonimizar en las fichas de evidencias, y "copias de seguridad" que nunca se han restaurado. En todos los casos la práctica vuelve al alumno sin nota hasta que lo corrija.

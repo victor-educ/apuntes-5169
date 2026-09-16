@@ -1,6 +1,6 @@
 # UT5 · Explotación de logs, accesos y rendimiento
 
-<p class="ut-meta">Módulo 5169 · 14 h · Formación en empresa (19 abr a 9 jun 2027) · RA3 CE a, b, c, d</p>
+<p class="ut-meta">Módulo 5169 · 14 h · Formación en empresa (29 mar a 9 jun 2027) · RA3 CE a, b, c, d</p>
 
 Hasta aquí todo lo habéis hecho sobre el laboratorio: la pila de observabilidad de mon01 (UT1), las alarmas (UT2), la monitorización de seguridad (UT3) y los KPI y las pruebas de carga (UT4). Esta unidad y la siguiente (UT6, copias de seguridad) se cursan en la empresa, entre el 19 de abril y el 9 de junio de 2027, sobre un sistema real que os asigne el tutor. No hay sesiones numeradas ni laboratorio compartido: hay cuatro actividades (A5.1 a A5.4), una actividad de cierre y una ficha de evidencias que firma el tutor de empresa. Este documento es la guía de referencia para hacer ese trabajo con criterio, y al mismo tiempo la lista de lo que tenéis que traer de vuelta. Cuando volváis, la UT7 (actualización y vulnerabilidades) y la UT8 (terminación segura) cierran el módulo.
 
@@ -40,7 +40,7 @@ Cómo está organizada la unidad: primero cómo trabajar en la empresa, porque m
     donde aquí revisáis logs, accesos y rendimiento, así que acordad con el tutor un único sistema para las dos
     asignaturas y reutilizad las evidencias que sirvan para ambas (una captura de Grafana anonimizada vale en las dos).
     De 5166 os hacen falta además dos cosas anteriores: el firewall nftables de la UT3, para entender dónde mete
-    fail2ban su tabla, y la pila de monitorización de la UT7 (abril), que es la versión definitiva del mon01 sobre
+    fail2ban su tabla, y la pila de monitorización de la UT7 (marzo), que es la versión definitiva del mon01 sobre
     el que se construyen los paneles de línea base.
 
 ## Cómo trabajar en la empresa

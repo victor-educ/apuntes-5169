@@ -37,10 +37,10 @@ Las herramientas de monitorización las conocéis de la UT1 y la UT2; las de pru
 Cómo está organizada la unidad. Primero decidimos qué medir (señales doradas, USE y RED), porque sin criterio se documentan 400 contadores y no sirve ninguno. Con ese filtro documentamos las métricas en fichas y las clasificamos. Sobre ellas construimos los indicadores con fórmula y umbrales, y de los indicadores salen las alarmas, que reciben su runbook en el catálogo. Ese es el bloque de monitorización. El segundo son las pruebas: los tipos, la herramienta de cada uno y cómo leer los resultados junto a Grafana; después, cómo documentarlas y meterlas en el pipeline. Cierra el seguimiento periódico, que mantiene vivo todo lo anterior, y los errores frecuentes.
 
 !!! info "Lo que necesitas de la otra asignatura"
-    Esta unidad va del 15 de diciembre al 2 de febrero, en paralelo con la UT5 de 5166 (infraestructura como código con OpenTofu y Ansible, del 11 de diciembre al 27 de enero): [https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/).
+    Esta unidad va del 3 de diciembre al 26 de enero, en paralelo con la UT5 de 5166 (infraestructura como código con OpenTofu y Ansible, del 4 de diciembre al 20 de enero): [https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/).
     El entorno `pre` contra el que se lanzan las pruebas de esta unidad (`pre.app.lab`) es el que crea ese repositorio IaC. Mientras no exista, lanzad las pruebas contra `app01` en la VPC dev, que está detrás del firewall desde la UT3.
-    A principios de febrero `pre` ya existe, y es el mismo que la UT7 actualiza y la UT8 destruye con `tofu destroy`.
-    El pipeline de Jenkins en el que se integra la etapa de pruebas se construye en 5166 UT6, del 3 de febrero al 24 de marzo ([https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/)): si al llegar a la A4.7 aún no está, la etapa se prueba en un job aparte de `jenkins01` y se integra en el `Jenkinsfile` cuando exista.
+    A finales de enero `pre` ya existe, y es el mismo que la UT7 actualiza y la UT8 destruye con `tofu destroy`.
+    El pipeline de Jenkins en el que se integra la etapa de pruebas se construye en 5166 UT6, del 27 de enero al 26 de febrero ([https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/)): si al llegar a la A4.7 aún no está, la etapa se prueba en un job aparte de `jenkins01` y se integra en el `Jenkinsfile` cuando exista.
 
 ## Elegir qué medir antes de documentarlo
 

@@ -1,6 +1,6 @@
 # UT7 · Actualización y gestión de vulnerabilidades
 
-<p class="ut-meta">Módulo 5169 · 16 h · Sesiones 29 a 36 · RA4 CE d, e, f, g, h, i</p>
+<p class="ut-meta">Módulo 5169 · 14 h · Sesiones 30 a 36 · RA4 CE d, e, f, g, h, i</p>
 
 Hasta aquí habéis aprendido a mirar el servicio (UT1 a UT3), a medirlo y probarlo (UT4) y, en la empresa, a explotarlo y a copiarlo (UT5 y UT6). Todo eso da por hecho que el servicio no cambia. En esta unidad cambia: aparecen versiones nuevas de la base de datos, del proxy y de la aplicación, aparecen vulnerabilidades en librerías que ni sabíais que llevaba el contenedor, y hay que decidir qué se actualiza, cuándo y cómo, sin romper nada y dejando rastro. Las pruebas de la UT4 se reutilizan tal cual como red de seguridad de cada actualización, y las copias de la UT6 son el plan B. Después de esta unidad viene la UT8, donde daremos de baja el entorno pre que aquí vamos a usar tanto. Entre medias, del 1 al 5 de marzo, están las fiestas de la Magdalena, así que la práctica evaluable de la sesión 36 cierra la unidad antes del parón.
 
@@ -14,14 +14,13 @@ Hasta aquí habéis aprendido a mirar el servicio (UT1 a UT3), a medirlo y proba
 
 ## Antes de entrar en detalle
 
-Un jueves a las cuatro de la tarde llega un aviso: la librería que la API usa para hablar con PostgreSQL tiene un fallo que permite ejecutar código desde fuera. Nadie en el aula sabe si el contenedor de `app01` lleva esa librería ni en qué versión, ni si la imagen de producción es la misma que se probó en pre, porque el compose dice `postgres:17` y eso puede ser cualquier cosa. Alguien propone un `docker compose pull` "a ver qué pasa", y eso es justo lo que no queremos: puede no arrancar o arrancar y perder datos, y no hay forma de volver a como estaba. Al terminar la unidad tienes que poder contestar en minutos a "¿nos afecta?", decidir qué se actualiza y cuándo, hacerlo sin perder datos y con vuelta atrás preparada, y dejarlo escrito para que otra persona lo reconstruya meses después.
+Un jueves a las cuatro de la tarde llega un aviso: la librería que la API usa para hablar con PostgreSQL tiene un fallo que permite ejecutar código desde fuera. Nadie en el aula sabe si el contenedor de `app01` lleva esa librería ni en qué versión, ni si la imagen de producción es la misma que se probó en pre, porque el compose dice `postgres:17` y eso puede ser cualquier cosa. Alguien propone un `docker compose pull` "a ver qué pasa", que es justo lo que no queremos: puede no arrancar o perder datos, y no hay forma de volver atrás. Al terminar la unidad tienes que poder contestar en minutos a "¿nos afecta?", decidir qué se actualiza y cuándo, hacerlo sin perder datos y con vuelta atrás preparada, y dejarlo escrito para que otra persona lo reconstruya meses después.
 
 | Herramienta o concepto | Qué es, en una frase | Para qué la usamos en esta unidad |
 |---|---|---|
 | Etiqueta y digest de una imagen | La etiqueta (`postgres:17.6`) es un nombre que el mantenedor puede mover; el digest (`sha256:…`) es la huella del contenido exacto. | Para saber sin dudas qué hay desplegado. |
 | Versionado semántico | Convención `MAYOR.MENOR.PARCHE` con la que un proyecto avisa de cuánto puede romperse al subir de versión. | Para decidir qué actualizaciones se aplican solas y cuáles hay que leer y planificar. |
-| Renovate (y Dependabot) | Robot que lee el repositorio, detecta versiones nuevas y abre una propuesta de cambio por cada una. | Para enterarnos de las versiones nuevas sin mirar veinte páginas a mano. |
-| Watchtower | Contenedor que actualiza los demás contenedores del host por su cuenta. | Para saber por qué no se usa en producción. |
+| Renovate, Dependabot y Watchtower | Robots que detectan versiones nuevas: los dos primeros abren una propuesta de cambio, el tercero actualiza por su cuenta. | Para enterarnos de las versiones nuevas sin mirar veinte páginas a mano, y para saber cuál no usar en producción. |
 | CVE, CVSS, EPSS y KEV | El CVE nombra un fallo de seguridad; CVSS puntúa su gravedad de 0 a 10; EPSS estima si se explotará; KEV lista los que ya se explotan. | Para ordenar los hallazgos por urgencia real y no solo por la puntuación. |
 | SBOM (con Syft) | Lista de todo el software de una imagen con su versión, como los ingredientes de un envase; Syft la genera. | Para saber qué llevamos y responder rápido cuando sale un fallo nuevo. |
 | Trivy y Grype | Escáneres que comparan el contenido de una imagen con las bases de datos de vulnerabilidades. | Para encontrar los fallos de nuestras imágenes y poner una puerta en el pipeline. |
@@ -29,19 +28,19 @@ Un jueves a las cuatro de la tarde llega un aviso: la librería que la API usa p
 | `.trivyignore` | Fichero del repositorio con los hallazgos aceptados, con motivo y fecha de caducidad. | Para que las excepciones queden escritas y no bloqueen el pipeline. |
 | Jenkins y el Jenkinsfile | El servidor de pipelines de la 5166 y el fichero que describe sus etapas. | Para añadir la etapa de escaneo y desplegar a través de él. |
 | Gitea (incidencias) y Keep a Changelog | El gestor de incidencias del curso y el formato estándar del `CHANGELOG.md`. | Para dejar rastro de cada actualización con enlaces a lo que la justifica. |
-| restic, newman, k6 y ZAP | Las copias de la UT6 y las pruebas de la UT4, que ya conoces. | Plan B (la copia previa) y red de seguridad (las pruebas) de cada actualización. |
+| restic, newman, k6 y ZAP | Copias (UT6) y pruebas (UT4), que ya conoces. | Plan B y red de seguridad de cada actualización. |
 
-**Cómo está organizada la unidad.** Empieza por las versiones, etiquetas y digests, porque sin nombrar con exactitud lo desplegado nada de lo demás tiene sentido. Sigue con cómo seguir la aparición de versiones: fijado todo, hace falta algo que avise de que hay una nueva, y ahí entran Renovate y la política escrita. Después, las vulnerabilidades: con el inventario hecho, se escanea, se lee el informe y se decide qué hacer con cada hallazgo. El cuarto apartado es actualizar, el procedimiento con copia, pruebas, verificación de datos y qué hacer cuando falla. El quinto, la trazabilidad: incidencia, CHANGELOG y etapa de escaneo en el pipeline cierran el círculo. Al final, errores frecuentes, actividades y práctica evaluable.
+**Cómo está organizada la unidad.** Empieza por las versiones, etiquetas y digests, porque sin nombrar con exactitud lo desplegado nada de lo demás tiene sentido. Sigue con cómo seguir la aparición de versiones: fijado todo, hace falta algo que avise de que hay una nueva, y ahí entran Renovate y la política escrita. Después, las vulnerabilidades: con el inventario hecho, se escanea, se lee el informe y se decide qué hacer con cada hallazgo. Después, actualizar: el procedimiento con copia, pruebas, verificación de datos y qué hacer cuando falla. Y la trazabilidad, que cierra el círculo con la incidencia, el CHANGELOG y la etapa de escaneo en el pipeline.
 
 !!! info "Lo que necesitas de la otra asignatura"
-    Esta unidad va del 4 de febrero al 9 de marzo y coincide con la [UT6 de Despliegue, integración continua con Jenkins](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), que va del 3 de febrero al 24 de marzo. Dos cosas dependen de ella (Jenkins, sus credenciales y el registry local se explican allí y aquí se dan por conocidos):
+    Esta unidad va del 2 al 23 de febrero y coincide con la [UT6 de Despliegue, integración continua con Jenkins](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), que va del 27 de enero al 26 de febrero. Dos cosas dependen de ella (Jenkins, sus credenciales y el registry local se explican allí y aquí se dan por conocidos):
 
     - El entorno pre que aquí actualizamos lo crea el repositorio IaC de la [UT5 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/) con OpenTofu, así que a principios de febrero ya existe. No lo montes a mano.
-    - La etapa de escaneo con Trivy que se pide en la sesión 35 (25 de febrero) se añade al Jenkinsfile que en la 5166 se está construyendo en sus sesiones 35 a 37 (del 19 al 26 de febrero), en el apartado [Pipeline declarativo](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/#pipeline-declarativo). Si ese día tu pipeline aún no despliega, prueba la etapa en un job aparte que solo construya y escanee, e intégrala cuando el pipeline esté completo.
+    - La etapa de escaneo con Trivy que se pide en la sesión 35 (18 de febrero) se añade al Jenkinsfile que en la 5166 se está construyendo en sus sesiones 34 a 36 (del 10 al 17 de febrero), en el apartado [Pipeline declarativo](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/#pipeline-declarativo). Si ese día tu pipeline aún no despliega, prueba la etapa en un job aparte que solo construya y escanee, e intégrala cuando el pipeline esté completo.
 
 ## Versiones, etiquetas y digests
 
-Antes de actualizar nada hay que poder decir con exactitud qué hay desplegado, y con contenedores el nombre del compose no siempre identifica el mismo software. Aprendes a nombrar una imagen sin ambigüedad, a leer lo que promete un número de versión y a escoger la variante de imagen adecuada. Es la base del inventario de la actividad A7.1.
+Antes de actualizar nada hay que poder decir con exactitud qué hay desplegado, y con contenedores el nombre del compose no siempre identifica el mismo software. Aprendes a nombrar una imagen sin ambigüedad, a leer lo que promete un número de versión y a escoger la variante de imagen adecuada.
 
 Una imagen de contenedor se nombra por `repositorio:etiqueta` (`postgres:17.6`) y se identifica de forma inequívoca por su digest (`postgres@sha256:…`), que es el hash SHA-256 del manifiesto. La diferencia importa más de lo que parece: la etiqueta es un puntero que el mantenedor puede mover cuando quiera, el digest es el contenido. Cuando el equipo de PostgreSQL reconstruye `17.6` porque Debian ha publicado un parche de `libssl`, la etiqueta no cambia y el digest sí. Un `docker compose pull` en producción un lunes puede traeros una imagen distinta de la que probasteis el viernes aunque el compose diga lo mismo.
 
@@ -53,7 +52,7 @@ Hay tres niveles de precisión, de menos a más:
 | `postgres:17.6`, `postgres:17.6-bookworm` | Versión concreta. Sabéis qué software lleva, pero la imagen se puede reconstruir por debajo (parches del SO base). | Mínimo aceptable en pre y producción. Es lo que se lee y lo que se escribe en el CHANGELOG. |
 | `postgres:17.6@sha256:3f1a…` | Contenido exacto. Reproducible al 100 %: lo que probasteis es lo que desplegáis. | Pipelines y producción. La etiqueta se deja al lado para que un humano sepa qué es. |
 
-Los comandos para pasar de una cosa a otra (`jq` es el filtro de JSON de línea de comandos que usamos para quedarnos con los campos que interesan):
+Los comandos para pasar de una cosa a otra (`jq` filtra JSON en la línea de comandos):
 
 ```bash
 # Digest de una imagen que ya tenéis descargada
@@ -71,7 +70,7 @@ docker compose config --resolve-image-digests > compose.pinned.yml
 
 Ojo con `docker manifest inspect`: en una imagen multiarquitectura devuelve un índice con un digest por plataforma (`linux/amd64`, `linux/arm64`) y además el digest del propio índice. Para fijar en el compose se usa el del índice (el que aparece en `RepoDigests`), y Docker escoge la plataforma correcta al hacer `pull`. Si fijáis el digest de `amd64` a mano y algún día el servicio se mueve a una máquina ARM, el `pull` falla con un mensaje poco claro.
 
-La forma de trabajo que os vais a encontrar en las empresas que lo hacen bien es la del original: la etiqueta para leer, el digest para desplegar. En el compose del servicio del curso queda así:
+La forma de trabajo de las empresas que lo hacen bien: la etiqueta para leer, el digest para desplegar. En el compose del servicio del curso queda así:
 
 ```yaml
 services:
@@ -117,7 +116,7 @@ Una regla práctica: para el escáner, cada paquete que no está no puede ser vu
 
 ## Seguir la aparición de versiones
 
-Con las versiones fijadas, el problema pasa a ser el contrario: nada cambia hasta que alguien se entera de que hay una versión nueva y la propone. Vemos de dónde sale esa información, tres formas de automatizar el aviso (una descartada a propósito) y la política escrita que dice quién decide qué. Ninguna de estas herramientas os avisa sola. Hay que decidir de dónde sale la información y quién la mira.
+Con las versiones fijadas, el problema pasa a ser el contrario: nada cambia hasta que alguien se entera de que hay una versión nueva y la propone. Vemos de dónde sale esa información, tres formas de automatizar el aviso (una descartada a propósito) y la política escrita que dice quién decide qué.
 
 ### Fuentes y cómo se leen
 
@@ -134,7 +133,7 @@ Cuando en la actividad A7.4 os toque investigar un hallazgo, el orden de lectura
 
 Renovate lee vuestro repositorio, detecta dependencias (imágenes en `compose.yml` y en `FROM` de los Dockerfile, paquetes en `requirements.txt` o `package-lock.json`, módulos de Ansible, versiones de acciones de CI) y abre un pull request (PR: una propuesta de cambio que alguien revisa antes de fusionarla en la rama principal) por cada actualización disponible, con las notas de la versión pegadas en la descripción. Vosotros revisáis, el pipeline prueba, alguien fusiona. Automatiza el aviso, no la decisión.
 
-Funciona en GitHub, GitLab y Gitea, que es lo que tenemos en `gitea01`. Se ejecuta como contenedor con el token de un usuario técnico (una cuenta de Gitea creada solo para el robot, con su clave de API):
+Funciona en GitHub, GitLab y Gitea, que es lo que tenemos en `gitea01`. Se ejecuta como contenedor con el token de un usuario técnico (una cuenta de Gitea solo para el robot):
 
 ```bash
 docker run --rm \
@@ -146,7 +145,7 @@ docker run --rm \
   renovate/renovate:latest
 ```
 
-La configuración vive en el propio repositorio, en `renovate.json`. Al leerlo fijaos en tres cosas: `extends` carga una configuración base ya hecha, `packageRules` decide qué se fusiona solo y qué no, y `vulnerabilityAlerts` se salta el horario. Debajo se explica cada bloque:
+La configuración vive en el propio repositorio, en `renovate.json`. Fijaos en `extends`, que carga una configuración base ya hecha, y en `packageRules`, que decide qué se fusiona solo y qué no:
 
 ```json
 {
@@ -235,7 +234,7 @@ fi
 
 ### La política escrita
 
-Lo que aún no habéis hecho en ninguna unidad y aquí toca: escribir media página que diga cómo se actualiza el servicio. Sin eso, cada actualización se decide sobre la marcha según quién esté de guardia. La política tiene que responder a esto:
+Aquí toca escribir media página que diga cómo se actualiza el servicio. Sin eso, cada actualización se decide sobre la marcha según quién esté de guardia. La política tiene que responder a esto:
 
 - Frecuencia de revisión: Renovate abre PR a diario; una persona revisa los abiertos cada lunes.
 - Quién aprueba: parches y digests, el pipeline; menores, quien esté de mantenimiento; mayores, el responsable del servicio y aviso al equipo de desarrollo.
@@ -377,7 +376,7 @@ Python (python-pkg)
 │ setuptools     │ CVE-2024-6345  │ HIGH     │ fixed        │ 65.5.1            │ 70.0.0        │ pypa/setuptools: remote code exec.. │
 ```
 
-Las columnas que deciden: `Status` (si hay parche o la distribución ha dicho que no lo va a arreglar), `Fixed Version` (a qué hay que subir) y, fuera de la tabla, lo que vosotros sabéis del servicio. Y por cada fila, las cuatro preguntas del original:
+Las columnas que deciden: `Status` (si hay parche o la distribución ha dicho que no lo va a arreglar), `Fixed Version` (a qué hay que subir) y, fuera de la tabla, lo que vosotros sabéis del servicio. Y por cada fila, las preguntas del diagrama:
 
 ```mermaid
 flowchart TD
@@ -427,7 +426,7 @@ Una línea sin comentario ni fecha es una excepción que nadie revisará, y en s
 
 ## Actualizar
 
-Con el inventario hecho y los hallazgos decididos, toca ejecutar la actualización. Este apartado es el procedimiento: el mismo ciclo para un parche de PostgreSQL que para una versión nueva de la API, con copia previa, pruebas y un plan de vuelta atrás escrito antes de tocar nada. El diagrama resume el recorrido y el paso a paso lo desarrolla.
+Con el inventario hecho y los hallazgos decididos, toca ejecutar la actualización. Este apartado es el procedimiento: el mismo ciclo para un parche de PostgreSQL que para una versión nueva de la API, con copia previa, pruebas y un plan de vuelta atrás escrito antes de tocar nada.
 
 ### El ciclo
 
@@ -501,7 +500,7 @@ SELECT version_num FROM alembic_version;        -- SQLAlchemy/Alembic
 -- SELECT version, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 5;
 ```
 
-El `md5(string_agg(...))` es la parte que da confianza: si el hash de `pedidos` es el mismo antes y después, cada fila es idéntica. En una tabla de millones de filas tarda y bloquea poco pero no es gratis; en el servicio del curso, con unas decenas de miles, son segundos. Si la migración cambia columnas, el hash cambiará legítimamente: en ese caso se hace sobre las columnas que no cambian (`md5(string_agg(id || ':' || total, '|' ORDER BY id))`).
+El `md5(string_agg(...))` es la parte que da confianza: si el hash de `pedidos` es el mismo antes y después, cada fila es idéntica. En una tabla de millones de filas no es gratis; en el servicio del curso, con decenas de miles, son segundos. Si la migración cambia columnas, el hash cambiará legítimamente: en ese caso se hace sobre las columnas que no cambian (`md5(string_agg(id || ':' || total, '|' ORDER BY id))`).
 
 Y las cosas que solo se ven desde fuera: una prueba funcional de lectura y escritura de extremo a extremo (crear un pedido por la API, leerlo, borrarlo) y comparar los KPI de la UT4 (latencia p95, tasa de errores) durante la hora siguiente con la línea base. Una actualización que "funciona" pero dobla la latencia es una degradación, y eso también se anota.
 
@@ -529,7 +528,7 @@ La clasificación decide qué se hace:
 
 El plazo se respeta. Cuarenta minutos en pre y no está resuelto: se vuelve atrás y se reporta. El tiempo que se gana insistiendo lo pierde después el equipo de desarrollo sin logs limpios de lo que pasó.
 
-Todo lo que afecte al código o a la configuración de la aplicación se reporta al equipo de desarrollo, y un reporte que no se puede reproducir no sirve. La plantilla que usaremos, que es la que os pedirán en cualquier empresa con un mínimo de orden:
+Todo lo que afecte al código o a la configuración de la aplicación se reporta al equipo de desarrollo, y un reporte que no se puede reproducir no sirve. La plantilla que usaremos, la misma que os pedirán en cualquier empresa ordenada:
 
 ```markdown
 ## Fallo al actualizar api 1.4.3 → 1.5.0 en pre
@@ -563,7 +562,7 @@ con las variables antiguas durante una versión con aviso de obsoleto.
 Incidencia #147 · PR !61 · Pipeline #892 · Copia previa restic snapshot 3fa2b1c
 ```
 
-Con eso, quien lo lea puede reproducir el fallo sin preguntar nada; si falta un bloque, el reporte vuelve con preguntas y el arreglo se retrasa.
+Con eso, quien lo lea reproduce el fallo sin preguntar nada; si falta un bloque, el reporte vuelve con preguntas.
 
 ## Trazabilidad
 
@@ -637,31 +636,30 @@ Tres detalles: el JSON se genera siempre, falle o no la puerta, porque es lo que
 
 ## Actividades
 
-### A7.1 Inventario de versiones (sesión 29)
+### A7.1 Inventario de versiones y seguimiento automático (sesión 30)
 
-Lista todas las imágenes y dependencias del contenedor de referencia con su versión, digest y fecha de publicación. Para las imágenes, `docker images --digests` y `docker manifest inspect`; para las dependencias de Python, el SBOM de Syft o `pip list` dentro del contenedor. Identifica cuáles usan etiquetas flotantes (`latest`, solo mayor, sin sufijo de Debian) y fija versiones concretas con digest en el compose y en el `FROM` del Dockerfile. Entrega el inventario como tabla en el repositorio (`docs/inventario.md`) y el PR con los cambios.
+Esta sesión precede al examen de la 1ª evaluación (sesión 29) y arranca la unidad con dos tareas encadenadas: primero se levanta el inventario y luego, sobre él, se automatiza su vigilancia.
 
-### A7.2 Seguimiento automático (sesión 30)
+1. Lista todas las imágenes y dependencias del contenedor de referencia con su versión, digest y fecha de publicación. Para las imágenes, `docker images --digests` y `docker manifest inspect`; para las dependencias de Python, el SBOM de Syft o `pip list` dentro del contenedor. Identifica cuáles usan etiquetas flotantes (`latest`, solo mayor, sin sufijo de Debian) y fija versiones concretas con digest en el compose y en el `FROM` del Dockerfile. Entrega el inventario como tabla en el repositorio (`docs/inventario.md`) y el PR con los cambios.
+2. Configura Renovate sobre el repositorio del servicio en `gitea01`, con un usuario técnico y un `renovate.json` que fije digests, agrupe el software de base y solo permita automerge de parches. Comprueba que abre un PR con la nueva versión de una imagen (si no hay ninguna disponible, baja una versión a mano en el compose para provocarlo). Escribe la política de actualización (media página, en `docs/politica-actualizacion.md`) con los seis puntos de la sección correspondiente.
 
-Configura Renovate sobre el repositorio del servicio en `gitea01`, con un usuario técnico y un `renovate.json` que fije digests, agrupe el software de base y solo permita automerge de parches. Comprueba que abre un PR con la nueva versión de una imagen (si no hay ninguna disponible, baja una versión a mano en el compose para provocarlo). Escribe la política de actualización (media página, en `docs/politica-actualizacion.md`) con los seis puntos de la sección correspondiente.
-
-### A7.3 Escaneo (sesión 31)
+### A7.2 Escaneo (sesión 31)
 
 Genera el SBOM con Syft (CycloneDX) de la imagen de la aplicación, de la base de datos y del proxy, y escanea las tres con Trivy y con Grype. Guarda los informes en JSON. Construye la tabla de hallazgos HIGH y CRITICAL con estas columnas: CVE, imagen, componente, versión instalada, corregida en, exploit conocido (KEV o EPSS), alcanzable desde fuera (sí, no, no sé). Anota las diferencias entre los dos escáneres.
 
-### A7.4 Investigar y decidir (sesión 32)
+### A7.3 Investigar y decidir (sesión 32)
 
 Para cinco hallazgos de la tabla anterior (al menos uno CRITICAL y uno sin parche), busca la ficha en NVD u OSV, el aviso del proyecto y el issue tracker del componente. Decide la solución (actualizar, cambiar base, mitigar, aceptar) siguiendo el diagrama de decisión y justifícala en tres o cuatro líneas por hallazgo. Reconstruye la imagen de la aplicación con base `-slim` (y, si te da tiempo, `-alpine`) y compara el número de hallazgos y el tamaño de la imagen antes y después. Escribe el `.trivyignore` con las excepciones aceptadas, comentadas y con fecha.
 
-### A7.5 Actualización en pre (sesión 33)
+### A7.4 Actualización en pre (sesión 33)
 
 Actualiza PostgreSQL a la siguiente versión menor y la aplicación a la versión con la base corregida, en dev y luego en pre, con copia previa (UT6) y plan de vuelta atrás escrito. Ejecuta el script `integridad.sql` antes y después y guarda ambas salidas. Pasa las pruebas de la UT4 (newman, k6 con umbrales, ZAP baseline) y compara los KPI con la línea base. Todo queda enlazado desde una incidencia abierta al principio.
 
-### A7.6 Fallo provocado (sesión 34)
+### A7.5 Fallo provocado (sesión 34)
 
 El profesor entrega una versión de la aplicación que falla al actualizar (cambio de formato de configuración). Despliégala en pre, analiza los logs, clasifica el fallo, decide rollback o parche dentro de 40 minutos y ejecuta la decisión. Redacta el reporte al equipo de desarrollo con la plantilla de la unidad: pasos para reproducir, logs, versiones y qué se pide.
 
-### A7.7 Trazabilidad (sesión 35)
+### A7.6 Trazabilidad (sesión 35)
 
 Registra las actualizaciones de A7.5 y A7.6 como incidencias en Gitea con etiquetas y todos los enlaces (PR, pipeline, escaneo antes y después, pruebas, integridad, copia), con el estado correcto de cada una (verificada, revertida). Actualiza el `CHANGELOG.md` en formato Keep a Changelog. Añade al Jenkinsfile del servicio la etapa de escaneo con Trivy que archive el informe y falle con CRITICAL, y demuestra que falla con una imagen vulnerable y pasa con la corregida.
 

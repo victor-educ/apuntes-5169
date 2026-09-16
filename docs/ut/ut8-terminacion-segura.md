@@ -36,9 +36,9 @@ El jueves 12 de marzo, dos días después de que hayáis "dado de baja" el entor
 
 !!! info "Lo que necesitas de la otra asignatura"
     - El entorno pre que vais a destruir nació con OpenTofu en la [UT5 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/) (diciembre y enero). `tofu destroy` es el inverso exacto de aquel `tofu apply`; tened a mano el repositorio `infra` y el estado.
-    - Las credenciales del pipeline que retiráis (registry, SSH de app01-pre, token de Gitea) se crearon en la [UT6 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), que termina el 24 de marzo, en mitad de esta unidad. Coordinad con el profesor de 5166 qué credencial es de pre y cuál sigue usando dev.
+    - Las credenciales del pipeline que retiráis (registry, SSH de app01-pre, token de Gitea) se crearon en la [UT6 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), que termina el 26 de febrero, justo al principio de esta unidad. Coordinad con el profesor de 5166 qué credencial es de pre y cuál sigue usando dev.
     - Las reglas de firewall, los aliases y la CA que revocáis vienen de la [UT3 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/) y de la UT3 de esta asignatura.
-    - Justo después de esta unidad, la [UT7 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut7-monitorizacion/) (7 a 14 de abril) monta la pila de monitorización "definitiva". Lo que aquí desconfiguráis (targets, reglas, rutas, dashboards) es el ensayo inverso de esa instalación: cada cosa que retiráis es una que allí tendréis que dar de alta.
+    - Mientras haces esta unidad, la [UT7 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut7-monitorizacion/) (10 a 17 de marzo) monta la pila de monitorización "definitiva". Lo que aquí desconfiguráis (targets, reglas, rutas, dashboards) es el ensayo inverso de esa instalación: cada cosa que retiráis es una que allí tendréis que dar de alta.
 
 ## La baja es un cambio más
 
