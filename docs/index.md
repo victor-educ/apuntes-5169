@@ -23,13 +23,24 @@ Estos son los conceptos que vertebran el curso:
 
 ```mermaid
 flowchart LR
-    UT1[UT1<br>Observabilidad] --> UT2[UT2<br>Alarmas]
-    UT2 --> UT3[UT3<br>Seguridad de la<br>monitorización]
-    UT3 --> UT4[UT4<br>KPI y pruebas]
-    UT4 --> UT7[UT7<br>Actualización y<br>vulnerabilidades]
-    UT7 --> UT8[UT8<br>Terminación segura]
-    UT4 -.-> FE[Formación en empresa<br>UT5 logs y rendimiento<br>UT6 copias de seguridad]
+    UT1["<b>UT1</b><br><small>Observabilidad</small>"]:::pieza
+    UT2["<b>UT2</b><br><small>Alarmas</small>"]:::pieza
+    UT3["<b>UT3</b><br><small>Seguridad de la monitorización</small>"]:::pieza
+    UT4["<b>UT4</b><br><small>KPI y pruebas</small>"]:::pieza
+    UT7["<b>UT7</b><br><small>Actualización y vulnerabilidades</small>"]:::pieza
+    UT8["<b>UT8</b><br><small>Terminación segura</small>"]:::pieza
+    FE["<b>Formación en empresa</b><br><small>UT5 logs y rendimiento · UT6 copias</small>"]:::infra
+    UT1 --> UT2 --> UT3 --> UT4 --> UT7 --> UT8
+    UT4 -.-> FE
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
 ```
+
+<p class="pie" markdown>Primero se mira, luego se avisa, luego se protege lo que mira, y solo entonces se mide, se actualiza y se retira.</p>
 
 ## Qué hay en esta web
 
@@ -98,13 +109,13 @@ flowchart LR
 | [UT1](ut/ut1-observabilidad.md) | Observabilidad de contenedores: métricas, logs y eventos | 14 | Centro | RA1 a |
 | [UT2](ut/ut2-alarmas.md) | Umbrales, agregación y gestión de alarmas | 16 | Centro | RA1 b–e |
 | [UT3](ut/ut3-seguridad-monitorizacion.md) | Seguridad de las comunicaciones de monitorización | 8 | Centro | RA1 f, g |
-| [UT4](ut/ut4-kpi-pruebas.md) | Indicadores, KPI y pruebas del servicio | 16 | Centro | RA2 a–f |
+| [UT4](ut/ut4-kpi-pruebas.md) | Indicadores, KPI y pruebas del servicio | 18 | Centro | RA2 a–f |
 | [UT5](ut/ut5-logs-accesos-rendimiento.md) | Explotación de logs, accesos y rendimiento | 14 | Empresa | RA3 a–d |
 | [UT6](ut/ut6-copias-seguridad.md) | Copias de seguridad y restauración | 14 | Empresa | RA4 a, b, c |
-| [UT7](ut/ut7-actualizacion-vulnerabilidades.md) | Actualización y gestión de vulnerabilidades | 14 | Centro | RA4 d–i |
+| [UT7](ut/ut7-actualizacion-vulnerabilidades.md) | Actualización y gestión de vulnerabilidades | 16 | Centro | RA4 d–i |
 | [UT8](ut/ut8-terminacion-segura.md) | Terminación segura del contenedor | 10 | Centro | RA5 a–d |
 
-Las unidades del centro van seguidas de octubre a marzo. Las tres sesiones de abril anteriores a la formación en empresa quedan para recuperación de entregas y repaso.
+Las unidades del centro van seguidas de octubre a marzo: la UT8 cierra el 23 de marzo. Los exámenes de evaluación van después de la UT4 (primera evaluación, 2 de febrero de 2027) y después de la UT8 (segunda evaluación, 6 de abril de 2027). Los tres últimos días de clase, el 8, el 13 y el 15 de abril, quedan de margen para recuperar entregas y repasar antes de la formación en empresa.
 
 ## Cómo usar estos apuntes
 

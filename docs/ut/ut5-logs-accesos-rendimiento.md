@@ -1,8 +1,8 @@
 # UT5 · Explotación de logs, accesos y rendimiento
 
-<p class="ut-meta">Módulo 5169 · 14 h · Formación en empresa (29 mar a 9 jun 2027) · RA3 CE a, b, c, d</p>
+<p class="ut-meta">Módulo 5169 · 14 h · Formación en empresa (19 abr a 9 jun 2027) · RA3 CE a, b, c, d</p>
 
-Hasta aquí todo lo habéis hecho sobre el laboratorio: la pila de observabilidad de mon01 (UT1), las alarmas (UT2), la monitorización de seguridad (UT3) y los KPI y las pruebas de carga (UT4). Esta unidad y la siguiente (UT6, copias de seguridad) se cursan en la empresa, entre el 29 de marzo y el 9 de junio de 2027, sobre un sistema real que os asigne el tutor. No hay sesiones numeradas ni laboratorio compartido: hay cuatro actividades (A5.1 a A5.4), una actividad de cierre y una ficha de evidencias que firma el tutor de empresa. Este documento es la guía de referencia para hacer ese trabajo con criterio, y al mismo tiempo la lista de lo que tenéis que traer de vuelta. Cuando volváis, la UT7 (actualización y vulnerabilidades) y la UT8 (terminación segura) cierran el módulo.
+Hasta aquí todo lo habéis hecho sobre el laboratorio: la pila de observabilidad de mon01 (UT1), las alarmas (UT2), la monitorización de seguridad (UT3) y los KPI y las pruebas de carga (UT4). Esta unidad y la siguiente (UT6, copias de seguridad) se cursan en la empresa, entre el 19 de abril y el 9 de junio de 2027, sobre un sistema real que os asigne el tutor. No hay sesiones numeradas ni laboratorio compartido: hay cuatro actividades (A5.1 a A5.4), una actividad de cierre y una ficha de evidencias que firma el tutor de empresa. Este documento es la guía de referencia para hacer ese trabajo con criterio, y al mismo tiempo la lista de lo que tenéis que traer de vuelta. Cuando volváis, la UT7 (actualización y vulnerabilidades) y la UT8 (terminación segura) cierran el módulo.
 
 Una regla desde el principio: todo dato de la empresa que aparezca en las evidencias se anonimiza. Nombres de host, IPs públicas, nombres de usuario, dominios, rutas con nombre de cliente. Sustituidlos por equivalentes (`web01`, `203.0.113.45`, `usuario_a`, `empresa.example`) antes de pegar nada en el informe. Las redes 192.0.2.0/24, 198.51.100.0/24 y 203.0.113.0/24 están reservadas por la RFC 5737 justo para esto, para documentación, y el dominio `example` por la RFC 2606. Si dudáis de si algo se puede incluir, preguntad al tutor antes de incluirlo, no después.
 
@@ -37,7 +37,7 @@ Un caso que ya os ha pasado en el laboratorio: el jueves a las tres de la tarde 
 
 Cómo está organizada la unidad: la Introducción reúne los conceptos y las reglas para trabajar en la empresa, que marcan qué podéis tocar y qué no. Después vienen cuatro bloques, uno por criterio de evaluación y en el orden de la rutina diaria; cada bloque trae primero la teoría que necesitáis y después su hoja de actividad. En el bloque 1 montáis la revisión diaria de logs y abrís una incidencia; en el 2 clasificáis los accesos y comprobáis un bloqueo real; en el 3 analizáis un reinicio hasta su corrección; en el 4 tomáis una línea base de rendimiento y la comparáis con un periodo de carga, y para eso hay que empezar a grabar datos el primer día aunque sea lo último que analicéis. Al final, la práctica evaluable recoge el procedimiento de cierre y la ficha que firma el tutor.
 
-!!! info "Lo que necesitas de la otra asignatura"
+!!! otra "Lo que necesitas de la otra asignatura"
     Mientras hacéis esta unidad estáis también en la empresa con la UT4 de 5166, Nube pública
     ([https://victor-educ.github.io/apuntes-5166/ut/ut4-nube-publica/](https://victor-educ.github.io/apuntes-5166/ut/ut4-nube-publica/)).
     Son las mismas semanas y, casi seguro, los mismos sistemas: la nube de la empresa donde en 5166 desplegáis es
@@ -55,25 +55,39 @@ Lo segundo que hay que tener claro es el alcance. Vais a tocar sistemas en produ
 
 ```mermaid
 flowchart LR
-    D[Diario 10 min] --> D1[Errores de las ultimas 24 h]
-    D --> D2[Accesos fallidos y baneos]
-    D --> D3[Reinicios y OOM]
-    D --> D4[Panel de rendimiento vs linea base]
-    S[Semanal 45 min] --> S1[Tendencias 7 dias]
-    S --> S2[Incidencias abiertas y cerradas]
-    S --> S3[Espacio en disco y rotacion]
-    S --> S4[Revisar ignoreip y listas de baneo]
-    D1 --> I[Incidencia si procede]
+    D["<b>Diario · 10 min</b>"]:::act
+    D1["<b>Errores de las últimas 24 h</b>"]:::pieza
+    D2["<b>Accesos fallidos y baneos</b>"]:::pieza
+    D3["<b>Reinicios y OOM</b>"]:::pieza
+    D4["<b>Rendimiento frente a la línea base</b>"]:::pieza
+    S["<b>Semanal · 45 min</b>"]:::act
+    S1["<b>Tendencias de 7 días</b>"]:::pieza
+    S2["<b>Incidencias abiertas y cerradas</b>"]:::pieza
+    S3["<b>Espacio en disco y rotación</b>"]:::pieza
+    S4["<b>Revisar ignoreip y listas de baneo</b>"]:::pieza
+    I(["<b>Incidencia si procede</b>"]):::ok
+    R(["<b>Informe semanal al tutor</b>"]):::ok
+    D --> D1 & D2 & D3 & D4
+    S --> S1 & S2 & S3 & S4
+    D1 --> I
     D2 --> I
     D3 --> I
-    S1 --> R[Informe semanal al tutor]
+    S1 --> R
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
 ```
+
+<p class="pie" markdown>La rutina diaria son diez minutos y cuatro miradas. Lo que la hace útil es hacerla siempre, no hacerla bien un día.</p>
 
 Ese esquema es lo que al final de la estancia tenéis que entregar convertido en un procedimiento de dos páginas con vuestros comandos. Guardad desde el primer día lo que ejecutáis: un fichero de texto con fecha, comando y una línea de resultado os ahorrará la mitad del trabajo del cierre.
 
 ### Plan de trabajo
 
-Las cuatro actividades se hacen sobre sistemas reales de la empresa, en el orden que el tutor considere, dentro del periodo del 29 de marzo al 9 de junio de 2027. Cada una produce una evidencia concreta que se adjunta a la ficha. Anonimizad todo.
+Las cuatro actividades se hacen sobre sistemas reales de la empresa, en el orden que el tutor considere, dentro del periodo del 19 de abril al 9 de junio de 2027. Cada una produce una evidencia concreta que se adjunta a la ficha. Anonimizad todo.
 
 | Bloque | CE | Qué se hace | Evidencia |
 |---|---|---|---|
@@ -242,15 +256,15 @@ El mensaje exacto es lo más valioso: es lo que se busca en Google, en la docume
 
 ### A5.1 Revisión de logs (CE 3a)
 
-**Objetivo.** Al terminar tenéis un registro de cinco días laborables de revisión diaria de los logs de un servicio y una incidencia abierta con la plantilla de la unidad.
+<span class="et et-obj">Objetivo</span> Al terminar tenéis un registro de cinco días laborables de revisión diaria de los logs de un servicio y una incidencia abierta con la plantilla de la unidad.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Autorización del tutor: qué servicio se revisa, dónde están sus logs (fichero, journal, `docker logs` o plataforma central) y con qué usuario se leen. Solo lectura; no hace falta más.
 - Un fichero `a5.1-logs.md` en vuestra carpeta de trabajo, con la tabla del paso 1 vacía.
 - Leídos [Qué buscar](#que-buscar), [Comandos para la revisión diaria](#comandos-para-la-revision-diaria) y [Cómo se redacta una incidencia útil](#como-se-redacta-una-incidencia-util).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. El primer día, mirad cinco líneas del log para conocer el formato (texto plano, JSON, nivel en mayúsculas o minúsculas) y adaptad los comandos. Con contenedores:
 
@@ -283,11 +297,11 @@ El mensaje exacto es lo más valioso: es lo que se busca en Google, en la docume
 
 5. Si el sistema no tiene retención configurada (`journalctl --disk-usage`, `du -sh /var/lib/docker/containers/*/*-json.log`), anotadlo en el registro como hallazgo y proponédselo al tutor; no cambiéis nada sin su visto bueno.
 
-**Comprobación.** La tabla tiene cinco filas con fecha, cada fila cita el comando exacto que se ejecutó, y la incidencia contiene un mensaje de log copiado literal con su recuento y su ventana temporal. Ningún host, IP pública ni usuario real aparece en el fichero.
+<span class="et et-com">Comprobación</span> La tabla tiene cinco filas con fecha, cada fila cita el comando exacto que se ejecutó, y la incidencia contiene un mensaje de log copiado literal con su recuento y su ventana temporal. Ningún host, IP pública ni usuario real aparece en el fichero.
 
-**Entrega.** `a5.1-logs.md` en la carpeta `ut5/` del repositorio de Gitea del módulo, con el registro de los cinco días y la incidencia anonimizada. Pedid al tutor que firme la fila A5.1 de la ficha.
+<span class="et et-ent">Entrega</span> `a5.1-logs.md` en la carpeta `ut5/` del repositorio de Gitea del módulo, con el registro de los cinco días y la incidencia anonimizada. Pedid al tutor que firme la fila A5.1 de la ficha.
 
-**Si te sobra tiempo.** Adaptad el script `resumen-logs.sh` del apartado teórico a los contenedores de la empresa y proponed al tutor programarlo en cron; adjuntad la salida de una ejecución manual como evidencia extra.
+<span class="et et-ext">Si te sobra tiempo</span> Adaptad el script `resumen-logs.sh` del apartado teórico a los contenedores de la empresa y proponed al tutor programarlo en cron; adjuntad la salida de una ejecución manual como evidencia extra.
 
 ## Bloque 2 · Accesos y fuerza bruta (CE 3b)
 
@@ -507,15 +521,15 @@ Cuándo elegir cuál: fail2ban si el sistema es uno o dos hosts, ya hay experien
 
 ### A5.2 Accesos y fuerza bruta (CE 3b)
 
-**Objetivo.** Clasificar los intentos de acceso de al menos 24 h de log de un sistema, revisar o configurar el mecanismo de bloqueo y demostrar un bloqueo real de extremo a extremo.
+<span class="et et-obj">Objetivo</span> Clasificar los intentos de acceso de al menos 24 h de log de un sistema, revisar o configurar el mecanismo de bloqueo y demostrar un bloqueo real de extremo a extremo.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Autorización del tutor en dos niveles: lectura de los logs de acceso (general) y, aparte, permiso explícito para la prueba de bloqueo del paso 5, con la IP de pruebas acordada, el día y la hora. Si no autoriza la prueba, se documenta y la actividad termina en el paso 4.
 - Saber qué mecanismo usa la empresa (fail2ban, CrowdSec, bloqueo en OPNsense u otro) y dónde está su configuración.
 - Leídos [Qué se busca: patrones de fuerza bruta y password spraying](#que-se-busca-patrones-de-fuerza-bruta-y-password-spraying) y [fail2ban a fondo](#fail2ban-a-fondo) o [CrowdSec como alternativa](#crowdsec-como-alternativa), según el caso.
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Localizad el log de accesos del sistema elegido (SSH, proxy inverso o aplicación) según la tabla del apartado teórico. En Debian sin rsyslog, `journalctl _COMM=sshd --since -24h`.
 
@@ -568,11 +582,11 @@ Cuándo elegir cuál: fail2ban si el sistema es uno o dos hosts, ya hay experien
 
     Con CrowdSec, `cscli decisions list` y `cscli decisions delete --ip ...` en lugar de los dos comandos de fail2ban. Captura de cada uno de los cuatro pasos: IP baneada, regla en el firewall, conexión rechazada y desbaneo.
 
-**Comprobación.** El extracto de log tiene el patrón marcado y una explicación de por qué es esa categoría; la configuración muestra jails activas, `ignoreip`, tiempos y backend; las capturas del bloqueo demuestran que la IP dejó de poder conectar y que al final quedó desbaneada.
+<span class="et et-com">Comprobación</span> El extracto de log tiene el patrón marcado y una explicación de por qué es esa categoría; la configuración muestra jails activas, `ignoreip`, tiempos y backend; las capturas del bloqueo demuestran que la IP dejó de poder conectar y que al final quedó desbaneada.
 
-**Entrega.** `a5.2-accesos.md` en `ut5/` del repositorio, con el extracto clasificado, la configuración anonimizada y la prueba del bloqueo (salida de `fail2ban-client status`, `cscli decisions list` o equivalente, y la regla del firewall). Firma del tutor en la fila A5.2.
+<span class="et et-ent">Entrega</span> `a5.2-accesos.md` en `ut5/` del repositorio, con el extracto clasificado, la configuración anonimizada y la prueba del bloqueo (salida de `fail2ban-client status`, `cscli decisions list` o equivalente, y la regla del firewall). Firma del tutor en la fila A5.2.
 
-**Si te sobra tiempo.** Si la empresa tiene Loki, escribid la regla `PasswordSprayingSSH` del apartado [Detección en Loki y alerta](#deteccion-en-loki-y-alerta) adaptada a su job y comprobad en Explore que la consulta devuelve algo con el log real.
+<span class="et et-ext">Si te sobra tiempo</span> Si la empresa tiene Loki, escribid la regla `PasswordSprayingSSH` del apartado [Detección en Loki y alerta](#deteccion-en-loki-y-alerta) adaptada a su job y comprobad en Explore que la consulta devuelve algo con el log real.
 
 ## Bloque 3 · Fallos y reinicios (CE 3c)
 
@@ -586,25 +600,59 @@ Un contenedor que se reinicia solo y vuelve a funcionar es el fallo más fácil 
 
 ```mermaid
 flowchart TD
-    A[Sintoma: reinicio, 5xx, alerta] --> B[Codigo de salida y OOMKilled]
-    B --> C[Logs de los 5 min previos]
-    C --> D[Metricas del momento: memoria, CPU, conexiones]
-    D --> E{Hay dump?}
-    E -- si --> F[Analizar dump: gdb, py-spy, jmap]
-    E -- no --> G[Habilitar dumps para la proxima]
-    F --> H[Hipotesis]
-    G --> H
-    H --> I[Reproducir en pruebas]
-    I --> J{Se reproduce?}
+    A["<b>Síntoma</b><br><small>reinicio, 5xx, alerta</small>"]:::dato
+    B["<b>Código de salida y OOMKilled</b>"]:::act
+    C["<b>Logs de los 5 minutos previos</b>"]:::act
+    D["<b>Métricas del momento</b><br><small>memoria, CPU, conexiones</small>"]:::act
+    E{"<b>¿Hay dump?</b>"}:::dato
+    F["<b>Analizar el dump</b><br><small>gdb, py-spy, jmap</small>"]:::pieza
+    G["<b>Habilitar dumps</b><br><small>para la próxima vez</small>"]:::pieza
+    H["<b>Hipótesis</b>"]:::dato
+    I["<b>Reproducir en pruebas</b>"]:::act
+    J{"<b>¿Se reproduce?</b>"}:::dato
+    K["<b>Corregir el origen</b>"]:::ok
+    L["<b>Verificar</b><br><small>que no se repite en N días</small>"]:::ok
+    M(["<b>Cerrar la incidencia con informe</b>"]):::ok
+    A --> B --> C --> D --> E
+    E -- sí --> F --> H
+    E -- no --> G --> H
+    H --> I --> J
     J -- no --> H
-    J -- si --> K[Corregir el origen]
-    K --> L[Verificar: no se repite en N dias]
-    L --> M[Cerrar incidencia con informe]
+    J -- sí --> K --> L --> M
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
 ```
+
+<p class="pie" markdown>El bucle hipótesis → reproducir → hipótesis es el trabajo real. Sin reproducir, corregir es adivinar.</p>
 
 #### Códigos de salida
 
 Lo primero que se mira, porque acota el problema a una de tres familias: lo mató el kernel, lo mató Docker, o se murió solo.
+
+```mermaid
+flowchart LR
+    E["<b>Código de salida</b><br><small>docker inspect · State.ExitCode</small>"]:::dato
+    K["<b>Lo mató el kernel</b><br><small>137 · OOM killer</small>"]:::riesgo
+    D["<b>Lo mató Docker</b><br><small>143 · SIGTERM de un stop</small>"]:::pieza
+    S["<b>Se murió solo</b><br><small>1, 2, 127… lo dice la aplicación</small>"]:::pieza
+    K --> QK(["<b>Memoria</b><br><small>límite, fuga o vecino ruidoso</small>"]):::act
+    D --> QD(["<b>Alguien o algo lo paró</b><br><small>despliegue, reinicio, orquestador</small>"]):::act
+    S --> QS(["<b>Los logs de la aplicación</b>"]):::act
+    E --> K & D & S
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>El código acota antes de leer nada: cada familia lleva a un sitio distinto donde mirar, y ahorra media hora de logs.</p>
+
 
 | Código | Qué significa | Causa habitual |
 |---|---|---|
@@ -740,15 +788,15 @@ El informe de A5.3 es una página y sigue esta estructura:
 
 ### A5.3 Fallos y reinicios (CE 3c)
 
-**Objetivo.** Un informe de una página, con los nueve puntos de la unidad, sobre un reinicio o fallo real (o reproducido en pruebas) que llegue hasta la corrección y su verificación.
+<span class="et et-obj">Objetivo</span> Un informe de una página, con los nueve puntos de la unidad, sobre un reinicio o fallo real (o reproducido en pruebas) que llegue hasta la corrección y su verificación.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Autorización del tutor para leer `docker inspect`, `docker events`, el journal del kernel y los directorios de dumps. Si no ha habido ningún fallo en el periodo, acordad con él un entorno de pruebas (nunca producción) donde reproducir uno, y quién aprueba la corrección si la hay.
 - Acceso a las métricas del momento del fallo (Grafana o `sar`).
 - Leídos [Códigos de salida](#codigos-de-salida), [OOM: el kernel y los cgroups](#oom-el-kernel-y-los-cgroups), [Core dumps en contenedores](#core-dumps-en-contenedores) y [El método y la plantilla de informe](#el-metodo-y-la-plantilla-de-informe).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Identificad el fallo. Con contenedores:
 
@@ -784,11 +832,11 @@ El informe de A5.3 es una página y sigue esta estructura:
 
 6. Verificad durante los días que queden de estancia: `RestartCount` estable, `oom_kill` sin subir, o el panel sin nuevas caídas. Indicad cuántos días.
 
-**Comprobación.** El informe cabe en una página, sigue los nueve puntos en orden, incluye el mensaje del kernel o del runtime literal y termina con una verificación medible y con las acciones pendientes.
+<span class="et et-com">Comprobación</span> El informe cabe en una página, sigue los nueve puntos en orden, incluye el mensaje del kernel o del runtime literal y termina con una verificación medible y con las acciones pendientes.
 
-**Entrega.** `a5.3-fallos.md` en `ut5/` del repositorio. Firma del tutor en la fila A5.3.
+<span class="et et-ent">Entrega</span> `a5.3-fallos.md` en `ut5/` del repositorio. Firma del tutor en la fila A5.3.
 
-**Si te sobra tiempo.** Añadid al panel de revisión diaria un gráfico con `container_memory_working_set_bytes` y `container_spec_memory_limit_bytes` superpuestos para el contenedor analizado, y una alerta sobre `container_oom_events_total`.
+<span class="et et-ext">Si te sobra tiempo</span> Añadid al panel de revisión diaria un gráfico con `container_memory_working_set_bytes` y `container_spec_memory_limit_bytes` superpuestos para el contenedor analizado, y una alerta sobre `container_oom_events_total`.
 
 ## Bloque 4 · Rendimiento (CE 3d)
 
@@ -860,15 +908,15 @@ Se documenta con una tabla antes/después (línea base, periodo de carga, difere
 
 ### A5.4 Rendimiento (CE 3d)
 
-**Objetivo.** Una línea base de CPU, memoria, disco y red de una semana, comparada con un periodo de carga, y una propuesta de acción justificada con su coste y su efecto esperado.
+<span class="et et-obj">Objetivo</span> Una línea base de CPU, memoria, disco y red de una semana, comparada con un periodo de carga, y una propuesta de acción justificada con su coste y su efecto esperado.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Autorización del tutor para consultar Prometheus y Grafana o, si no los hay, para activar `sysstat` en el equipo (`ENABLED="true"` en `/etc/default/sysstat`), que es un cambio y por tanto se acuerda. Empezad el primer día de estancia: la semana de datos no se recupera hacia atrás.
 - Acordar con el tutor cuál será el periodo de carga: cierre de mes, campaña, prueba de carga como las de UT4 o el día de más tráfico de la semana siguiente.
 - Leídos [Cómo se toma y se guarda la línea base](#como-se-toma-y-se-guarda-la-linea-base), [USE por recurso: comandos y métricas](#use-por-recurso-comandos-y-metricas) y [Señales de problema y acciones](#senales-de-problema-y-acciones).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Aseguraos de que se están grabando datos. Con Prometheus, `node_exporter` y cAdvisor en UP; sin él, `sar` cada 10 minutos en `/var/log/sysstat/`. Anotad la versión de la aplicación desplegada ese día.
 
@@ -892,11 +940,11 @@ Se documenta con una tabla antes/después (línea base, periodo de carga, difere
 
 6. Redactad la propuesta usando la lista de [Señales de problema y acciones](#senales-de-problema-y-acciones): qué se cambia, qué cuesta (gratis, recursos, dinero, tiempo de desarrollo) y qué métrica esperáis que cambie y cuánto.
 
-**Comprobación.** La línea base cubre cinco días laborables representativos (sin festivos ni vacaciones de medio equipo) y lleva fecha y versión; cada recurso tiene sus tres preguntas USE respondidas; la propuesta nombra una métrica concreta y un valor esperado.
+<span class="et et-com">Comprobación</span> La línea base cubre cinco días laborables representativos (sin festivos ni vacaciones de medio equipo) y lleva fecha y versión; cada recurso tiene sus tres preguntas USE respondidas; la propuesta nombra una métrica concreta y un valor esperado.
 
-**Entrega.** `a5.4-rendimiento.md` en `ut5/` del repositorio, con la tabla o la captura y la propuesta. Firma del tutor en la fila A5.4.
+<span class="et et-ent">Entrega</span> `a5.4-rendimiento.md` en `ut5/` del repositorio, con la tabla o la captura y la propuesta. Firma del tutor en la fila A5.4.
 
-**Si te sobra tiempo.** Proponed al tutor una alerta sobre la desviación respecto a la línea base (por ejemplo, CPU por encima del doble del valor de hace una semana durante 30 minutos) en lugar de un umbral fijo.
+<span class="et et-ext">Si te sobra tiempo</span> Proponed al tutor una alerta sobre la desviación respecto a la línea base (por ejemplo, CPU por encima del doble del valor de hace una semana durante 30 minutos) en lugar de un umbral fijo.
 
 ## Práctica evaluable
 
@@ -926,23 +974,23 @@ Las observaciones del tutor de empresa en la ficha se tienen en cuenta en cada a
 
 ### Actividad de cierre
 
-**Objetivo.** Un procedimiento de dos páginas, "Rutina de revisión diaria y semanal de logs, accesos, fallos y rendimiento en la empresa", que pueda seguir alguien que llegue nuevo al puesto.
+<span class="et et-obj">Objetivo</span> Un procedimiento de dos páginas, "Rutina de revisión diaria y semanal de logs, accesos, fallos y rendimiento en la empresa", que pueda seguir alguien que llegue nuevo al puesto.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Las cuatro actividades hechas y el fichero con fecha, comando y resultado que habéis ido guardando desde el primer día.
 - Visto bueno del tutor sobre qué comandos y rutas pueden aparecer (anonimizados) en el procedimiento.
 - El diagrama de rutina de [Cómo trabajar en la empresa](#como-trabajar-en-la-empresa) como esqueleto.
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Para cada caja del diagrama (cuatro diarias, cuatro semanales) escribid una fila: qué se mira, herramienta, comando o consulta literal, tiempo estimado, qué se considera normal, qué dispara una incidencia.
 2. Añadid al principio los accesos necesarios (usuario, hosts, paneles) y al final la plantilla de incidencia y a quién se escala.
 3. Pedid a un compañero o al tutor que lo siga una mañana sin vuestra ayuda y anotad lo que no entendió; corregidlo.
 
-**Comprobación.** Dos páginas, todos los comandos son los que habéis usado de verdad, y otra persona ha podido ejecutar la rutina diaria con él.
+<span class="et et-com">Comprobación</span> Dos páginas, todos los comandos son los que habéis usado de verdad, y otra persona ha podido ejecutar la rutina diaria con él.
 
-**Entrega.** `rutina.md` en `ut5/` del repositorio. Firma del tutor en la fila Cierre.
+<span class="et et-ent">Entrega</span> `rutina.md` en `ut5/` del repositorio. Firma del tutor en la fila Cierre.
 
 ### Ficha de evidencias
 

@@ -36,8 +36,8 @@ Un jueves a las tres de la tarde la API del curso empieza a devolver errores 500
 
 **Cómo está organizada la unidad.** A partir de aquí la unidad sigue las sesiones en orden, y cada sesión trae primero la teoría que se explica y después su hoja de práctica. En las sesiones 8 y 9 se escriben las condiciones: umbrales sobre contadores con PromQL y cadenas en logs y eventos con LogQL, porque sin la condición no hay nada que disparar. La sesión 10 guarda esas consultas como métricas nuevas con recording rules y la 11 las convierte en reglas de alerta con etiquetas de categorización. La sesión 12 monta Alertmanager, donde agrupar, enrutar y silenciar es donde se gana o se pierde la batalla contra la fatiga, y la 13 saca cada alarma hacia Gitea como incidencia. La sesión 14 verifica la cadena completa alarma por alarma y la 15 es la práctica evaluable. Todo lo que producen las hojas va al repositorio `alerting` de Gitea (carpetas `prometheus/`, `loki/`, `alertmanager/`, `tickets/` y `docs/`; los secretos en `secrets/`, ignorado por Git), y la pila de mon01 sigue en `/opt/monitoring`, como en la UT1.
 
-!!! info "Lo que necesitas de la otra asignatura"
-    Esta unidad se hace sobre el entorno provisional de la UT1: `app01` y `mon01` son las dos VM del bridge del aula (vmbr0) que creaste en [5166 UT1, sesión 3, desde la plantilla cloud-init](https://victor-educ.github.io/apuntes-5166/ut/ut1-virtualizacion/), y las incidencias van al Gitea de 5166. Mientras trabajas aquí (27 oct a 19 nov), en 5166 se está construyendo la VPC ([UT2, del 28 oct al 13 nov](https://victor-educ.github.io/apuntes-5166/ut/ut2-vpc/)) y todavía no hay firewall: Alertmanager, Mailpit y el receptor webhook quedan abiertos en la red del aula, y por eso los tokens van en ficheros fuera del repositorio desde el primer día. Cuando 5166 termine VPC y firewall, en la UT3 de esta asignatura moveremos estas VM a la VPC dev, detrás de OPNsense, sin rehacer nada de lo que configures ahora.
+!!! otra "Lo que necesitas de la otra asignatura"
+    Esta unidad se hace sobre el entorno provisional de la UT1: `app01` y `mon01` son las dos VM del bridge del aula (vmbr0) que creaste en [5166 UT1, sesión 3, desde la plantilla cloud-init](https://victor-educ.github.io/apuntes-5166/ut/ut1-virtualizacion/), y las incidencias van al Gitea de 5166. Mientras trabajas aquí (29 oct a 24 nov), en 5166 se está construyendo la VPC ([UT2, del 28 oct al 18 nov](https://victor-educ.github.io/apuntes-5166/ut/ut2-vpc/)) y todavía no hay firewall: Alertmanager, Mailpit y el receptor webhook quedan abiertos en la red del aula, y por eso los tokens van en ficheros fuera del repositorio desde el primer día. Cuando 5166 termine VPC y firewall, en la UT3 de esta asignatura moveremos estas VM a la VPC dev, detrás de OPNsense, sin rehacer nada de lo que configures ahora.
 
 ### Plan de sesiones
 
@@ -45,18 +45,18 @@ Cada sesión de dos horas empieza con una explicación corta y sigue con laborat
 
 | Sesión | Fecha | Tipo | Se explica | Se practica |
 |---:|-------|------|------------|-------------|
-| [8](#sesion-8-umbrales-sobre-contadores) | 27 oct | Teoría y práctica | De la métrica a la alarma; alertar por síntomas; rate, increase y ventanas en PromQL (25 min). | Definir cinco umbrales desde la documentación del servicio y comprobar las consultas con tráfico real. |
-| [9](#sesion-9-cadenas-en-logs-y-eventos) | 29 oct | Teoría y práctica | LogQL: selectores, filtros, parsers y métricas sobre logs (20 min). | Consultas LogQL para los mensajes de error conocidos y reglas para oom y unhealthy; probar con logcli. |
-| [10](#sesion-10-recording-rules) | 3 nov | Teoría y práctica | Agregar y correlar: por qué precalcular y cómo se nombran (15 min). | rules.yml con cuatro métricas grabadas y un panel que las use. |
-| [11](#sesion-11-reglas-de-alerta) | 5 nov | Teoría y práctica | for, etiquetas, anotaciones y estados de una alerta (15 min). | Convertir los umbrales en reglas con etiquetas y runbook; observar pending y firing. |
-| [12](#sesion-12-alertmanager) | 10 nov | Teoría y práctica | Árbol de rutas, agrupación, inhibición, silencios y receptores (25 min). | Agrupación, tres rutas, una inhibición y un silencio; correo con Mailpit y Telegram; dos alarmas del mismo grupo en una sola notificación. |
-| [13](#sesion-13-integracion-con-incidencias) | 12 nov | Teoría y práctica | El webhook de Alertmanager y su JSON (10 min). | Receptor en Flask o n8n que crea y cierra issues en Gitea; probar activación y recuperación. |
-| [14](#sesion-14-verificacion-completa) | 17 nov | Práctica | Repaso del procedimiento de verificación (5 min). | Verificar cada alarma: provocarla, medir tiempos, canales, issue creada y cerrada; rellenar la tabla. |
-| [15](#sesion-15-practica-evaluable) | 19 nov | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el repositorio alerting, el informe de verificación y la tabla de categorización. |
+| [8](#sesion-8-umbrales-sobre-contadores) | 29 oct | Teoría y práctica | De la métrica a la alarma; alertar por síntomas; rate, increase y ventanas en PromQL (25 min). | Definir cinco umbrales desde la documentación del servicio y comprobar las consultas con tráfico real. |
+| [9](#sesion-9-cadenas-en-logs-y-eventos) | 3 nov | Teoría y práctica | LogQL: selectores, filtros, parsers y métricas sobre logs (20 min). | Consultas LogQL para los mensajes de error conocidos y reglas para oom y unhealthy; probar con logcli. |
+| [10](#sesion-10-recording-rules) | 5 nov | Teoría y práctica | Agregar y correlar: por qué precalcular y cómo se nombran (15 min). | rules.yml con cuatro métricas grabadas y un panel que las use. |
+| [11](#sesion-11-reglas-de-alerta) | 10 nov | Teoría y práctica | for, etiquetas, anotaciones y estados de una alerta (15 min). | Convertir los umbrales en reglas con etiquetas y runbook; observar pending y firing. |
+| [12](#sesion-12-alertmanager) | 12 nov | Teoría y práctica | Árbol de rutas, agrupación, inhibición, silencios y receptores (25 min). | Agrupación, tres rutas, una inhibición y un silencio; correo con Mailpit y Telegram; dos alarmas del mismo grupo en una sola notificación. |
+| [13](#sesion-13-integracion-con-incidencias) | 17 nov | Teoría y práctica | El webhook de Alertmanager y su JSON (10 min). | Receptor en Flask o n8n que crea y cierra issues en Gitea; probar activación y recuperación. |
+| [14](#sesion-14-verificacion-completa) | 19 nov | Práctica | Repaso del procedimiento de verificación (5 min). | Verificar cada alarma: provocarla, medir tiempos, canales, issue creada y cerrada; rellenar la tabla. |
+| [15](#sesion-15-practica-evaluable) | 24 nov | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el repositorio alerting, el informe de verificación y la tabla de categorización. |
 
 ## Sesión 8 · Umbrales sobre contadores
 
-<p class="ut-meta" markdown>27 de octubre · Teoría y práctica · <span class="dur" title="Explicación unos 25 min, práctica unos 95 min">:material-school:<i class="dur-barra" style="--teoria:21%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>29 de octubre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="De la métrica a la alarma · 10 min&#10;Umbrales sobre contadores · 15 min&#10;A2.1 Umbrales sobre contadores · 85 min" data-dur="De la métrica a la alarma · 10 min&#10;Umbrales sobre contadores · 15 min&#10;A2.1 Umbrales sobre contadores · 85 min">:material-school:<i class="dur-barra" style="--teoria:23%"></i>:material-flask:</span></p>
 
 Al acabar esta sesión tendrás cinco consultas PromQL que devuelven datos con tráfico real y un umbral justificado por la documentación para cada una. Antes de escribirlas conviene tener clara la cadena que va de la métrica a la notificación y por qué se alerta por síntomas y no por causas. Para la hoja hacen falta sobre todo los apartados de `rate`, `increase` y la ventana, los operadores con etiquetas y la tabla de umbrales del contenedor de referencia.
 
@@ -68,14 +68,26 @@ Una alarma es una condición sobre los datos que, mantenida durante un tiempo, e
 
 ```mermaid
 flowchart LR
-  M["Métrica o log<br/>(Prometheus / Loki)"] --> I["Indicador<br/>(recording rule)"]
-  I --> U["Umbral<br/>(documentación del servicio)"]
-  U --> R["Regla de alerta<br/>(expr + for + labels)"]
-  R --> AM["Alertmanager<br/>(agrupa, enruta, inhibe)"]
-  AM --> N["Notificación<br/>(correo, Telegram, Slack)"]
-  AM --> W["Webhook"]
-  W --> T["Incidencia en Gitea<br/>(abre y cierra)"]
+    M["<b>Métrica o log</b><br><small>Prometheus / Loki</small>"]:::dato
+    I["<b>Indicador</b><br><small>recording rule</small>"]:::dato
+    U["<b>Umbral</b><br><small>lo decide la documentación del servicio</small>"]:::act
+    R["<b>Regla de alerta</b><br><small>expr + for + labels</small>"]:::pieza
+    AM["<b>Alertmanager</b><br><small>agrupa, enruta, inhibe</small>"]:::pieza
+    N(["<b>Notificación</b><br><small>correo, Telegram, Slack</small>"]):::ok
+    W["<b>Webhook</b>"]:::pieza
+    T(["<b>Incidencia en Gitea</b><br><small>se abre y se cierra sola</small>"]):::ok
+    M --> I --> U --> R --> AM
+    AM --> N
+    AM --> W --> T
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
 ```
+
+<p class="pie" markdown>El único paso que no es técnico es el umbral, y es el que más se discute: lo decide el servicio, no la herramienta.</p>
 
 La métrica es lo que ya tienes. El indicador es una fórmula sobre ella (ratio de errores, percentil de latencia). El umbral es el número que separa lo normal de lo que no, y ese número no lo inventas: sale de la documentación del servicio o de un acuerdo de nivel de servicio. La regla de alerta une indicador, umbral y duración, y le pega etiquetas. Alertmanager recibe las reglas disparadas y decide a quién avisar, cuándo y cuántas veces. La notificación llega a un humano y, en paralelo, un webhook (una llamada HTTP de un programa a otro para avisar de que ha pasado algo) abre una incidencia que queda guardada aunque Alertmanager se reinicie.
 
@@ -155,6 +167,27 @@ Los valores de partida vienen de la documentación; los definitivos se ajustan c
 
 #### Cómo elegir el for
 
+```mermaid
+flowchart LR
+    M["<b>Métrica cruda</b>"]:::dato
+    R["<b>rate(...[5m])</b><br><small>suaviza el pico: 5 min de retraso</small>"]:::pieza
+    C{"<b>¿La condición<br>sigue siendo cierta?</b>"}:::act
+    PEN["<b>pending</b><br><small>durante todo el for</small>"]:::pieza
+    FIR(["<b>firing</b><br><small>ahora sí se notifica</small>"]):::riesgo
+    NADA(["<b>Se olvida</b><br><small>era un pico</small>"]):::ok
+    M --> R --> C
+    C -- "sí, sin interrupción" --> PEN --> FIR
+    C -- "deja de serlo" --> NADA
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>Los dos retrasos se **suman**: con `[5m]` y `for: 5m` el aviso llega diez minutos tarde. Pregúntate si el usuario aguanta diez minutos de errores.</p>
+
 `for` es el tiempo que la condición debe mantenerse cierta, en evaluaciones consecutivas, antes de que la alerta pase de `pending` a `firing`. Es el filtro contra picos. Tres criterios:
 
 1. Más largo que la ventana de `rate` no tiene sentido duplicar: si ya suavizas con `[5m]`, un `for: 5m` añade otros cinco minutos de retraso. Total: diez minutos hasta el aviso. Pregúntate si el usuario aguanta diez minutos de errores.
@@ -165,15 +198,15 @@ Prometheus 3 añade `keep_firing_for`, que mantiene la alerta en `firing` un tie
 
 ### A2.1 Umbrales sobre contadores (sesión 8)
 
-**Objetivo.** Cinco consultas PromQL que devuelven datos con tráfico real, cada una con un umbral justificado por la documentación del servicio, en `docs/umbrales.md`.
+<span class="et et-obj">Objetivo</span> Cinco consultas PromQL que devuelven datos con tráfico real, cada una con un umbral justificado por la documentación del servicio, en `docs/umbrales.md`.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - `app01` y `mon01` de la UT1 encendidas, con todos los targets de `http://mon01:9090` en UP.
 - La documentación del servicio (la da el profesor): límite de memoria, latencia p95, disponibilidad y `max_connections`.
 - Explicado al principio: [rate, increase y la ventana](#rate-increase-y-la-ventana) y [Operadores con etiquetas](#operadores-con-etiquetas).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Crea el repositorio `alerting` en Gitea y clónalo en mon01 en `/opt/alerting`, con `secrets/` en `.gitignore`.
 2. Lanza tráfico de fondo en otra terminal de mon01 y déjalo toda la sesión (una de cada diez peticiones va a la ruta de error que diga la documentación de la API):
@@ -191,13 +224,13 @@ Prometheus 3 añade `keep_firing_for`, que mantiene la alerta en `firing` un tie
 5. Con el valor normal y la documentación delante, fija cada umbral: por debajo del valor normal es una alarma permanente.
 6. Escribe `docs/umbrales.md` con la tabla `Indicador | Consulta | Valor normal | Umbral | for | Severidad | De dónde sale` (la página o parámetro de la documentación del que sale el número). Commit y push.
 
-**Comprobación.** Las seis consultas devuelven una serie con el tráfico de fondo y reaccionan al paso 4; `docs/umbrales.md` está en Gitea con las siete columnas rellenas.
+<span class="et et-com">Comprobación</span> Las seis consultas devuelven una serie con el tráfico de fondo y reaccionan al paso 4; `docs/umbrales.md` está en Gitea con las siete columnas rellenas.
 
-**Entrega.** `docs/umbrales.md` en el repositorio `alerting`.
+<span class="et et-ent">Entrega</span> `docs/umbrales.md` en el repositorio `alerting`.
 
 ## Sesión 9 · Cadenas en logs y eventos
 
-<p class="ut-meta" markdown>29 de octubre · Teoría y práctica · <span class="dur" title="Explicación unos 20 min, práctica unos 100 min">:material-school:<i class="dur-barra" style="--teoria:17%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>3 de noviembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Cadenas en logs y eventos · 20 min&#10;A2.2 Cadenas en logs y eventos · 90 min" data-dur="Cadenas en logs y eventos · 20 min&#10;A2.2 Cadenas en logs y eventos · 90 min">:material-school:<i class="dur-barra" style="--teoria:18%"></i>:material-flask:</span></p>
 
 Esta sesión completa las condiciones numéricas de la anterior con las que se vigilan en texto: mensajes de error de la API y eventos del demonio Docker. Para la hoja necesitas los selectores y filtros, los parsers y las métricas sobre logs. El apartado del ruler de Loki es material de consulta que usarás en la sesión 11, cuando conviertas estas consultas en reglas.
 
@@ -310,14 +343,14 @@ Se valida con `lokitool rules lint loki-alerts.yml` (`lokitool` es la utilidad d
 
 ### A2.2 Cadenas en logs y eventos (sesión 9)
 
-**Objetivo.** Al menos cinco consultas LogQL para mensajes de error conocidos de la API (dos con parser `json`) y dos para eventos Docker (`oom` y `unhealthy`), probadas con `logcli` y guardadas en `docs/cadenas.md` con su origen.
+<span class="et et-obj">Objetivo</span> Al menos cinco consultas LogQL para mensajes de error conocidos de la API (dos con parser `json`) y dos para eventos Docker (`oom` y `unhealthy`), probadas con `logcli` y guardadas en `docs/cadenas.md` con su origen.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Loki con los logs de `app` y el stream de eventos Docker de la UT1; `logcli` con `export LOKI_ADDR=http://mon01:3100`; el código o la documentación de la API.
 - Explicado al principio: [Cadenas en logs y eventos](#cadenas-en-logs-y-eventos), hasta [Métricas sobre logs](#metricas-sobre-logs).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Comprueba las etiquetas reales, que son las de UT1 (los apuntes usan `container` y `job` como ejemplo): `logcli labels`, `logcli labels service`. Apunta el selector exacto de la API y el de los eventos.
 2. Saca los mensajes de error del código de la API (`grep -rn "log.*error" src/`) o de su documentación: al menos cinco distintos, con fichero y línea.
@@ -334,13 +367,13 @@ Se valida con `lokitool rules lint loki-alerts.yml` (`lokitool` es la utilidad d
 6. Convierte una de la API y las dos de eventos en consultas métricas con `count_over_time(... [5m]) > 0`: son las que irán al ruler en A2.4.
 7. Escribe `docs/cadenas.md` con una entrada por cadena: consulta, de dónde sale y qué significa que aparezca. Commit y push.
 
-**Comprobación.** Cada consulta de `docs/cadenas.md` devuelve al menos una línea con `logcli`; las de eventos encuentran el `oom` y el `unhealthy` provocados; las tres métricas dan más de cero.
+<span class="et et-com">Comprobación</span> Cada consulta de `docs/cadenas.md` devuelve al menos una línea con `logcli`; las de eventos encuentran el `oom` y el `unhealthy` provocados; las tres métricas dan más de cero.
 
-**Entrega.** `docs/cadenas.md` en el repositorio `alerting`.
+<span class="et et-ent">Entrega</span> `docs/cadenas.md` en el repositorio `alerting`.
 
 ## Sesión 10 · Recording rules
 
-<p class="ut-meta" markdown>3 de noviembre · Teoría y práctica · <span class="dur" title="Explicación unos 15 min, práctica unos 105 min">:material-school:<i class="dur-barra" style="--teoria:12%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>5 de noviembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Agregación y correlación: recording rules · 15 min&#10;A2.3 Recording rules · 95 min" data-dur="Agregación y correlación: recording rules · 15 min&#10;A2.3 Recording rules · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
 
 Al terminar tendrás un `rules.yml` cargado en Prometheus con las consultas de la sesión 8 guardadas como métricas nuevas con nombre propio, y un panel de Grafana que las usa. La hoja se apoya en los tres apartados que siguen: por qué precalcular, cómo se nombran las métricas grabadas y el fichero de ejemplo.
 
@@ -405,14 +438,14 @@ Las alertas usan las métricas grabadas, no las consultas crudas. Es la norma de
 
 ### A2.3 Recording rules (sesión 10)
 
-**Objetivo.** Un `rules.yml` cargado en Prometheus con al menos cuatro métricas grabadas, visibles en el explorador y usadas en un panel de Grafana.
+<span class="et et-obj">Objetivo</span> Un `rules.yml` cargado en Prometheus con al menos cuatro métricas grabadas, visibles en el explorador y usadas en un panel de Grafana.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Las consultas de A2.1 funcionando; `prometheus.yml` y `compose.yml` de mon01; el dashboard de la UT1 en Grafana.
 - Explicado al principio: [Por qué precalcular](#por-que-precalcular), [Convención de nombres](#convencion-de-nombres) y [El fichero rules.yml](#el-fichero-rulesyml).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Crea `prometheus/rules.yml` con el bloque de [El fichero rules.yml](#el-fichero-rulesyml), ajustando etiquetas (`name`, `job`, `service`) y consultas a las tuyas de A2.1.
 2. Enlázalo desde la pila: en el servicio `prometheus` del `compose.yml`, volumen `/opt/alerting/prometheus/rules.yml:/etc/prometheus/rules.yml:ro` y `--web.enable-lifecycle` en `command`; en `prometheus.yml`, `rule_files: [rules.yml]`; `docker compose up -d prometheus`.
@@ -430,13 +463,13 @@ Las alertas usan las métricas grabadas, no las consultas crudas. Es la norma de
 5. En Grafana, sustituye en el dashboard de la UT1 cada consulta cruda por su métrica grabada. Guarda y exporta el JSON (*Share → Export*) a `grafana/dashboard.json`.
 6. Commit y push de `prometheus/rules.yml`, `grafana/dashboard.json` y una copia de `prometheus.yml`.
 
-**Comprobación.** `promtool check rules` responde `SUCCESS`; las cuatro métricas aparecen en *Graph* con valor; el dashboard pinta lo mismo que antes.
+<span class="et et-com">Comprobación</span> `promtool check rules` responde `SUCCESS`; las cuatro métricas aparecen en *Graph* con valor; el dashboard pinta lo mismo que antes.
 
-**Entrega.** `prometheus/rules.yml` y `grafana/dashboard.json` en el repositorio `alerting`.
+<span class="et et-ent">Entrega</span> `prometheus/rules.yml` y `grafana/dashboard.json` en el repositorio `alerting`.
 
 ## Sesión 11 · Reglas de alerta
 
-<p class="ut-meta" markdown>5 de noviembre · Teoría y práctica · <span class="dur" title="Explicación unos 15 min, práctica unos 105 min">:material-school:<i class="dur-barra" style="--teoria:12%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>10 de noviembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Reglas de alerta · 15 min&#10;A2.4 Reglas de alerta · 95 min" data-dur="Reglas de alerta · 15 min&#10;A2.4 Reglas de alerta · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
 
 En esta sesión las consultas y los umbrales se convierten en reglas de alerta que Prometheus y el ruler de Loki evalúan solos, y verás una alerta pasar por `pending` y `firing`. Para la hoja necesitas el apartado entero, en especial las etiquetas de categorización y los estados de una alerta. Las reglas de Loki se escriben con el apartado [Alertas en el ruler de Loki](#alertas-en-el-ruler-de-loki) de la sesión 9.
 
@@ -524,14 +557,14 @@ Los tres primeros estados los ves en Prometheus, en la pestaña *Alerts*: `inact
 
 ### A2.4 Reglas de alerta (sesión 11)
 
-**Objetivo.** `alerts.yml` en Prometheus y `loki-alerts.yml` en el ruler de Loki cargados, un `promtool test rules` que pasa, y una alerta observada pasando por `pending` y `firing`.
+<span class="et et-obj">Objetivo</span> `alerts.yml` en Prometheus y `loki-alerts.yml` en el ruler de Loki cargados, un `promtool test rules` que pasa, y una alerta observada pasando por `pending` y `firing`.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Las métricas grabadas de A2.3 evaluándose; `docs/umbrales.md` y `docs/cadenas.md`; `loki.yml` de mon01.
 - Explicado al principio: [Reglas de alerta](#reglas-de-alerta) entero; para Loki, [Alertas en el ruler de Loki](#alertas-en-el-ruler-de-loki).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Crea `prometheus/alerts.yml` a partir del bloque de [Reglas de alerta](#reglas-de-alerta), con tus umbrales y `for`, las cinco etiquetas y al menos `summary` y `runbook`. Móntalo como `rules.yml`, añádelo a `rule_files` y valida con `promtool check rules`.
 2. Escribe `prometheus/tests/alerts_test.yml`. Este comprueba que `AppHighErrorRate` dispara a los 6 min con un ratio constante del 5 %:
@@ -575,13 +608,13 @@ Los tres primeros estados los ves en Prometheus, en la pestaña *Alerts*: `inact
 5. Provoca `AppHighErrorRate` dejando la API sin base de datos, con el bucle de tráfico de A2.1 corriendo: `date; docker --host ssh://app01 stop db`. En *Alerts*, apunta la hora de `pending` y la de `firing` (la diferencia es tu `for`); luego `start db` y apunta cuándo desaparece.
 6. Commit y push de `prometheus/`, `loki/` y las horas del paso 5 en `docs/umbrales.md`.
 
-**Comprobación.** `promtool check rules` y `promtool test rules` terminan en `SUCCESS`; `lokitool rules lint` limpio y `curl http://mon01:3100/loki/api/v1/rules` devuelve tus tres reglas; tienes anotado `pending` → `firing` → resuelta con horas.
+<span class="et et-com">Comprobación</span> `promtool check rules` y `promtool test rules` terminan en `SUCCESS`; `lokitool rules lint` limpio y `curl http://mon01:3100/loki/api/v1/rules` devuelve tus tres reglas; tienes anotado `pending` → `firing` → resuelta con horas.
 
-**Entrega.** `prometheus/alerts.yml`, `prometheus/tests/alerts_test.yml` y `loki/loki-alerts.yml` en el repositorio `alerting`.
+<span class="et et-ent">Entrega</span> `prometheus/alerts.yml`, `prometheus/tests/alerts_test.yml` y `loki/loki-alerts.yml` en el repositorio `alerting`.
 
 ## Sesión 12 · Alertmanager
 
-<p class="ut-meta" markdown>10 de noviembre · Teoría y práctica · <span class="dur" title="Explicación unos 25 min, práctica unos 95 min">:material-school:<i class="dur-barra" style="--teoria:21%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>12 de noviembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Alertmanager · 25 min&#10;A2.5 Alertmanager · 85 min" data-dur="Alertmanager · 25 min&#10;A2.5 Alertmanager · 85 min">:material-school:<i class="dur-barra" style="--teoria:23%"></i>:material-flask:</span></p>
 
 Alertmanager es el tramo más largo de la unidad: al acabar tendrás tres rutas, una inhibición, un silencio y notificaciones por correo y Telegram con plantilla propia, y dos alarmas del mismo grupo llegando en un solo mensaje. La hoja usa el apartado completo, del árbol de rutas a Mailpit; los tres intervalos de agrupación explican los tiempos que vas a medir.
 
@@ -665,17 +698,34 @@ receivers:
 
 ```mermaid
 flowchart TD
-  ROOT["route raíz<br/>receiver: mail<br/>group_by: alertname, service"] --> C{"severity=critical"}
-  C -- sí --> CR["receiver: critical<br/>Telegram + webhook<br/>continue: true"]
-  CR --> D{"team=dev"}
-  C -- no --> D
-  D -- sí --> DEV["receiver: dev-chat<br/>Slack"]
-  D -- no --> I{"severity=info"}
-  I -- sí --> NUL["receiver: null<br/>mute 22:00-08:00"]
-  I -- no --> DB{"service=db"}
-  DB -- sí --> TK["receiver: tickets<br/>repeat 12h"]
-  DB -- no --> MAIL["receiver: mail<br/>(la raíz)"]
+    ROOT["<b>route raíz</b><br><small>receiver: mail · group_by: alertname, service</small>"]:::act
+    C{"<b>severity=critical</b>"}:::dato
+    CR["<b>receiver: critical</b><br><small>Telegram + webhook · continue: true</small>"]:::riesgo
+    D{"<b>team=dev</b>"}:::dato
+    DEV["<b>receiver: dev-chat</b><br><small>Slack</small>"]:::pieza
+    I{"<b>severity=info</b>"}:::dato
+    NUL["<b>receiver: null</b><br><small>silenciado de 22:00 a 08:00</small>"]:::infra
+    DB{"<b>service=db</b>"}:::dato
+    TK["<b>receiver: tickets</b><br><small>repeat 12h</small>"]:::pieza
+    MAIL["<b>receiver: mail</b><br><small>la raíz</small>"]:::pieza
+    ROOT --> C
+    C -- sí --> CR --> D
+    C -- no --> D
+    D -- sí --> DEV
+    D -- no --> I
+    I -- sí --> NUL
+    I -- no --> DB
+    DB -- sí --> TK
+    DB -- no --> MAIL
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
 ```
+
+<p class="pie" markdown>El `continue: true` de la rama crítica es la clave: sin él, una alerta grave del equipo de desarrollo se quedaría en Telegram y no llegaría a su chat.</p>
 
 El árbol se recorre desde la raíz, en orden, y en cuanto una ruta coincide se detiene ahí y usa ese receptor. Salvo que la ruta tenga `continue: true`: entonces, además de usar su receptor, sigue probando las hermanas siguientes. En el ejemplo, una alerta `severity=critical, team=dev` va a `critical` (Telegram y ticket) y también a `dev-chat` (Slack); una `severity=warning, team=dev` sólo a `dev-chat`; una `severity=warning, team=ops, service=app` no coincide con ninguna hija y cae en el receptor de la raíz, `mail`. Los parámetros de agrupación y repetición se heredan de la raíz y cada ruta puede sobrescribirlos, como hace `tickets` con `repeat_interval` o `dev-chat` con `group_by`. `amtool config routes test --config.file=alertmanager.yml severity=critical team=dev` te dice a qué receptores llegaría un conjunto de etiquetas sin tener que provocar nada.
 
@@ -684,6 +734,28 @@ Los `matchers` admiten `=`, `!=`, `=~` y `!~`, y una lista de varios se combina 
 #### group_wait, group_interval y repeat_interval
 
 Los tres parámetros que más confusión generan, con una línea temporal. Supón `group_by: [alertname, service]`, `group_wait: 30s`, `group_interval: 5m`, `repeat_interval: 4h`, y que app01 se queda sin base de datos a las 10:00:00.
+
+```mermaid
+flowchart LR
+    T0["<b>10:00:00</b><br><small>llega la primera alerta del grupo</small>"]:::dato
+    GW["<b>group_wait · 30 s</b><br><small>espera por si llegan hermanas<br>y las manda juntas</small>"]:::act
+    N1(["<b>10:00:30 · primer aviso</b>"]):::ok
+    GI["<b>group_interval · 5 min</b><br><small>solo si hay novedades en el grupo</small>"]:::act
+    N2(["<b>Aviso con lo nuevo</b>"]):::ok
+    RI["<b>repeat_interval · 4 h</b><br><small>si todo sigue igual, recuerda</small>"]:::act
+    N3(["<b>14:00 · recordatorio</b>"]):::ok
+    T0 --> GW --> N1 --> GI --> N2
+    N1 --> RI --> N3
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>`group_wait` agrupa, `group_interval` avisa de lo que cambia y `repeat_interval` recuerda lo que no se ha arreglado. Son tres relojes distintos y por eso se confunden.</p>
+
 
 | Instante | Qué pasa |
 |---|---|
@@ -700,7 +772,33 @@ Los tres parámetros que más confusión generan, con una línea temporal. Supó
 
 #### Inhibición
 
-Una regla de inhibición dice: mientras esté activa una alerta que cumpla `source_matchers`, no notifiques las que cumplan `target_matchers` y compartan los valores de las etiquetas de `equal`. El caso canónico es el del ejemplo: si `HostDown{instance="app01"}` está en firing, las cuarenta alertas de contenedores, memoria y latencia de `app01` son consecuencia, no información, y se callan. Siguen existiendo (se ven en la interfaz marcadas como inhibidas) pero no llegan a ningún receptor ni al webhook. `equal` es imprescindible: sin él, un host caído en el CPD de Madrid silenciaría las alertas de Sevilla. Y cuidado con las inhibiciones circulares: si A inhibe a B y B inhibe a A, Alertmanager las resuelve de forma poco intuitiva.
+Una regla de inhibición dice: mientras esté activa una alerta que cumpla `source_matchers`, no notifiques las que cumplan `target_matchers` y compartan los valores de las etiquetas de `equal`. El caso canónico es el del ejemplo: si `HostDown{instance="app01"}` está en firing, las cuarenta alertas de contenedores, memoria y latencia de `app01` son consecuencia, no información, y se callan. Siguen existiendo (se ven en la interfaz marcadas como inhibidas) pero no llegan a ningún receptor ni al webhook. !!! ojo "Sin `equal`, la inhibición silencia de más"
+    `equal` acota a qué alertas alcanza la inhibición. Sin él, un host caído en el CPD de Madrid silenciaría
+    las alertas de Sevilla, y nadie se enteraría de la segunda avería hasta que llamara un cliente. Cuidado
+    también con las inhibiciones circulares: si A inhibe a B y B inhibe a A, Alertmanager lo resuelve de
+    forma poco intuitiva.
+
+```mermaid
+flowchart LR
+    HD["<b>HostDown</b><br><small>instance=app01 · en firing</small>"]:::riesgo
+    EQ{"<b>equal: [instance]</b><br><small>¿misma instancia?</small>"}:::act
+    HIJAS["<b>40 alertas de app01</b><br><small>contenedores, memoria, latencia</small>"]:::pieza
+    CALLA(["<b>Inhibidas</b><br><small>se ven en la interfaz, no llegan a nadie</small>"]):::ok
+    OTRA["<b>Alertas de db02</b><br><small>otra instancia</small>"]:::pieza
+    PASA(["<b>Siguen notificando</b>"]):::ok
+    HD --> EQ
+    EQ -- "sí" --> HIJAS --> CALLA
+    EQ -- "no" --> OTRA --> PASA
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>Si el host está caído, sus cuarenta alertas hijas son consecuencia, no información. Lo que no puede pasar es que callen también las de otro sitio.</p>
+
 
 #### Silencios
 
@@ -761,14 +859,14 @@ Con eso puedes probar plantillas de correo y comprobar `send_resolved` sin moles
 
 ### A2.5 Alertmanager (sesión 12)
 
-**Objetivo.** Alertmanager con tres rutas, una inhibición y un silencio, notificando por Mailpit y Telegram con plantilla propia, y dos alarmas del mismo grupo llegando en una sola notificación.
+<span class="et et-obj">Objetivo</span> Alertmanager con tres rutas, una inhibición y un silencio, notificando por Mailpit y Telegram con plantilla propia, y dos alarmas del mismo grupo llegando en una sola notificación.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Las reglas de A2.4 cargadas; un bot de Telegram creado con @BotFather antes de la sesión, metido en un grupo de pruebas, con el `chat_id` del grupo (negativo) y el token en `secrets/tg_token`.
 - Explicado al principio: todo el apartado [Alertmanager](#alertmanager), de [El árbol de rutas](#el-arbol-de-rutas) a [Receptores y plantillas](#receptores-y-plantillas).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Añade Mailpit al `compose.yml` de mon01 con el bloque de [Mailpit como SMTP de pruebas](#mailpit-como-smtp-de-pruebas) y deja `alertmanager` así (declarando `alertmanager_data` en `volumes:`):
 
@@ -809,13 +907,13 @@ Con eso puedes probar plantillas de correo y comprobar `send_resolved` sin moles
 8. Repite con dos alarmas reales: para `db` con el bucle corriendo y `AppHighErrorRate` y `AppHighLatency` (ambas `service=app`) disparan con minutos de diferencia. Con `group_by: [alertname, service]` son dos mensajes; con `group_by: [service]` en la ruta critical (recarga con `curl -X POST http://mon01:9093/-/reload`), la segunda llega como actualización del primer grupo. Arranca `db` y deja el `group_by` que prefieras, justificado en el README.
 9. Commit y push sin `secrets/`.
 
-**Comprobación.** `amtool check-config` sin errores; en Mailpit hay un correo de `warning` y en Telegram un `[FIRING:2]` con dos alertas y su `[RESOLVED]`; el silencio se ve en la interfaz; no hay secretos en el repositorio.
+<span class="et et-com">Comprobación</span> `amtool check-config` sin errores; en Mailpit hay un correo de `warning` y en Telegram un `[FIRING:2]` con dos alertas y su `[RESOLVED]`; el silencio se ve en la interfaz; no hay secretos en el repositorio.
 
-**Entrega.** `alertmanager/` y el `compose.yml` de mon01, más una captura de Telegram con la notificación agrupada en `docs/capturas/`.
+<span class="et et-ent">Entrega</span> `alertmanager/` y el `compose.yml` de mon01, más una captura de Telegram con la notificación agrupada en `docs/capturas/`.
 
 ## Sesión 13 · Integración con incidencias
 
-<p class="ut-meta" markdown>12 de noviembre · Teoría y práctica · <span class="dur" title="Explicación unos 10 min, práctica unos 110 min">:material-school:<i class="dur-barra" style="--teoria:8%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>17 de noviembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Categorizar, notificar y tratar · 10 min&#10;A2.6 Integración con incidencias · 100 min" data-dur="Categorizar, notificar y tratar · 10 min&#10;A2.6 Integración con incidencias · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
 
 Esta sesión saca cada alarma de Alertmanager hacia Gitea: un receptor webhook que abre una incidencia categorizada al disparar y la cierra al resolverse. Para la hoja necesitas el JSON que envía Alertmanager y el receptor Flask. El procedimiento de verificación del final es el que repasaremos al empezar la sesión 14.
 
@@ -955,14 +1053,14 @@ Los tiempos del paso 3 y del 7 son los que luego comparas con lo que el servicio
 
 ### A2.6 Integración con incidencias (sesión 13)
 
-**Objetivo.** Un receptor webhook en mon01 que abre una issue en `ops/incidencias` de Gitea por cada alerta en `firing`, categorizada, y la cierra con comentario al llegar el `resolved`.
+<span class="et et-obj">Objetivo</span> Un receptor webhook en mon01 que abre una issue en `ops/incidencias` de Gitea por cada alerta en `firing`, categorizada, y la cierra con comentario al llegar el `resolved`.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Alertmanager de A2.5 notificando; Gitea accesible desde mon01.
 - Explicado al principio: [El JSON del webhook](#el-json-del-webhook). Para el código, [Receptor Flask que abre y cierra incidencias en Gitea](#receptor-flask-que-abre-y-cierra-incidencias-en-gitea).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. En Gitea crea el repositorio `ops/incidencias`. Genera un token en *Configuración → Aplicaciones* con escritura sobre issues y guárdalo en `secrets/tickets.env` (`chmod 600`):
 
@@ -998,26 +1096,26 @@ Los tiempos del paso 3 y del 7 son los que luego comparas con lo que el servicio
 7. Alarma de Loki: tres minutos de bucle sólo contra la ruta de fallo para que `AppLogErrorsBurst` supere sus 10 líneas. La issue debe llevar `origen: loki`. Para el bucle y espera el cierre.
 8. Commit y push de `tickets/`, `compose.yml` y `alertmanager.yml`, con los enlaces a las issues de prueba en el README.
 
-**Comprobación.** `firing.json` crea una issue y `resolved.json` la cierra; las alarmas de Prometheus y de Loki tienen cada una su issue categorizada, abierta al firing y cerrada con comentario; tras `docker compose restart tickets`, un `resolved` sigue cerrando la issue correcta.
+<span class="et et-com">Comprobación</span> `firing.json` crea una issue y `resolved.json` la cierra; las alarmas de Prometheus y de Loki tienen cada una su issue categorizada, abierta al firing y cerrada con comentario; tras `docker compose restart tickets`, un `resolved` sigue cerrando la issue correcta.
 
-**Entrega.** `tickets/` completo en el repositorio `alerting` y los enlaces a las dos issues de prueba en el README.
+<span class="et et-ent">Entrega</span> `tickets/` completo en el repositorio `alerting` y los enlaces a las dos issues de prueba en el README.
 
 ## Sesión 14 · Verificación completa
 
-<p class="ut-meta" markdown>17 de noviembre · Práctica · <span class="dur" title="Explicación unos 5 min, práctica unos 110 min">:material-school:<i class="dur-barra" style="--teoria:4%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>19 de noviembre · Práctica · <span class="dur" tabindex="0" aria-label="Explicación · 5 min&#10;A2.7 Verificación completa · 105 min" data-dur="Explicación · 5 min&#10;A2.7 Verificación completa · 105 min">:material-school:<i class="dur-barra" style="--teoria:5%"></i>:material-flask:</span></p>
 
 Sesión de práctica sin teoría nueva: se repasa en cinco minutos el [procedimiento de verificación de una alarma](#procedimiento-de-verificacion-de-una-alarma) de la sesión 13 y el resto es laboratorio. Al terminar tendrás la tabla de verificación rellena para al menos seis alarmas, con los tiempos medidos y los cambios que motivan, que es la base del informe de la práctica evaluable.
 
 ### A2.7 Verificación completa (sesión 14)
 
-**Objetivo.** La tabla de verificación rellena para al menos seis alarmas (una de Loki y una de eventos Docker como mínimo), con los tiempos medidos y los cambios que motivan.
+<span class="et et-obj">Objetivo</span> La tabla de verificación rellena para al menos seis alarmas (una de Loki y una de eventos Docker como mínimo), con los tiempos medidos y los cambios que motivan.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Toda la cadena de A2.4 a A2.6 en marcha (compruébalo con una alerta sintética de `amtool alert add`) y el bucle de tráfico de A2.1 corriendo.
 - El [procedimiento de verificación de una alarma](#procedimiento-de-verificacion-de-una-alarma), que se repasa en los primeros cinco minutos.
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Crea `docs/verificacion.md` con la tabla vacía: alarma, cómo se provoca, hora y tiempo hasta firing, canales, issue creada, hora y tiempo hasta resolved, issue cerrada, cambios.
 2. Decide cómo provocar cada alarma antes de empezar. Estas recetas cubren las seis mínimas:
@@ -1036,13 +1134,13 @@ Sesión de práctica sin teoría nueva: se repasa en cinco minutos el [procedimi
 5. Rellena *Cambios*: si el tiempo hasta firing es mayor de lo que el servicio tolera, qué `for` o ventana bajas; si ha saltado por un pico sin importancia, qué subes. Aplícalo en `alerts.yml`, valida y recarga.
 6. Commit y push de `docs/verificacion.md` y de las reglas que hayas tocado.
 
-**Comprobación.** Seis filas completas en `docs/verificacion.md`, cada una con su issue abierta y cerrada en Gitea a las horas de la tabla; los cambios aplicados y `promtool check rules` sin errores.
+<span class="et et-com">Comprobación</span> Seis filas completas en `docs/verificacion.md`, cada una con su issue abierta y cerrada en Gitea a las horas de la tabla; los cambios aplicados y `promtool check rules` sin errores.
 
-**Entrega.** `docs/verificacion.md` en el repositorio `alerting`, base del informe de la práctica evaluable.
+<span class="et et-ent">Entrega</span> `docs/verificacion.md` en el repositorio `alerting`, base del informe de la práctica evaluable.
 
 ## Sesión 15 · Práctica evaluable
 
-<p class="ut-meta" markdown>19 de noviembre · Práctica evaluable · <span class="dur" title="Explicación unos 10 min, práctica unos 110 min">:material-school:<i class="dur-barra" style="--teoria:8%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>24 de noviembre · Práctica evaluable · <span class="dur" tabindex="0" aria-label="Explicación · 10 min&#10;Trabajo en la práctica · 100 min" data-dur="Explicación · 10 min&#10;Trabajo en la práctica · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
 
 Entrega el repositorio `alerting` en Gitea con `rules.yml`, `alerts.yml`, `loki-alerts.yml`, `alertmanager.yml` (sin secretos: tokens en ficheros ignorados), el receptor webhook con su Compose, y un `README` que explique cómo desplegarlo en mon01 y cómo probarlo. Junto al repositorio, el informe de verificación de A2.7 y una tabla de categorización de todas las alarmas recibidas durante la práctica agrupadas por origen, criticidad y servicio, con fecha de creación y de cierre de cada una (la sacas de las issues de Gitea).
 

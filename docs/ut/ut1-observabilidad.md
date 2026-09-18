@@ -41,9 +41,9 @@ Un jueves a las tres de la tarde la API del curso empieza a devolver errores 500
 
 **Cómo está organizada la unidad.** La unidad sigue las sesiones en orden y cada sesión trae primero la teoría que se explica y después su hoja de práctica. En la sesión 1 se despliega el servicio del curso y se dibuja el mapa de los cuatro flujos entre app01 y mon01; la 2 saca las métricas de recursos con cAdvisor, porque ya existen y solo hay que leerlas; la 3 instrumenta la API y añade postgres_exporter, porque hay que tocar código. La sesión 4 monta el camino de los logs con Promtail y Loki, y la 5 reutiliza ese camino para los eventos del demonio. La 6 verifica la integración entera, con los relojes en hora y un corte de red que enseña qué se recupera y qué se pierde, y la 7 cierra con el informe evaluable. Al final de la página quedan los errores frecuentes del laboratorio, para consultar cuando algo falla.
 
-!!! info "Lo que necesitas de la otra asignatura"
+!!! otra "Lo que necesitas de la otra asignatura"
     Esta unidad se hace sobre un entorno provisional: la VPC y el firewall de [5166 UT2 y UT3](https://victor-educ.github.io/apuntes-5166/ut/ut2-vpc/) no existen hasta noviembre y diciembre, y la pila de monitorización de [5166 UT7](https://victor-educ.github.io/apuntes-5166/ut/ut7-monitorizacion/) no llega hasta abril. Lo que traes de 5166 son las dos VM creadas en la [sesión 3 de 5166 UT1 desde la plantilla cloud-init](https://victor-educ.github.io/apuntes-5166/ut/ut1-virtualizacion/), en el bridge del aula (vmbr0): `app01` con el servicio del curso en compose y `mon01` con Prometheus, Alertmanager y Grafana levantados con el compose que os doy en la sesión 1. Loki lo añadimos aquí.
-    Las IP 10.10.x.x de los ejemplos son las de la VPC dev: en el entorno provisional usad las de vuestras VM en vmbr0, y las reglas de OPNsense no aplican todavía. Cuando 5166 termine la UT3 (4 dic), las VM pasan a la VPC dev detrás del firewall; se hace en la UT3 de este módulo.
+    Las IP 10.10.x.x de los ejemplos son las de la VPC dev: en el entorno provisional usad las de vuestras VM en vmbr0, y las reglas de OPNsense no aplican todavía. Cuando 5166 termine la UT3 (9 dic), las VM pasan a la VPC dev detrás del firewall; se hace en la UT3 de este módulo.
 
 ### Plan de sesiones
 
@@ -53,15 +53,15 @@ Cada sesión de dos horas empieza con una explicación corta y sigue con laborat
 |---:|-------|------|------------|-------------|
 | [1](#sesion-1-presentacion-y-el-contenedor-de-referencia) | 1 oct | Teoría y práctica | Presentación de la asignatura, evaluación y cómo se coordina con Despliegue (25 min). Los cuatro flujos que salen de un contenedor: métricas, logs, eventos (20 min). | Desplegar el servicio del curso con compose (en el puesto si aún no existe app01), y observar con docker stats, logs y events mientras se genera tráfico y se para la BD. |
 | [2](#sesion-2-metricas-de-recursos) | 6 oct | Teoría y práctica | cgroups v2 y cómo cAdvisor lee de ellos; etiquetas y cardinalidad (20 min). | Desplegar cAdvisor junto al servicio, scrape desde mon01, gráfica de CPU y memoria por contenedor en Grafana. |
-| [3](#sesion-3-instrumentar-la-aplicacion) | 8 oct | Teoría y práctica | Tipos de métrica (counter, gauge, histogram, summary) y cómo se instrumenta con la librería cliente (20 min). | Endpoint /metrics en la API con counter e histogram, postgres_exporter en la BD, comprobar ambos en Prometheus. |
-| [4](#sesion-4-logs-estructurados) | 13 oct | Teoría y práctica | Drivers de logs de Docker, logs en JSON con request_id, cómo funciona Promtail y qué indexa Loki (25 min). | Configurar logs JSON, limitar json-file en daemon.json, desplegar Loki y Promtail, comprobar en Grafana Explore. |
-| [5](#sesion-5-eventos) | 15 oct | Teoría y práctica | Los eventos del demonio Docker y cómo se recogen (10 min). | Recoger eventos en Loki; provocar die, oom y unhealthy y localizarlos. |
-| [6](#sesion-6-integridad-y-almacenamiento) | 20 oct | Teoría y práctica | Qué significa verificar una integración: comunicación, recepción, integridad, relojes, retención (15 min). | Ejecutar la tabla de comprobaciones completa y cortar la red tres minutos para ver qué se recupera y qué se pierde. |
-| [7](#sesion-7-practica-evaluable) | 22 oct | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el informe: flujo de datos, configuración, pruebas y resultado del corte de red. |
+| [3](#sesion-3-instrumentar-la-aplicacion) | 13 oct | Teoría y práctica | Tipos de métrica (counter, gauge, histogram, summary) y cómo se instrumenta con la librería cliente (20 min). | Endpoint /metrics en la API con counter e histogram, postgres_exporter en la BD, comprobar ambos en Prometheus. |
+| [4](#sesion-4-logs-estructurados) | 15 oct | Teoría y práctica | Drivers de logs de Docker, logs en JSON con request_id, cómo funciona Promtail y qué indexa Loki (25 min). | Configurar logs JSON, limitar json-file en daemon.json, desplegar Loki y Promtail, comprobar en Grafana Explore. |
+| [5](#sesion-5-eventos) | 20 oct | Teoría y práctica | Los eventos del demonio Docker y cómo se recogen (10 min). | Recoger eventos en Loki; provocar die, oom y unhealthy y localizarlos. |
+| [6](#sesion-6-integridad-y-almacenamiento) | 22 oct | Teoría y práctica | Qué significa verificar una integración: comunicación, recepción, integridad, relojes, retención (15 min). | Ejecutar la tabla de comprobaciones completa y cortar la red tres minutos para ver qué se recupera y qué se pierde. |
+| [7](#sesion-7-practica-evaluable) | 27 oct | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el informe: flujo de datos, configuración, pruebas y resultado del corte de red. |
 
 ## Sesión 1 · Presentación y el contenedor de referencia
 
-<p class="ut-meta" markdown>1 de octubre · Teoría y práctica · <span class="dur" title="Explicación unos 45 min, práctica unos 75 min">:material-school:<i class="dur-barra" style="--teoria:38%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>1 de octubre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Qué expone un contenedor · 45 min&#10;A1.1 Presentación y el contenedor de referencia · 65 min" data-dur="Qué expone un contenedor · 45 min&#10;A1.1 Presentación y el contenedor de referencia · 65 min">:material-school:<i class="dur-barra" style="--teoria:41%"></i>:material-flask:</span></p>
 
 Al acabar tendrás el servicio del curso en marcha y habrás visto en tres terminales cómo reaccionan métricas, logs y eventos cuando se cae la base de datos. Antes van la presentación de la asignatura y el mapa de los cuatro flujos que salen de un contenedor, que es lo único de teoría que necesita la hoja: sin ese mapa, lo que veas en las terminales son piezas sueltas.
 
@@ -82,25 +82,25 @@ Los dos primeros son series numéricas: se muestrean cada pocos segundos y se gu
 
 ```mermaid
 flowchart LR
-    subgraph app01[app01 · 10.10.2.x]
-        api[API<br>/metrics :9102<br>stdout JSON]
-        cad[cAdvisor :8081]
-        ev[docker-events<br>contenedor auxiliar]
-        pt[Promtail :9080]
-        dk[(dockerd<br>json-file)]
-        cg[(cgroups v2)]
+    subgraph app01["app01 · 10.10.2.x"]
+        api["<b>API</b><br><small>/metrics :9102 · stdout JSON</small>"]:::pieza
+        cad["<b>cAdvisor</b><br><small>:8081</small>"]:::pieza
+        ev["<b>docker-events</b><br><small>contenedor auxiliar</small>"]:::pieza
+        pt["<b>Promtail</b><br><small>:9080</small>"]:::pieza
+        dk[("<b>dockerd</b><br><small>json-file</small>")]:::infra
+        cg[("<b>cgroups v2</b>")]:::infra
         cg --> cad
         api --> dk
         ev --> dk
         dk --> pt
     end
-    subgraph db01[db01 · 10.10.3.x]
-        pgx[postgres_exporter :9187]
+    subgraph db01["db01 · 10.10.3.x"]
+        pgx["<b>postgres_exporter</b><br><small>:9187</small>"]:::pieza
     end
-    subgraph mon01[mon01 · 10.10.0.20]
-        prom[Prometheus :9090]
-        loki[Loki :3100]
-        graf[Grafana :3000]
+    subgraph mon01["mon01 · 10.10.0.20"]
+        prom["<b>Prometheus</b><br><small>:9090</small>"]:::act
+        loki["<b>Loki</b><br><small>:3100</small>"]:::act
+        graf["<b>Grafana</b><br><small>:3000</small>"]:::dato
         prom --> graf
         loki --> graf
     end
@@ -108,7 +108,15 @@ flowchart LR
     prom -.->|scrape| cad
     prom -.->|scrape| pgx
     pt -->|push HTTP| loki
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
 ```
+
+<p class="pie" markdown>Las métricas las va a buscar Prometheus; los logs los empuja Promtail. Esa diferencia de sentido es la que decide las reglas del cortafuegos en la UT3.</p>
 
 Fijaos en la dirección de las flechas: las métricas las **tira** Prometheus (pull), los logs los **empuja** Promtail (push). Esa diferencia lo condiciona todo cuando hay un corte de red y lo veremos al final de la unidad.
 
@@ -116,16 +124,16 @@ Fijaos en la dirección de las flechas: las métricas las **tira** Prometheus (p
 
 La primera media hora es la presentación de la asignatura (evaluación, laboratorio compartido con Despliegue y calendario); después, el mapa de los cuatro flujos, y el resto es esta hoja.
 
-**Objetivo.** El servicio del curso corriendo con compose y, en tres terminales a la vez, cómo reaccionan métricas, logs y eventos cuando se cae la base de datos.
+<span class="et et-obj">Objetivo</span> El servicio del curso corriendo con compose y, en tres terminales a la vez, cómo reaccionan métricas, logs y eventos cuando se cae la base de datos.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - La VM app01 de 5166 o, si todavía no existe, Docker Engine en tu puesto.
 - El compose del servicio del curso (el tuyo de 5166 o el de clase, en Aules).
 - La pila mínima de mon01 (compose de clase), aunque hoy no se use.
 - Lo explicado antes: [Qué expone un contenedor](#que-expone-un-contenedor).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Despliega el servicio y comprueba que está sano:
 
@@ -166,15 +174,15 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
 
     Calcula `memory.current - inactive_file` (en MiB) y compáralo con la columna MEM USAGE de `docker stats`.
 
-**Comprobación.** El bucle de `curl` devuelve 200 con la base de datos arriba y 500 (o 503) con ella parada; en el terminal de eventos aparece el `die` de `db` con `exitCode` 0 y después el `start`; la resta del paso 5 se queda a unos pocos MiB de lo que dice `docker stats`.
+<span class="et et-com">Comprobación</span> El bucle de `curl` devuelve 200 con la base de datos arriba y 500 (o 503) con ella parada; en el terminal de eventos aparece el `die` de `db` con `exitCode` 0 y después el `start`; la resta del paso 5 se queda a unos pocos MiB de lo que dice `docker stats`.
 
-**Entrega.** Una tabla con tres filas (métricas, logs, eventos) y tres columnas (qué se vio al parar la BD, cuántos segundos tardó, qué se vio al arrancarla), más la comparación de memoria, en `tests/evidence/ut1/a1.1.md` del repositorio `servicio`.
+<span class="et et-ent">Entrega</span> Una tabla con tres filas (métricas, logs, eventos) y tres columnas (qué se vio al parar la BD, cuántos segundos tardó, qué se vio al arrancarla), más la comparación de memoria, en `tests/evidence/ut1/a1.1.md` del repositorio `servicio`.
 
-**Si te sobra tiempo.** Repite con una ruta que consulte la base de datos: ¿la API devuelve error o se queda colgada?
+<span class="et et-ext">Si te sobra tiempo</span> Repite con una ruta que consulte la base de datos: ¿la API devuelve error o se queda colgada?
 
 ## Sesión 2 · Métricas de recursos
 
-<p class="ut-meta" markdown>6 de octubre · Teoría y práctica · <span class="dur" title="Explicación unos 20 min, práctica unos 100 min">:material-school:<i class="dur-barra" style="--teoria:17%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>6 de octubre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Métricas de recursos: cgroups v2 y cAdvisor · 20 min&#10;A1.2 Métricas de recursos · 90 min" data-dur="Métricas de recursos: cgroups v2 y cAdvisor · 20 min&#10;A1.2 Métricas de recursos · 90 min">:material-school:<i class="dur-barra" style="--teoria:18%"></i>:material-flask:</span></p>
 
 Al terminar, cAdvisor publica las métricas de recursos de app01, Prometheus las recoge con la etiqueta `service` limpia y Grafana pinta CPU y memoria por servicio. La hoja usa los cuatro apartados de abajo: los dos primeros para entender los números, el compose de cAdvisor para desplegarlo y las etiquetas y la cardinalidad para el scrape.
 
@@ -183,6 +191,24 @@ Al terminar, cAdvisor publica las métricas de recursos de app01, Prometheus las
 Aquí sacamos el primer flujo, el más sencillo porque ya existe: el kernel lleva la cuenta de lo que consume cada contenedor y solo hay que leerla. Primero la leemos a mano para saber qué significa cada número, después la publicamos con cAdvisor para que Prometheus la recoja, y al final hacemos las consultas en PromQL (el lenguaje de consulta de Prometheus) que irán al panel de Grafana. Lo que más problemas da es qué etiqueta identifica a cada contenedor y cuántas series generamos.
 
 #### De dónde salen los números
+
+```mermaid
+flowchart LR
+    K["<b>Kernel · cgroups v2</b><br><small>/sys/fs/cgroup/…/docker-&lt;id&gt;.scope<br>memory.current · cpu.stat · io.stat</small>"]:::infra
+    C["<b>cAdvisor</b><br><small>lee esos ficheros cada pocos segundos</small>"]:::pieza
+    E["<b>/metrics</b><br><small>texto plano en formato Prometheus</small>"]:::dato
+    P["<b>Prometheus</b><br><small>hace scrape y lo guarda con su marca de tiempo</small>"]:::act
+    G(["<b>Grafana</b><br><small>la gráfica que miráis</small>"]):::ok
+    K --> C --> E --> P --> G
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>Nadie inventa los números: el kernel ya los está contando para aplicar los límites. cAdvisor solo los lee y los publica.</p>
 
 Cuando Docker arranca un contenedor, le pide al kernel un cgroup (control group) y mete dentro su proceso principal. El cgroup es a la vez el sitio donde se aplican límites (`--memory`, `--cpus`) y el sitio donde el kernel contabiliza lo consumido. En Debian 13 con Docker Engine 28 el sistema usa **cgroups v2** con el driver systemd, así que cada contenedor aparece como una unidad `docker-<id>.scope` colgando de `system.slice`:
 
@@ -210,6 +236,27 @@ Con cgroups v1 (lo que os encontraréis todavía en hosts viejos y en alguna doc
 Es la confusión más habitual con la memoria de un contenedor. `memory.current` (lo que cAdvisor expone como `container_memory_usage_bytes`) incluye la caché de páginas: si el contenedor lee un fichero de 200 MB, el kernel se queda esas páginas en caché y cuentan como memoria del cgroup aunque el proceso no las necesite y el kernel pueda soltarlas al instante. Por eso `usage` sube y sube en un contenedor que escribe logs o lee de disco, y la gente cree que tiene una fuga.
 
 El **working set** es `memory.current` menos `inactive_file` de `memory.stat`: la memoria que el kernel no podría reclamar sin dolor. cAdvisor lo expone como `container_memory_working_set_bytes` y es la métrica que usa el propio OOM killer (el mecanismo del kernel que mata procesos cuando se agota la memoria) para decidir si un contenedor ha superado `memory.max`. Conclusión práctica: para alarmas y para comparar contra el límite, working set; `usage_bytes` solo para entender de qué está hecha la memoria. Para "memoria que realmente ha pedido el proceso" también tenéis `container_memory_rss` (anon en v2).
+
+```mermaid
+flowchart LR
+    subgraph U["container_memory_usage_bytes · memory.current"]
+        direction TB
+        RSS["<b>Memoria del proceso</b><br><small>anon / rss</small>"]:::dato
+        CACHE["<b>Caché de páginas</b><br><small>ficheros leídos o escritos<br>el kernel la suelta sin dolor</small>"]:::infra
+    end
+    WS["<b>working set</b><br><small>usage − inactive_file<br>lo que el kernel NO puede reclamar</small>"]:::ok
+    OOM["<b>Es lo que mira el OOM killer</b><br><small>para decidir si se ha pasado de memory.max</small>"]:::riesgo
+    U -- "quitando la caché reclamable" --> WS --> OOM
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>Por eso `usage_bytes` sube y sube en un contenedor que escribe logs y parece una fuga que no existe. Para alarmas y para comparar contra el límite, **working set**.</p>
+
 
 ```promql
 # porcentaje del límite que usa cada servicio de compose
@@ -255,6 +302,33 @@ Cosas a saber de este fichero. `privileged` y `/dev/kmsg` hacen falta para que l
 
 Cada serie de cAdvisor lleva `id` (la ruta del cgroup), `name` (nombre del contenedor, por ejemplo `servicio-app-1`) e `image`. Con `--store_container_labels` cAdvisor convierte todas las etiquetas Docker del contenedor en etiquetas `container_label_<clave>` con los puntos cambiados por guiones bajos. Compose pone bastantes etiquetas (proyecto, servicio, número de réplica, hash de la configuración, ruta del fichero...), y esa última, `com.docker.compose.config-hash`, cambia en cada `compose up` que modifique el servicio. Si la dejas pasar, cada redespliegue crea series nuevas en Prometheus y las viejas quedan huérfanas: eso es **cardinalidad**, y es el enemigo número uno de una base de datos de series. Por eso el compose de arriba desactiva todas y solo deja pasar `com.docker.compose.service` y `com.docker.compose.project`.
 
+```mermaid
+flowchart TB
+    subgraph MAL["Dejando pasar config-hash"]
+        direction LR
+        D1["<b>compose up</b><br><small>lunes</small>"]:::act --> S1["<b>serie nueva</b>"]:::riesgo
+        D2["<b>compose up</b><br><small>martes</small>"]:::act --> S2["<b>serie nueva</b>"]:::riesgo
+        D3["<b>compose up</b><br><small>miércoles</small>"]:::act --> S3["<b>serie nueva</b>"]:::riesgo
+        S1 --- H["<b>Las anteriores quedan huérfanas</b><br><small>ocupan, ensucian y ralentizan las consultas</small>"]:::riesgo
+        S2 --- H
+        S3 --- H
+    end
+    subgraph BIEN["Dejando pasar solo service y project"]
+        direction LR
+        DD["<b>compose up</b><br><small>cualquier día</small>"]:::act --> SS(["<b>La misma serie</b><br><small>service=app · estable entre despliegues</small>"]):::ok
+    end
+    MAL ~~~ BIEN
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>Una etiqueta que cambia en cada despliegue multiplica las series. Es el enemigo número uno de una base de datos de series temporales.</p>
+
+
 La etiqueta que os interesa para todo el módulo es `container_label_com_docker_compose_service`: es estable entre despliegues (siempre `app`, `db`, `nginx`) mientras que `name` cambia si escaláis o renombráis. En Prometheus, en el scrape de cAdvisor, la renombramos a algo manejable:
 
 ```yaml
@@ -292,15 +366,15 @@ La ventana `[2m]` con scrape cada 15 s da 8 puntos por ventana; con `[30s]` tend
 
 ### A1.2 Métricas de recursos (sesión 2)
 
-**Objetivo.** cAdvisor en app01, scrape desde mon01 con la etiqueta `service` limpia, y dos paneles en Grafana con CPU y working set por servicio de compose.
+<span class="et et-obj">Objetivo</span> cAdvisor en app01, scrape desde mon01 con la etiqueta `service` limpia, y dos paneles en Grafana con CPU y working set por servicio de compose.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - app01 con el servicio en marcha (A1.1) y mon01 con Prometheus y Grafana respondiendo en `:9090` y `:3000` desde tu puesto.
 - Acceso a `prometheus.yml` de mon01 (`/opt/monitoring/` con el compose de clase).
 - Lo explicado antes: [de dónde salen los números](#de-donde-salen-los-numeros), [memory usage frente a working set](#memory-usage-frente-a-working-set) y [etiquetas y cardinalidad](#etiquetas-y-cardinalidad).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Crea en app01 `/opt/agentes/compose.yml` con el servicio `cadvisor` tal como está en [cAdvisor en compose](#cadvisor-en-compose) (compose separado del servicio, para que reiniciar la API no tumbe los agentes) y arráncalo:
 
@@ -339,15 +413,15 @@ La ventana `[2m]` con scrape cada 15 s da 8 puntos por ventana; con `[30s]` tend
 
 6. Genera tráfico con el bucle de A1.1 durante dos minutos y comprueba que la CPU de `app` sube en el panel.
 
-**Comprobación.** `cadvisor` en UP en Targets; las series llevan `service` y ninguna `container_label_*`; los dos paneles pintan una línea por servicio y el número de series tras el `keep` es varias veces menor.
+<span class="et et-com">Comprobación</span> `cadvisor` en UP en Targets; las series llevan `service` y ninguna `container_label_*`; los dos paneles pintan una línea por servicio y el número de series tras el `keep` es varias veces menor.
 
-**Entrega.** Captura de los dos paneles y los cuatro números (métricas distintas y series, antes y después del `keep`), en `tests/evidence/ut1/a1.2.md`. El compose de agentes y el fragmento de `prometheus.yml` van al repositorio `monitoring`.
+<span class="et et-ent">Entrega</span> Captura de los dos paneles y los cuatro números (métricas distintas y series, antes y después del `keep`), en `tests/evidence/ut1/a1.2.md`. El compose de agentes y el fragmento de `prometheus.yml` van al repositorio `monitoring`.
 
-**Si te sobra tiempo.** Cambia la ventana del `rate()` a `[30s]` en el panel de CPU y observa cómo se rompe la gráfica; después vuelve a `[2m]`.
+<span class="et et-ext">Si te sobra tiempo</span> Cambia la ventana del `rate()` a `[30s]` en el panel de CPU y observa cómo se rompe la gráfica; después vuelve a `[2m]`.
 
 ## Sesión 3 · Instrumentar la aplicación
 
-<p class="ut-meta" markdown>8 de octubre · Teoría y práctica · <span class="dur" title="Explicación unos 20 min, práctica unos 100 min">:material-school:<i class="dur-barra" style="--teoria:17%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>13 de octubre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Métricas de aplicación · 20 min&#10;A1.3 Instrumentar la aplicación · 90 min" data-dur="Métricas de aplicación · 20 min&#10;A1.3 Instrumentar la aplicación · 90 min">:material-school:<i class="dur-barra" style="--teoria:18%"></i>:material-flask:</span></p>
 
 Hoy se toca código: la API sirve `/metrics` con un counter y un histogram, y postgres_exporter publica lo que la base de datos no puede contar por sí misma. De la teoría de abajo la hoja usa los tipos de métrica, el ejemplo de tu lenguaje (Python o Node), las convenciones de nombres y el apartado de exporters.
 
@@ -361,6 +435,30 @@ Hoy se toca código: la API sirve `/metrics` con un counter y un histogram, y po
 - **Gauge**: sube y baja (conexiones activas, tamaño de una cola, temperatura, fecha del último backup en segundos epoch). Se consulta directo.
 - **Histogram**: cuenta observaciones en cubos acumulativos (`le="0.1"`, `le="0.5"`...) y además suma y total. Permite calcular percentiles en el servidor con `histogram_quantile()` y, lo que importa, agregarlos entre instancias. Es lo que se usa para latencias.
 - **Summary**: percentiles calculados en el cliente. Más preciso para una instancia, pero no se puede agregar entre varias réplicas. En la práctica, histogram casi siempre.
+
+```mermaid
+flowchart TB
+    Q{"<b>¿Qué quieres medir?</b>"}:::act
+    C["<b>Counter</b><br><small>solo sube · peticiones, errores, bytes</small>"]:::dato
+    G["<b>Gauge</b><br><small>sube y baja · conexiones, cola, temperatura</small>"]:::dato
+    H["<b>Histogram</b><br><small>cubos acumulativos · percentiles en el servidor</small>"]:::dato
+    S["<b>Summary</b><br><small>percentiles en el cliente · no se agrega</small>"]:::riesgo
+    Q -- "algo que solo crece" --> C
+    Q -- "un valor de ahora mismo" --> G
+    Q -- "latencias" --> H
+    Q -. "casi nunca" .-> S
+    C -- "nunca el valor crudo" --> R(["<b>rate() o increase()</b>"]):::ok
+    H --> P(["<b>histogram_quantile()</b><br><small>y se puede sumar entre réplicas</small>"]):::ok
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>El contador crudo depende de cuándo arrancó el proceso, así que no se consulta nunca: se consulta su velocidad.</p>
+
 
 #### Python con prometheus_client
 
@@ -529,15 +627,15 @@ Lo que da `stub_status` es poco: `nginx_connections_active`, `nginx_connections_
 
 ### A1.3 Instrumentar la aplicación (sesión 3)
 
-**Objetivo.** La API sirve `/metrics` en el 9102 con un counter y un histogram, postgres_exporter publica las de la base de datos, los dos están en UP, y calculas en PromQL el p95 de latencia y el porcentaje de errores.
+<span class="et et-obj">Objetivo</span> La API sirve `/metrics` en el 9102 con un counter y un histogram, postgres_exporter publica las de la base de datos, los dos están en UP, y calculas en PromQL el p95 de latencia y el porcentaje de errores.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - El código de la API en tu repositorio `servicio` (Python con Flask o FastAPI, o Node con Express).
 - db01 con PostgreSQL en compose y acceso `psql` como superusuario.
 - Lo explicado antes: [tipos de métrica](#tipos-de-metrica), [Python con prometheus_client](#python-con-prometheus_client) o [Node con prom-client](#node-con-prom-client), y [nombres y etiquetas](#nombres-y-etiquetas-convenciones).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Añade la librería cliente a las dependencias de la API (`prometheus_client` o `prom-client`) y copia `metrics.py` de [Python con prometheus_client](#python-con-prometheus_client) o `metrics.js` de [Node con prom-client](#node-con-prom-client), con los mismos nombres de métrica y etiquetas. Llama a `instrument(app)` al crear la aplicación.
 
@@ -576,15 +674,15 @@ Lo que da `stub_status` es poco: `nginx_connections_active`, `nginx_connections_
     sum(rate(app_http_requests_total{status=~"5.."}[5m])) / sum(rate(app_http_requests_total[5m])) * 100
     ```
 
-**Comprobación.** `app` y `postgres` en UP en Targets; `app_http_requests_total` lleva `route` en forma de plantilla (`/items/<int:id>`, nunca `/items/48213`); `pg_up` vale 1 y la métrica personalizada aparece con prefijo `pg_`; el p95 sale en segundos y el porcentaje de 5xx sube solo mientras la base de datos está parada.
+<span class="et et-com">Comprobación</span> `app` y `postgres` en UP en Targets; `app_http_requests_total` lleva `route` en forma de plantilla (`/items/<int:id>`, nunca `/items/48213`); `pg_up` vale 1 y la métrica personalizada aparece con prefijo `pg_`; el p95 sale en segundos y el porcentaje de 5xx sube solo mientras la base de datos está parada.
 
-**Entrega.** En `tests/evidence/ut1/a1.3.md`: el código de la instrumentación, `queries.yaml`, los jobs de `prometheus.yml` y las dos consultas con su resultado. El código va además al repositorio `servicio` con un commit propio.
+<span class="et et-ent">Entrega</span> En `tests/evidence/ut1/a1.3.md`: el código de la instrumentación, `queries.yaml`, los jobs de `prometheus.yml` y las dos consultas con su resultado. El código va además al repositorio `servicio` con un commit propio.
 
-**Si te sobra tiempo.** Añade el gauge `app_db_reachable` (1 si la última consulta a PostgreSQL funcionó) y comprueba que baja a 0 al parar la base de datos.
+<span class="et et-ext">Si te sobra tiempo</span> Añade el gauge `app_db_reachable` (1 si la última consulta a PostgreSQL funcionó) y comprueba que baja a 0 al parar la base de datos.
 
 ## Sesión 4 · Logs estructurados
 
-<p class="ut-meta" markdown>13 de octubre · Teoría y práctica · <span class="dur" title="Explicación unos 25 min, práctica unos 95 min">:material-school:<i class="dur-barra" style="--teoria:21%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>15 de octubre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Logs · 25 min&#10;A1.4 Logs estructurados · 85 min" data-dur="Logs · 25 min&#10;A1.4 Logs estructurados · 85 min">:material-school:<i class="dur-barra" style="--teoria:23%"></i>:material-flask:</span></p>
 
 Al acabar, los logs de la API y de nginx llegan a Loki como JSON con el mismo `request_id`, y puedes seguir una petición en los dos hosts desde Grafana Explore. La hoja recorre los cuatro apartados de abajo en el mismo orden: limitar el driver de Docker, escribir JSON con `request_id`, desplegar Promtail y montar Loki.
 
@@ -594,7 +692,33 @@ El tercer flujo es texto, no números, y por eso tiene su propio camino: Docker 
 
 #### El driver de logs de Docker y por qué limitarlo
 
-Docker captura stdout y stderr del proceso principal del contenedor y se los entrega a un **driver de logs**. El driver por defecto es `json-file`: escribe cada línea como un objeto JSON (`{"log":"...","stream":"stdout","time":"2026-10-13T09:12:44.120Z"}`) en `/var/lib/docker/containers/<id>/<id>-json.log`. Sin configuración adicional ese fichero **no rota nunca**. Una API que escriba 200 líneas por segundo de 300 bytes genera 5 GB al día; en dos semanas app01 se queda sin disco, Docker no puede escribir y el contenedor se para o se cuelga. Es la causa más común de "se ha caído el servidor" en despliegues pequeños.
+Docker captura stdout y stderr del proceso principal del contenedor y se los entrega a un **driver de logs**. El driver por defecto es `json-file`: escribe cada línea como un objeto JSON (`{"log":"...","stream":"stdout","time":"2026-10-13T09:12:44.120Z"}`) en `/var/lib/docker/containers/<id>/<id>-json.log`. Sin configuración adicional ese fichero **no rota nunca**. Una API que escriba 200 líneas por segundo de 300 bytes genera 5 GB al día.
+
+!!! ojo "La causa más común de \"se ha caído el servidor\""
+    En dos semanas `app01` se queda sin disco, Docker no puede escribir y el contenedor se para o se cuelga.
+    No hay alarma de aplicación que avise de esto: el servicio está bien hasta que el disco se acaba. Limitad
+    el driver desde el primer despliegue, no cuando pase.
+
+```mermaid
+flowchart LR
+    APP["<b>Contenedor</b><br><small>stdout y stderr</small>"]:::pieza
+    DRV["<b>Driver json-file</b><br><small>una línea JSON por mensaje</small>"]:::pieza
+    FIC["<b>&lt;id&gt;-json.log</b><br><small>sin configurar, no rota nunca</small>"]:::riesgo
+    LLENO(["<b>Disco lleno</b><br><small>Docker no puede escribir · el contenedor se para</small>"]):::riesgo
+    LIM["<b>max-size y max-file</b><br><small>en /etc/docker/daemon.json</small>"]:::act
+    OK(["<b>Ocupación acotada</b>"]):::ok
+    APP --> DRV --> FIC --> LLENO
+    DRV -- "con límite" --> LIM --> OK
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>El log es el único recurso del contenedor que crece sin que nadie lo pida. Acotarlo es una línea de configuración.</p>
+
 
 ```json
 // /etc/docker/daemon.json en app01, db01 y web01
@@ -865,15 +989,15 @@ En Grafana, añadís Loki como fuente de datos (`http://loki:3100` si está en e
 
 ### A1.4 Logs estructurados (sesión 4)
 
-**Objetivo.** Los logs de la API y de nginx llegan a Loki como JSON con el mismo `request_id` y las etiquetas `host`, `container` y `service`, y puedes seguir una petición en los dos hosts desde Grafana Explore.
+<span class="et et-obj">Objetivo</span> Los logs de la API y de nginx llegan a Loki como JSON con el mismo `request_id` y las etiquetas `host`, `container` y `service`, y puedes seguir una petición en los dos hosts desde Grafana Explore.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - A1.3 terminada y acceso root en app01, db01 y web01.
 - Entre 2 y 5 GB libres en mon01 para Loki.
 - Lo explicado antes: [el driver de logs y por qué limitarlo](#el-driver-de-logs-de-docker-y-por-que-limitarlo), [logs JSON con request_id](#logs-estructurados-json-con-request_id), [Promtail](#promtail) y [Loki](#loki).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Limita el driver `json-file` en las tres VM con el `daemon.json` de [El driver de logs de Docker](#el-driver-de-logs-de-docker-y-por-que-limitarlo) (50 MB, 5 ficheros) y recrea los contenedores, porque la opción solo aplica a los creados después:
 
@@ -904,15 +1028,15 @@ En Grafana, añadís Loki como fuente de datos (`http://loki:3100` si está en e
 
     El `request_id` sale de la cabecera de una petición (`curl -si http://10.10.1.10/health | grep -i x-request-id`).
 
-**Comprobación.** `docker inspect` muestra los límites del driver en los tres hosts; `{host="app01"}` devuelve líneas con `container`, `service` y `level`; la consulta por `request_id` devuelve dos líneas (nginx y API) con la misma marca de tiempo salvo milisegundos; `{service="app", malformed="true"}` está vacío o solo tiene líneas de arranque.
+<span class="et et-com">Comprobación</span> `docker inspect` muestra los límites del driver en los tres hosts; `{host="app01"}` devuelve líneas con `container`, `service` y `level`; la consulta por `request_id` devuelve dos líneas (nginx y API) con la misma marca de tiempo salvo milisegundos; `{service="app", malformed="true"}` está vacío o solo tiene líneas de arranque.
 
-**Entrega.** En `tests/evidence/ut1/a1.4.md`: los dos `promtail.yml`, una captura de Explore con la petición correlada en los dos hosts y la salida de `docker inspect` con los límites del driver. Las configuraciones van además al repositorio `monitoring`.
+<span class="et et-ent">Entrega</span> En `tests/evidence/ut1/a1.4.md`: los dos `promtail.yml`, una captura de Explore con la petición correlada en los dos hosts y la salida de `docker inspect` con los límites del driver. Las configuraciones van además al repositorio `monitoring`.
 
-**Si te sobra tiempo.** Añade Promtail a db01 con `docker_sd_configs` y localiza en Loki las líneas de PostgreSQL al parar y arrancar la base de datos.
+<span class="et et-ext">Si te sobra tiempo</span> Añade Promtail a db01 con `docker_sd_configs` y localiza en Loki las líneas de PostgreSQL al parar y arrancar la base de datos.
 
 ## Sesión 5 · Eventos
 
-<p class="ut-meta" markdown>15 de octubre · Teoría y práctica · <span class="dur" title="Explicación unos 10 min, práctica unos 110 min">:material-school:<i class="dur-barra" style="--teoria:8%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>20 de octubre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Eventos del demonio Docker · 10 min&#10;A1.5 Eventos · 100 min" data-dur="Eventos del demonio Docker · 10 min&#10;A1.5 Eventos · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
 
 Sesión con poca teoría: los eventos del demonio reutilizan el camino de los logs, así que casi todo el tiempo es laboratorio. Al terminar habrás provocado un `die`, un `oom` y un `health_status: unhealthy` en la API y los habrás localizado en Loki; el único apartado que necesita la hoja es el de eventos, con el contenedor auxiliar que los recoge.
 
@@ -954,15 +1078,15 @@ Dos avisos. El contenedor auxiliar solo captura eventos mientras está en marcha
 
 ### A1.5 Eventos (sesión 5)
 
-**Objetivo.** Los eventos del demonio Docker de app01 llegan a Loki con la etiqueta `action`, y has provocado y localizado un `die`, un `oom` y un `health_status: unhealthy` en la API.
+<span class="et et-obj">Objetivo</span> Los eventos del demonio Docker de app01 llegan a Loki con la etiqueta `action`, y has provocado y localizado un `die`, un `oom` y un `health_status: unhealthy` en la API.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - A1.4 funcionando: Explore devuelve `{host="app01"}`.
 - El compose del servicio a mano (se cambia el límite de memoria y el healthcheck de `app`).
 - Lo explicado antes: [Eventos del demonio Docker](#eventos-del-demonio-docker).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Mira primero el formato en local: `docker events --since 30m --filter type=container --format '{{json .}}'`.
 
@@ -1006,15 +1130,15 @@ Dos avisos. El contenedor auxiliar solo captura eventos mientras está en marcha
 
     Apunta el `exitCode` de cada `die`: 137 tras el SIGKILL y tras el `oom`, 143 cuando compose la recrea (si la API atiende SIGTERM).
 
-**Comprobación.** Las tres consultas devuelven al menos una línea con la hora que apuntaste; el `oom` va seguido de un `die` con `exitCode` 137; `docker inspect` dice `unhealthy` cuando el evento aparece en Loki.
+<span class="et et-com">Comprobación</span> Las tres consultas devuelven al menos una línea con la hora que apuntaste; el `oom` va seguido de un `die` con `exitCode` 137; `docker inspect` dice `unhealthy` cuando el evento aparece en Loki.
 
-**Entrega.** En `tests/evidence/ut1/a1.5.md`: las tres consultas con su resultado y la lista de `exitCode` observados con su causa. El `match` nuevo va al `promtail.yml` del repositorio `monitoring`.
+<span class="et et-ent">Entrega</span> En `tests/evidence/ut1/a1.5.md`: las tres consultas con su resultado y la lista de `exitCode` observados con su causa. El `match` nuevo va al `promtail.yml` del repositorio `monitoring`.
 
-**Si te sobra tiempo.** Comprueba que `container_oom_events_total` de cAdvisor también ha subido con el `oom`.
+<span class="et et-ext">Si te sobra tiempo</span> Comprueba que `container_oom_events_total` de cAdvisor también ha subido con el `oom`.
 
 ## Sesión 6 · Integridad y almacenamiento
 
-<p class="ut-meta" markdown>20 de octubre · Teoría y práctica · <span class="dur" title="Explicación unos 15 min, práctica unos 105 min">:material-school:<i class="dur-barra" style="--teoria:13%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>22 de octubre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Verificar la integración · 10 min&#10;Enviar las métricas a un sistema remoto: scrape y remote_write · 5 min&#10;A1.6 Integridad y almacenamiento · 95 min" data-dur="Verificar la integración · 10 min&#10;Enviar las métricas a un sistema remoto: scrape y remote_write · 5 min&#10;A1.6 Integridad y almacenamiento · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
 
 Es la sesión en la que se demuestra que la integración funciona: la tabla de comprobaciones completa y dos cortes de red para ver qué se recupera y qué se pierde. La hoja usa la tabla de verificación, chrony para los relojes y los comandos de nftables del corte; el apartado de scrape y remote_write no se explica en clase, pero lo necesitas para entender el hueco de las gráficas y para el paso opcional con el Prometheus local.
 
@@ -1081,7 +1205,8 @@ Repetid la prueba con un corte de 12 minutos, o bajando `max_retries` a 3, y ya 
 
 ### Enviar las métricas a un sistema remoto: scrape y remote_write
 
-*Material de consulta: no se explica en clase; lo necesitas para la hoja de práctica de esta sesión.*
+!!! consulta "Material de consulta"
+    Esto no se explica en clase: lo necesitas para la hoja de práctica de esta sesión.
 
 Hasta aquí hemos dado por hecho que las métricas llegan a mon01. Este apartado explica cómo viajan, porque hay dos formas con comportamientos distintos cuando la red falla: en la primera Prometheus va a buscarlas, en la segunda se las envían. Las dos aparecen en la prueba de corte de red de la sesión 6.
 
@@ -1166,15 +1291,15 @@ En el laboratorio la práctica se hace con scrape directo, que es lo que tiene c
 
 ### A1.6 Integridad y almacenamiento (sesión 6)
 
-**Objetivo.** La tabla de verificación rellena con comandos y salidas reales, y el resultado de dos cortes de red (3 y 12 minutos): qué se recupera, qué se pierde y en cuánto tiempo.
+<span class="et et-obj">Objetivo</span> La tabla de verificación rellena con comandos y salidas reales, y el resultado de dos cortes de red (3 y 12 minutos): qué se recupera, qué se pierde y en cuánto tiempo.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Todos los flujos funcionando (A1.2 a A1.5) y acceso root en las cinco VM.
 - `logcli` en mon01 o en el puesto (binario de la [release de Loki](https://github.com/grafana/loki/releases)) con `export LOKI_ADDR=http://<mon01>:3100`.
 - Lo explicado antes: [Verificar la integración](#verificar-la-integracion), [relojes: chrony](#relojes-chrony) y [qué pasa cuando se pierde la red](#que-pasa-cuando-se-pierde-la-red).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Sincroniza los relojes. En las cuatro VM del servicio y en mon01, instala chrony con los comandos de [Relojes: chrony](#relojes-chrony) (en el entorno provisional no hay OPNsense: solo la línea `pool`) y añade `makestep 1 -1` en `/etc/chrony/conf.d/lab.conf`. Guarda la salida de `chronyc tracking` de cada VM.
 
@@ -1200,15 +1325,15 @@ En el laboratorio la práctica se hace con scrape directo, que es lo que tiene c
 
 6. Corte de 12 minutos: repite el paso 4 con `sleep 720` y vuelve a comparar. Esta vez el conteo de Loki debería quedar por debajo y `promtail_dropped_entries_total` subir; cuántas líneas y a partir de qué minuto es el dato del informe. Si no hay pérdida, baja `max_retries` a 3 en `promtail.yml` y repite.
 
-**Comprobación.** Las diez filas de la tabla con resultado; desfase de reloj inferior a 100 ms en las cinco VM; tras el corte de 3 minutos los conteos de logs coinciden y `dropped_entries` no ha subido, mientras que las gráficas por scrape tienen un hueco que no se rellena; tras el de 12, hay pérdida de logs medible.
+<span class="et et-com">Comprobación</span> Las diez filas de la tabla con resultado; desfase de reloj inferior a 100 ms en las cinco VM; tras el corte de 3 minutos los conteos de logs coinciden y `dropped_entries` no ha subido, mientras que las gráficas por scrape tienen un hueco que no se rellena; tras el de 12, hay pérdida de logs medible.
 
-**Entrega.** En `tests/evidence/ut1/a1.6.md`: la tabla rellena (comando, salida, cuadra o no), las salidas de `chronyc tracking` y, por cada corte, horas de inicio y fin, gráficas de `up` y de CPU, conteos y valor de `promtail_dropped_entries_total`. Es la base del informe de la sesión 7.
+<span class="et et-ent">Entrega</span> En `tests/evidence/ut1/a1.6.md`: la tabla rellena (comando, salida, cuadra o no), las salidas de `chronyc tracking` y, por cada corte, horas de inicio y fin, gráficas de `up` y de CPU, conteos y valor de `promtail_dropped_entries_total`. Es la base del informe de la sesión 7.
 
-**Si te sobra tiempo.** Monta el Prometheus local de [scrape y remote_write](#enviar-las-metricas-a-un-sistema-remoto-scrape-y-remote_write) en app01 (el central necesita `--web.enable-remote-write-receiver`), repite el corte de 3 minutos y compara: por remote_write no hay hueco.
+<span class="et et-ext">Si te sobra tiempo</span> Monta el Prometheus local de [scrape y remote_write](#enviar-las-metricas-a-un-sistema-remoto-scrape-y-remote_write) en app01 (el central necesita `--web.enable-remote-write-receiver`), repite el corte de 3 minutos y compara: por remote_write no hay hueco.
 
 ## Sesión 7 · Práctica evaluable
 
-<p class="ut-meta" markdown>22 de octubre · Práctica evaluable · <span class="dur" title="Explicación unos 10 min, práctica unos 110 min">:material-school:<i class="dur-barra" style="--teoria:8%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>27 de octubre · Práctica evaluable · <span class="dur" tabindex="0" aria-label="Explicación · 10 min&#10;Trabajo en la práctica · 100 min" data-dur="Explicación · 10 min&#10;Trabajo en la práctica · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
 
 Entrega un informe (máximo 5 páginas, PDF, en `tests/evidence/ut1/` del repositorio `servicio`) sobre el contenedor de referencia integrado en mon01. Tiene que contener:
 

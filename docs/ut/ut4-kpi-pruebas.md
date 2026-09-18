@@ -39,11 +39,11 @@ Las herramientas de monitorización las conocéis de la UT1 y la UT2; las de pru
 
 Cómo está organizada la unidad. Sigue las sesiones en orden, y cada sesión trae primero la teoría que se explica y después su hoja de práctica. En las tres primeras se construye el bloque de monitorización: se decide qué medir y se documentan las métricas (sesión 20), se definen los nueve indicadores con fórmula y umbrales (sesión 21) y se escribe el catálogo de alarmas con sus runbooks (sesión 22). Las tres siguientes son las pruebas: funcionales con pytest o newman (sesión 23), calidad de servicio y rendimiento con k6 leídas junto a Grafana (sesión 24), y estrés y seguridad con ZAP y trivy (sesión 25). La sesión 26 documenta las pruebas, las mete en el pipeline y monta el ciclo de revisión periódica; la 27 cierra el dossier en la práctica evaluable. Los errores frecuentes quedan al final como material de consulta.
 
-!!! info "Lo que necesitas de la otra asignatura"
-    Esta unidad va del 10 de diciembre al 26 de enero, en paralelo con la UT5 de 5166 (infraestructura como código con OpenTofu y Ansible, del 9 de diciembre al 20 de enero): [https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/).
+!!! otra "Lo que necesitas de la otra asignatura"
+    Esta unidad va del 15 de diciembre al 28 de enero, en paralelo con la UT5 de 5166 (infraestructura como código con OpenTofu y Ansible, del 11 de diciembre al 27 de enero): [https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/).
     El entorno `pre` contra el que se lanzan las pruebas de esta unidad (`pre.app.lab`) es el que crea ese repositorio IaC. Mientras no exista, lanzad las pruebas contra `app01` en la VPC dev, que está detrás del firewall desde la UT3.
     A finales de enero `pre` ya existe, y es el mismo que la UT7 actualiza y la UT8 destruye con `tofu destroy`.
-    El pipeline de Jenkins en el que se integra la etapa de pruebas se construye en 5166 UT6, del 27 de enero al 26 de febrero ([https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/)): si al llegar a la A4.7 aún no está, la etapa se prueba en un job aparte de `jenkins01` y se integra en el `Jenkinsfile` cuando exista.
+    El pipeline de Jenkins en el que se integra la etapa de pruebas se construye en 5166 UT6, del 3 de febrero al 24 de marzo ([https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/)): si al llegar a la A4.7 aún no está, la etapa se prueba en un job aparte de `jenkins01` y se integra en el `Jenkinsfile` cuando exista.
 
 ### Plan de sesiones
 
@@ -51,17 +51,18 @@ Cada sesión de dos horas empieza con una explicación corta y sigue con laborat
 
 | Sesión | Fecha | Tipo | Se explica | Se practica |
 |---:|-------|------|------------|-------------|
-| [20](#sesion-20-fichas-de-metricas) | 10 dic | Teoría y práctica | Señales doradas, USE y RED; la ficha de métrica y las tres categorías (25 min). | Documentar al menos quince métricas del contenedor de referencia y clasificarlas. |
-| [21](#sesion-21-indicadores) | 15 dic | Teoría y práctica | SLI, SLO y presupuesto de error; los nueve indicadores y sus trampas (25 min). | Implementar los nueve indicadores como recording rules y panel de KPI con umbrales justificados. |
-| [22](#sesion-22-catalogo-de-alarmas) | 17 dic | Teoría y práctica | Qué hace un buen runbook (15 min). | Ficha completa para al menos diez alarmas y enlace desde la anotación runbook. |
-| [23](#sesion-23-pruebas-funcionales) | 12 ene | Teoría y práctica | Tipos de prueba y qué comprueba cada una; pytest y newman (20 min). | Suite con diez casos sobre la API e informe JUnit. |
-| [24](#sesion-24-calidad-de-servicio-y-rendimiento) | 14 ene | Teoría y práctica | k6: options, stages, thresholds, checks; leer resultados junto a Grafana (20 min). | Script k6 con umbrales de los SLO; rampas de 10, 50 y 100 usuarios contra pre; capturas del panel. |
-| [25](#sesion-25-estres-y-seguridad) | 19 ene | Teoría y práctica | Estrés frente a carga; ZAP baseline y trivy image (15 min). | Rampa hasta el fallo y tiempo de recuperación; ZAP y trivy sobre la imagen; lista de hallazgos. |
-| [26](#sesion-26-documentacion-de-pruebas-y-seguimiento) | 21 ene | Teoría y práctica | La ficha de caso de prueba, el informe de versión y el ciclo de revisión diario, semanal y mensual (20 min). | Fichas de las diez pruebas con evidencias archivadas, informe de la versión, y una revisión semanal ejecutada con la plantilla y un umbral ajustado por merge request. |
-| [27](#sesion-27-practica-evaluable) | 26 ene | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el dossier de operación: fichas, indicadores, catálogo, informe de pruebas y registro de revisión. |
+| [20](#sesion-20-fichas-de-metricas) | 15 dic | Teoría y práctica | Señales doradas, USE y RED; la ficha de métrica y las tres categorías (25 min). | Documentar al menos quince métricas del contenedor de referencia y clasificarlas. |
+| [21](#sesion-21-indicadores) | 17 dic | Teoría y práctica | SLI, SLO y presupuesto de error; los nueve indicadores y sus trampas (25 min). | Implementar los nueve indicadores como recording rules y panel de KPI con umbrales justificados. |
+| [22](#sesion-22-catalogo-de-alarmas) | 12 ene | Teoría y práctica | Qué hace un buen runbook (15 min). | Ficha completa para al menos diez alarmas y enlace desde la anotación runbook. |
+| [23](#sesion-23-pruebas-funcionales) | 14 ene | Teoría y práctica | Tipos de prueba y qué comprueba cada una; pytest y newman (20 min). | Suite con diez casos sobre la API e informe JUnit. |
+| [24](#sesion-24-calidad-de-servicio-y-rendimiento) | 19 ene | Teoría y práctica | k6: options, stages, thresholds, checks; leer resultados junto a Grafana (20 min). | Script k6 con umbrales de los SLO; rampas de 10, 50 y 100 usuarios contra pre; capturas del panel. |
+| [25](#sesion-25-estres-y-seguridad) | 21 ene | Teoría y práctica | Estrés frente a carga; ZAP baseline y trivy image (15 min). | Rampa hasta el fallo y tiempo de recuperación; ZAP y trivy sobre la imagen; lista de hallazgos. |
+| [26](#sesion-26-documentacion-de-pruebas-y-seguimiento) | 26 ene | Teoría y práctica | La ficha de caso de prueba, el informe de versión y el ciclo de revisión diario, semanal y mensual (20 min). | Fichas de las diez pruebas con evidencias archivadas, informe de la versión, y una revisión semanal ejecutada con la plantilla y un umbral ajustado por merge request. |
+| [27](#sesion-27-practica-evaluable) | 28 ene | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el dossier de operación: fichas, indicadores, catálogo, informe de pruebas y registro de revisión. |
 
 ## Sesión 20 · Fichas de métricas
-<p class="ut-meta" markdown>10 de diciembre · Teoría y práctica · <span class="dur" title="Explicación unos 25 min, práctica unos 95 min">:material-school:<i class="dur-barra" style="--teoria:21%"></i>:material-flask:</span></p>
+
+<p class="ut-meta" markdown>15 de diciembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Elegir qué medir antes de documentarlo · 10 min&#10;Documentar las métricas · 15 min&#10;A4.1 Fichas de métricas · 85 min" data-dur="Elegir qué medir antes de documentarlo · 10 min&#10;Documentar las métricas · 15 min&#10;A4.1 Fichas de métricas · 85 min">:material-school:<i class="dur-barra" style="--teoria:23%"></i>:material-flask:</span></p>
 
 Al acabar la sesión tendréis al menos quince métricas del contenedor de referencia documentadas en fichas y clasificadas en capacidad, rendimiento o calidad. Para la hoja A4.1 hacen falta los dos apartados que siguen: el criterio para elegir qué medir (señales doradas, USE y RED) y la ficha de métrica con sus tres categorías.
 
@@ -72,6 +73,25 @@ El error habitual al empezar es documentar los 400 contadores que expone cAdviso
 #### Las cuatro señales doradas
 
 El libro de SRE de Google (*Site Reliability Engineering*, la forma de operar servicios que Google publicó como libro) las llama *golden signals* y son el mínimo que hay que tener de cualquier servicio de cara al usuario:
+
+```mermaid
+flowchart TB
+    S["<b>Un servicio de cara al usuario</b>"]:::pieza
+    L["<b>Latencia</b><br><small>separando la de los errores:<br>un 500 en 2 ms disfraza la media</small>"]:::dato
+    T["<b>Tráfico</b><br><small>cuánto le piden</small>"]:::dato
+    E["<b>Errores</b><br><small>cuántos fallan</small>"]:::dato
+    SAT["<b>Saturación</b><br><small>cuán lleno está</small>"]:::dato
+    S --> L & T & E & SAT
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>Las cuatro señales doradas son el mínimo. Si solo puedes instrumentar cuatro cosas de un servicio, que sean estas.</p>
+
 
 - Latencia: cuánto tarda en responder una petición. Conviene separar la latencia de las respuestas correctas de la de los errores, porque un 500 que se devuelve en 2 ms baja la media y disfraza el problema.
 - Tráfico: cuánta demanda recibe el servicio. En una API, peticiones por segundo; en una base de datos, transacciones o sesiones; en un proxy, bytes y conexiones.
@@ -140,15 +160,15 @@ La última fila es deliberada. Ninguna herramienta os va a dar la calidad del da
 
 ### A4.1 Fichas de métricas (sesión 20)
 
-**Objetivo.** Un fichero `docs/metricas.md` en el repositorio del servicio con al menos quince fichas de métrica, tres o más por categoría, y cada una con su referencia al código o al exporter.
+<span class="et et-obj">Objetivo</span> Un fichero `docs/metricas.md` en el repositorio del servicio con al menos quince fichas de métrica, tres o más por categoría, y cada una con su referencia al código o al exporter.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - La pila de la UT1 en marcha: Prometheus en `mon01` (`http://10.10.0.20:9090`) recogiendo la API y los exporters.
 - El repositorio del servicio clonado, con `api/metrics.py`.
 - Lo explicado al principio de la sesión: [las señales doradas, USE y RED](#elegir-que-medir-antes-de-documentarlo) y [la ficha de métrica con sus categorías](#documentar-las-metricas).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Lista qué métricas expone cada origen. Para la API, directamente desde `app01`:
 
@@ -174,12 +194,13 @@ La última fila es deliberada. Ninguna herramienta os va a dar la calidad del da
 
 5. Cierra con una tabla resumen: nombre, categoría y en qué indicador o alarma se usa. La columna Uso se completa en la A4.2.
 
-**Comprobación.** Quince fichas o más con las ocho filas rellenas; tres o más por categoría; todas devuelven datos en Prometheus; el tipo coincide con el `# TYPE` de `/metrics`.
+<span class="et et-com">Comprobación</span> Quince fichas o más con las ocho filas rellenas; tres o más por categoría; todas devuelven datos en Prometheus; el tipo coincide con el `# TYPE` de `/metrics`.
 
-**Entrega.** `docs/metricas.md` confirmado en el repositorio del servicio en Gitea. Forma parte del dossier de la práctica evaluable.
+<span class="et et-ent">Entrega</span> `docs/metricas.md` confirmado en el repositorio del servicio en Gitea. Forma parte del dossier de la práctica evaluable.
 
 ## Sesión 21 · Indicadores
-<p class="ut-meta" markdown>15 de diciembre · Teoría y práctica · <span class="dur" title="Explicación unos 25 min, práctica unos 95 min">:material-school:<i class="dur-barra" style="--teoria:21%"></i>:material-flask:</span></p>
+
+<p class="ut-meta" markdown>17 de diciembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Indicadores: fórmulas y umbrales · 25 min&#10;A4.2 Indicadores · 85 min" data-dur="Indicadores: fórmulas y umbrales · 25 min&#10;A4.2 Indicadores · 85 min">:material-school:<i class="dur-barra" style="--teoria:23%"></i>:material-flask:</span></p>
 
 Esta sesión convierte las métricas documentadas en los nueve indicadores del servicio, cargados como recording rules y visibles en un panel de KPI con umbrales justificados con datos. La hoja A4.2 se apoya en todo el apartado siguiente: el marco de SLI, SLO y presupuesto de error, la tabla de los nueve indicadores con sus trampas y las reglas para fijar umbrales.
 
@@ -195,6 +216,28 @@ Un indicador (KPI, *key performance indicator*) combina contadores en un valor c
 #### El presupuesto de error con números
 
 Con un SLO de disponibilidad del 99,5 % en 30 días el presupuesto es el 0,5 % de la ventana:
+
+```mermaid
+flowchart LR
+    SLO["<b>SLO 99,5 % en 30 días</b>"]:::dato
+    PRE["<b>Presupuesto de error</b><br><small>el 0,5 % de la ventana</small>"]:::pieza
+    GAS["<b>Cada minuto caído gasta presupuesto</b>"]:::act
+    Q{"<b>¿Queda presupuesto?</b>"}:::act
+    SI(["<b>Se puede desplegar</b><br><small>el riesgo cabe</small>"]):::ok
+    NO(["<b>Se congelan los cambios</b><br><small>toca arreglar fiabilidad</small>"]):::riesgo
+    SLO --> PRE --> GAS --> Q
+    Q -- sí --> SI
+    Q -- no --> NO
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>El presupuesto de error convierte «¿desplegamos el viernes?» en una pregunta con respuesta numérica en lugar de una discusión de opiniones.</p>
+
 
 ```text
 30 días × 24 h × 60 min = 43.200 min
@@ -271,16 +314,16 @@ Y una regla práctica: ningún umbral se fija sin haber mirado antes la distribu
 
 ### A4.2 Indicadores (sesión 21)
 
-**Objetivo.** Los nueve indicadores cargados como recording rules en el Prometheus de `mon01`, un panel de KPI en Grafana que los muestra, y `docs/indicadores.md` con fórmula, categoría, umbrales y la justificación de cada umbral.
+<span class="et et-obj">Objetivo</span> Los nueve indicadores cargados como recording rules en el Prometheus de `mon01`, un panel de KPI en Grafana que los muestra, y `docs/indicadores.md` con fórmula, categoría, umbrales y la justificación de cada umbral.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - El repositorio alerting de la UT2 clonado, con `rules.yml`, `alerts.yml` y la recarga de Prometheus que montasteis entonces.
 - Dos días de tráfico de prueba contra `app01` (el generador de la UT1 o k6 a ratos). Sin datos no hay umbral que justificar.
 - Límites `cpus` y `mem_limit` en el servicio `app` de `compose.yaml`; sin ellos los indicadores de saturación dan `+Inf` y 0 %.
 - Lo explicado al principio de la sesión: [SLI, SLO y presupuesto de error](#indicadores-formulas-y-umbrales), [los nueve indicadores](#los-nueve-indicadores-del-servicio) y [cómo fijar umbrales](#como-fijar-umbrales).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Prueba cada fórmula de la tabla de los nueve indicadores en `http://10.10.0.20:9090/graph` antes de grabarla. Para la disponibilidad no uses `rate(...[30d])` sobre la métrica cruda: graba primero las tasas a 5 min y calcula la mensual sobre ellas.
 
@@ -330,14 +373,15 @@ Y una regla práctica: ningún umbral se fija sin haber mirado antes la distribu
 
 6. Calcula el presupuesto de error mensual con tu SLO y tu tráfico medio (`avg_over_time(app:requests:rate5m[2d])`), en minutos y en peticiones, y añádelo con las cuentas a la vista.
 
-**Comprobación.** `promtool check rules` sin errores; los nueve indicadores devuelven valor (ninguno `NaN` ni `+Inf`); el panel los muestra con colores según umbral; cada umbral tiene su justificación con datos.
+<span class="et et-com">Comprobación</span> `promtool check rules` sin errores; los nueve indicadores devuelven valor (ninguno `NaN` ni `+Inf`); el panel los muestra con colores según umbral; cada umbral tiene su justificación con datos.
 
-**Entrega.** `rules.yml` en el repositorio alerting (merge request), `docs/indicadores.md` y la exportación del dashboard en `docs/grafana/kpi.json` en el repositorio del servicio. Forma parte del dossier de la práctica evaluable.
+<span class="et et-ent">Entrega</span> `rules.yml` en el repositorio alerting (merge request), `docs/indicadores.md` y la exportación del dashboard en `docs/grafana/kpi.json` en el repositorio del servicio. Forma parte del dossier de la práctica evaluable.
 
-**Si te sobra tiempo.** Añade a `alerts.yml` la alerta de burn rate en dos ventanas del apartado y fuérzala parando `postgres` un par de minutos.
+<span class="et et-ext">Si te sobra tiempo</span> Añade a `alerts.yml` la alerta de burn rate en dos ventanas del apartado y fuérzala parando `postgres` un par de minutos.
 
 ## Sesión 22 · Catálogo de alarmas
-<p class="ut-meta" markdown>17 de diciembre · Teoría y práctica · <span class="dur" title="Explicación unos 15 min, práctica unos 105 min">:material-school:<i class="dur-barra" style="--teoria:13%"></i>:material-flask:</span></p>
+
+<p class="ut-meta" markdown>12 de enero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Catálogo de alarmas y runbooks · 15 min&#10;A4.3 Catálogo de alarmas · 95 min" data-dur="Catálogo de alarmas y runbooks · 15 min&#10;A4.3 Catálogo de alarmas · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
 
 Al terminar tendréis un catálogo con una ficha completa por alarma, enlazada desde la anotación `runbook` de cada regla de alerta. Para la hoja A4.3 necesitáis el esquema de la ficha, las cinco propiedades de un buen runbook y los dos ejemplos completos del apartado siguiente.
 
@@ -392,15 +436,15 @@ El catálogo es la colección de fichas, versionada con las reglas de alerta y e
 
 ### A4.3 Catálogo de alarmas (sesión 22)
 
-**Objetivo.** Un catálogo en `docs/alarmas/` con una ficha completa por alarma (mínimo diez) y cada regla de `alerts.yml` enlazando a la suya desde la anotación `runbook`.
+<span class="et et-obj">Objetivo</span> Un catálogo en `docs/alarmas/` con una ficha completa por alarma (mínimo diez) y cada regla de `alerts.yml` enlazando a la suya desde la anotación `runbook`.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - El repositorio alerting con las alarmas de la UT2 (`AppSlow`, `AppHighErrorRate`, `HostDown`, `PgDown` y las que añadisteis) y los umbrales de la A4.2 ya cargados.
 - Un compañero disponible para la prueba cruzada del último paso.
 - Lo explicado al principio de la sesión: [la ficha de alarma](#catalogo-de-alarmas-y-runbooks), [qué hace bueno a un runbook](#que-hace-bueno-a-un-runbook) y [los dos ejemplos completos](#dos-runbooks-mas).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Lista las alarmas: las de la UT2 más una por umbral crítico de la A4.2 (`AppLowAvailability`, `AppCpuSaturated`, `AppMemoryHigh`, `DbDiskLow`, `DiskWillFillIn7d`, `DbConnectionsHigh`). Si no llegas a diez, añade tráfico cero y throttling de CPU.
 
@@ -431,12 +475,13 @@ El catálogo es la colección de fichas, versionada con las reglas de alerta y e
 
 6. Prueba cruzada: dale un runbook a un compañero que no lo haya escrito y provoca la alarma (parar `postgres`, llenar `/data` con `fallocate -l 5G /data/relleno`, lanzar carga con k6). Cada pregunta que te haga es una línea que falta en la ficha: corrígela antes de terminar.
 
-**Comprobación.** Diez fichas o más con las seis filas rellenas; cada regla de `alerts.yml` tiene anotación `runbook` con una URL que abre; al menos un runbook ha pasado la prueba cruzada y recoge lo que hubo que añadir.
+<span class="et et-com">Comprobación</span> Diez fichas o más con las seis filas rellenas; cada regla de `alerts.yml` tiene anotación `runbook` con una URL que abre; al menos un runbook ha pasado la prueba cruzada y recoge lo que hubo que añadir.
 
-**Entrega.** `docs/alarmas/` en el repositorio del servicio y `alerts.yml` actualizado en el repositorio alerting (merge request). Forma parte del dossier de la práctica evaluable.
+<span class="et et-ent">Entrega</span> `docs/alarmas/` en el repositorio del servicio y `alerts.yml` actualizado en el repositorio alerting (merge request). Forma parte del dossier de la práctica evaluable.
 
 ## Sesión 23 · Pruebas funcionales
-<p class="ut-meta" markdown>12 de enero · Teoría y práctica · <span class="dur" title="Explicación unos 20 min, práctica unos 100 min">:material-school:<i class="dur-barra" style="--teoria:17%"></i>:material-flask:</span></p>
+
+<p class="ut-meta" markdown>14 de enero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Pruebas del servicio · 20 min&#10;A4.4 Pruebas funcionales · 90 min" data-dur="Pruebas del servicio · 20 min&#10;A4.4 Pruebas funcionales · 90 min">:material-school:<i class="dur-barra" style="--teoria:18%"></i>:material-flask:</span></p>
 
 Aquí empieza el bloque de pruebas: al acabar tendréis una suite de diez casos funcionales sobre la API que genera un informe JUnit y sale con código distinto de cero cuando falla un caso. Para la hoja A4.4 hacen falta la tabla de tipos de prueba, que sitúa cada uno en el ciclo de vida, y los dos apartados de herramientas: pytest, y Postman con newman.
 
@@ -454,19 +499,26 @@ Monitorizar dice cómo se comporta el servicio con el tráfico que hay; probar d
 
 ```mermaid
 flowchart LR
-    C[Commit en Gitea] --> B[Build de imagen]
-    B --> F[Funcionales<br/>pytest / newman]
-    F --> S[Seguridad<br/>trivy image + ZAP baseline]
-    S --> D[Despliegue en pre]
-    D --> Q[Calidad de servicio<br/>k6 con thresholds]
-    Q --> P[Rendimiento<br/>rampas 10 / 50 / 100]
-    P --> E[Estrés<br/>hasta el fallo]
-    E --> R[Informe de versión]
-    R --> Prod[Despliegue en prod]
-    F -. cada commit .-> F
-    Q -. cada versión .-> Q
-    E -. antes de prod y tras cambios de capacidad .-> E
+    C["<b>Commit en Gitea</b>"]:::act
+    B["<b>Build de imagen</b>"]:::pieza
+    F["<b>Funcionales</b><br><small>pytest / newman · cada commit</small>"]:::pieza
+    S["<b>Seguridad</b><br><small>trivy image + ZAP baseline</small>"]:::pieza
+    D["<b>Despliegue en pre</b>"]:::pieza
+    Q["<b>Calidad de servicio</b><br><small>k6 con thresholds · cada versión</small>"]:::pieza
+    P["<b>Rendimiento</b><br><small>rampas 10 / 50 / 100</small>"]:::pieza
+    E["<b>Estrés</b><br><small>hasta el fallo · antes de prod</small>"]:::pieza
+    R["<b>Informe de versión</b>"]:::dato
+    Prod(["<b>Despliegue en producción</b>"]):::ok
+    C --> B --> F --> S --> D --> Q --> P --> E --> R --> Prod
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
 ```
+
+<p class="pie" markdown>Cada prueba tiene su frecuencia: las funcionales en cada commit, las de carga en cada versión, las de estrés solo antes de producción o al cambiar la capacidad.</p>
 
 Las pruebas funcionales son rápidas (segundos) y se lanzan en cada commit. Las de calidad y rendimiento necesitan un entorno desplegado y varios minutos, así que van por versión. El estrés puede tumbar el entorno, por lo que no se automatiza en cada versión: se lanza a mano, en pre, antes de la primera puesta en producción y cuando cambia la capacidad (más CPU, otro tamaño de pool, otra VM). La seguridad va en cada versión porque una imagen base nueva puede traer CVE nuevas (vulnerabilidades conocidas, publicadas con un identificador) sin que el código cambie.
 
@@ -583,16 +635,16 @@ Mi criterio: si el equipo ya usa Postman para documentar la API, newman; si la A
 
 ### A4.4 Pruebas funcionales (sesión 23)
 
-**Objetivo.** Una suite de diez casos funcionales sobre la API (pytest o Postman/newman) que genera un informe JUnit, sale con código distinto de cero cuando falla un caso y cuyo informe se ve en Jenkins.
+<span class="et et-obj">Objetivo</span> Una suite de diez casos funcionales sobre la API (pytest o Postman/newman) que genera un informe JUnit, sale con código distinto de cero cuando falla un caso y cuyo informe se ve en Jenkins.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - La API accesible: `pre.app.lab` si el entorno `pre` de 5166 ya existe; si no, `app01` en la VPC dev.
 - Un usuario de prueba en la API (`test`), con la contraseña fuera del repositorio.
 - Permiso para crear un job en `jenkins01`.
 - Lo explicado al principio de la sesión: [los tipos de prueba](#pruebas-del-servicio), [pytest](#pruebas-funcionales-con-pytest) y [Postman y newman](#pruebas-funcionales-con-postman-y-newman).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Elige herramienta: pytest si los casos necesitan preparar datos, newman si el equipo ya documenta la API en Postman. Crea `tests/functional/` o `tests/postman/` en el repositorio del servicio.
 
@@ -650,14 +702,15 @@ Mi criterio: si el equipo ya usa Postman para documentar la API, newman; si la A
 
     Lanza el job y abre la pestaña "Test Result": tienen que aparecer los diez casos.
 
-**Comprobación.** Diez casos que pasan contra pre (o dev); al menos tres de cada grupo; con un caso roto, código de salida 1 y `<failure>` en el XML; el job de Jenkins muestra los diez casos en "Test Result".
+<span class="et et-com">Comprobación</span> Diez casos que pasan contra pre (o dev); al menos tres de cada grupo; con un caso roto, código de salida 1 y `<failure>` en el XML; el job de Jenkins muestra los diez casos en "Test Result".
 
-**Entrega.** `tests/functional/` o `tests/postman/` en el repositorio del servicio, y el `reports/pytest.xml` (o `newman.xml`) de la ejecución buena en `tests/evidence/<versión>/`. En la A4.7 le pondrás su ficha de caso.
+<span class="et et-ent">Entrega</span> `tests/functional/` o `tests/postman/` en el repositorio del servicio, y el `reports/pytest.xml` (o `newman.xml`) de la ejecución buena en `tests/evidence/<versión>/`. En la A4.7 le pondrás su ficha de caso.
 
-**Si te sobra tiempo.** Añade un caso que verifique que `/metrics` responde y contiene `app_requests_total`: es la prueba funcional de la monitorización.
+<span class="et et-ext">Si te sobra tiempo</span> Añade un caso que verifique que `/metrics` responde y contiene `app_requests_total`: es la prueba funcional de la monitorización.
 
 ## Sesión 24 · Calidad de servicio y rendimiento
-<p class="ut-meta" markdown>14 de enero · Teoría y práctica · <span class="dur" title="Explicación unos 20 min, práctica unos 100 min">:material-school:<i class="dur-barra" style="--teoria:17%"></i>:material-flask:</span></p>
+
+<p class="ut-meta" markdown>19 de enero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Calidad de servicio y rendimiento con k6 · 15 min&#10;Leer los resultados junto a Grafana · 5 min&#10;A4.5 Calidad de servicio y rendimiento · 90 min" data-dur="Calidad de servicio y rendimiento con k6 · 15 min&#10;Leer los resultados junto a Grafana · 5 min&#10;A4.5 Calidad de servicio y rendimiento · 90 min">:material-school:<i class="dur-barra" style="--teoria:18%"></i>:material-flask:</span></p>
 
 Al terminar tendréis un script k6 con los SLO como umbrales, ejecutado con rampas de 10, 50 y 100 usuarios contra pre, y una respuesta escrita a partir de cuántos usuarios se incumple el SLO y qué recurso limita. La hoja A4.5 necesita el apartado de k6 (options, stages, thresholds, checks y las salidas) y el de leer los resultados junto a Grafana. La diferencia entre carga, rendimiento y estrés, que la hoja también cita, se explica al principio de la sesión 25; el enlace os lleva allí.
 
@@ -793,16 +846,16 @@ La captura del panel es evidencia obligatoria en la A4.5 y la A4.6, y tiene que 
 
 ### A4.5 Calidad de servicio y rendimiento (sesión 24)
 
-**Objetivo.** Un script k6 con los SLO como umbrales, ejecutado con rampas de 10, 50 y 100 usuarios contra pre, con las capturas de Grafana de cada rampa y una respuesta escrita a partir de cuántos usuarios se incumple el SLO y qué recurso limita.
+<span class="et et-obj">Objetivo</span> Un script k6 con los SLO como umbrales, ejecutado con rampas de 10, 50 y 100 usuarios contra pre, con las capturas de Grafana de cada rampa y una respuesta escrita a partir de cuántos usuarios se incumple el SLO y qué recurso limita.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - k6 (`k6 version`) en una VM de la subred front o en `jenkins01`, no en el portátil por Wi-Fi.
 - El entorno pre (o `app01`) con `cpus` y `mem_limit` en compose, y un token válido en `API_TOKEN`.
 - El panel de KPI de la A4.2 abierto en Grafana.
 - Lo explicado al principio de la sesión: [k6, options, stages, thresholds y checks](#calidad-de-servicio-y-rendimiento-con-k6), [carga, rendimiento y estrés](#carga-rendimiento-y-estres-no-son-lo-mismo) y [leer los resultados junto a Grafana](#leer-los-resultados-junto-a-grafana).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Copia a `tests/k6/carga.js` el script completo del apartado (escenarios `navegacion` y `escrituras`, umbrales por etiqueta `name`) y ajusta los umbrales a los SLO de la A4.2. Comprueba que `BASE` y las rutas coinciden con tu API.
 
@@ -833,20 +886,44 @@ La captura del panel es evidencia obligatoria en la A4.5 y la A4.6, y tiene que 
 
 6. Comprime el JSON completo antes de confirmarlo: `gzip tests/evidence/1.4.2/k6-carga.json`.
 
-**Comprobación.** `k6-resumen.json` con los umbrales evaluados (código de salida 0 si se cumplen, 99 si no); tres capturas con el rango visible; `rendimiento.md` con las tres respuestas.
+<span class="et et-com">Comprobación</span> `k6-resumen.json` con los umbrales evaluados (código de salida 0 si se cumplen, 99 si no); tres capturas con el rango visible; `rendimiento.md` con las tres respuestas.
 
-**Entrega.** `tests/k6/carga.js` y `tests/evidence/1.4.2/` (resumen, JSON comprimido, capturas y `rendimiento.md`) en el repositorio del servicio. En la A4.7 le pondrás sus fichas de caso.
+<span class="et et-ent">Entrega</span> `tests/k6/carga.js` y `tests/evidence/1.4.2/` (resumen, JSON comprimido, capturas y `rendimiento.md`) en el repositorio del servicio. En la A4.7 le pondrás sus fichas de caso.
 
-**Si te sobra tiempo.** Activa el remote write en el Prometheus de mon01 y repite un escalón con `--out experimental-prometheus-rw` para ver `k6_http_req_duration_p95` al lado de `app:latency_p95:5m`.
+<span class="et et-ext">Si te sobra tiempo</span> Activa el remote write en el Prometheus de mon01 y repite un escalón con `--out experimental-prometheus-rw` para ver `k6_http_req_duration_p95` al lado de `app:latency_p95:5m`.
 
 ## Sesión 25 · Estrés y seguridad
-<p class="ut-meta" markdown>19 de enero · Teoría y práctica · <span class="dur" title="Explicación unos 15 min, práctica unos 105 min">:material-school:<i class="dur-barra" style="--teoria:13%"></i>:material-flask:</span></p>
+
+<p class="ut-meta" markdown>21 de enero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Carga, rendimiento y estrés no son lo mismo · 5 min&#10;Seguridad: ZAP baseline y trivy image · 10 min&#10;A4.6 Estrés y seguridad · 95 min" data-dur="Carga, rendimiento y estrés no son lo mismo · 5 min&#10;Seguridad: ZAP baseline y trivy image · 10 min&#10;A4.6 Estrés y seguridad · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
 
 Esta sesión cierra las pruebas con las dos que quedan: el estrés, que busca dónde y cómo se rompe el servicio y cuánto tarda en recuperarse, y la seguridad con ZAP baseline y trivy sobre la imagen. Para la hoja A4.6 necesitáis el apartado que distingue carga, rendimiento y estrés (con el script `estres.js`) y el de ZAP y trivy con sus códigos de salida.
 
 ### Carga, rendimiento y estrés no son lo mismo
 
 Los tres usan k6 y a menudo el mismo script, pero buscan cosas distintas y se leen de forma distinta:
+
+```mermaid
+flowchart LR
+    S["<b>El mismo script de k6</b>"]:::dato
+    C["<b>Carga</b><br><small>la carga esperada · 50 usuarios</small>"]:::pieza
+    R["<b>Rendimiento</b><br><small>subiendo hasta encontrar el techo</small>"]:::pieza
+    E["<b>Estrés</b><br><small>más allá del techo, a propósito</small>"]:::pieza
+    CQ(["<b>¿Cumple los SLO?</b><br><small>sí o no · es la que va en el pipeline</small>"]):::ok
+    RQ(["<b>¿Dónde está el límite?</b><br><small>un número para dimensionar</small>"]):::ok
+    EQ(["<b>¿Cómo se rompe y cómo vuelve?</b><br><small>¿degrada o se cae?</small>"]):::riesgo
+    S --> C --> CQ
+    S --> R --> RQ
+    S --> E --> EQ
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>Se confunden porque comparten herramienta. Lo que cambia es la pregunta, y por eso el resultado se lee distinto.</p>
+
 
 - La prueba de carga o de calidad de servicio somete al servicio a la carga esperada (los 50 usuarios del script original) y responde a una pregunta binaria: ¿cumple los SLO o no? Es la que va en el pipeline y la que en la UT7 verificará cada actualización. Su resultado es el veredicto de los `thresholds`.
 - La prueba de rendimiento sube la carga por escalones (10, 50, 100 usuarios en la A4.5) y busca la curva: cómo crece la latencia con la carga y a partir de qué punto se incumple el SLO. Su resultado es un número ("el SLO se incumple a partir de 80 usuarios") y una gráfica. Sirve para planificar capacidad y para comparar versiones (si la 1.4.2 aguanta 80 y la 1.5.0 aguanta 60, alguien tiene que explicar por qué).
@@ -905,16 +982,16 @@ trivy image --severity HIGH,CRITICAL --ignore-unfixed registry.lab/app:1.4.2   #
 
 ### A4.6 Estrés y seguridad (sesión 25)
 
-**Objetivo.** Una prueba de estrés con punto de rotura, modo de fallo y tiempo de recuperación anotados, y los informes de ZAP baseline y trivy sobre la imagen con la lista de hallazgos y dónde se corrige cada uno.
+<span class="et et-obj">Objetivo</span> Una prueba de estrés con punto de rotura, modo de fallo y tiempo de recuperación anotados, y los informes de ZAP baseline y trivy sobre la imagen con la lista de hallazgos y dónde se corrige cada uno.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Avisa a la clase antes de lanzar el estrés: pre es compartido y esta prueba lo tumba. Acordad turnos.
 - k6 como en la A4.5, Docker (para ZAP), trivy (`trivy version`) y acceso a `registry.lab/app:1.4.2`.
 - Panel de KPI y Loki (`{container="app"}`) abiertos en Grafana.
 - Lo explicado al principio de la sesión: [estrés frente a carga](#carga-rendimiento-y-estres-no-son-lo-mismo) y [ZAP baseline y trivy image](#seguridad-zap-baseline-y-trivy-image).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Crea `tests/k6/estres.js` con las rampas del apartado (100, 200, 300, 400 usuarios y 3 min de bajada, umbral de errores solo informativo) y la misma función por defecto que `carga.js`. Lánzalo con resumen:
 
@@ -953,14 +1030,15 @@ trivy image --severity HIGH,CRITICAL --ignore-unfixed registry.lab/app:1.4.2   #
 
 7. Escribe `tests/evidence/1.4.2/seguridad.md` con una tabla: hallazgo, herramienta, severidad y dónde se corrige (proxy nginx en web01, imagen base, dependencia, código). Corrige al menos uno de los de nginx (`add_header X-Content-Type-Options nosniff always;`) y vuelve a pasar ZAP.
 
-**Comprobación.** `estres.md` con los tres datos y su evidencia; `grafana-estres.png` con el rango visible; `zap.html` y `zap.json` en la carpeta; `trivy.json` con el código de salida anotado; `seguridad.md` con todos los hallazgos HIGH y CRITICAL y uno corregido y verificado.
+<span class="et et-com">Comprobación</span> `estres.md` con los tres datos y su evidencia; `grafana-estres.png` con el rango visible; `zap.html` y `zap.json` en la carpeta; `trivy.json` con el código de salida anotado; `seguridad.md` con todos los hallazgos HIGH y CRITICAL y uno corregido y verificado.
 
-**Entrega.** `tests/k6/estres.js`, `tests/zap-rules.conf` y la carpeta `tests/evidence/1.4.2/` con `k6-estres.json`, `grafana-estres.png`, `estres.md`, `zap/`, `trivy.json` y `seguridad.md`, en el repositorio del servicio.
+<span class="et et-ent">Entrega</span> `tests/k6/estres.js`, `tests/zap-rules.conf` y la carpeta `tests/evidence/1.4.2/` con `k6-estres.json`, `grafana-estres.png`, `estres.md`, `zap/`, `trivy.json` y `seguridad.md`, en el repositorio del servicio.
 
-**Si te sobra tiempo.** Reconstruye la imagen sobre `python:3.12-slim` actualizada, vuelve a pasar trivy y compara el número de hallazgos con el de la base completa: ese par de cifras es el argumento que más convence para elegir base.
+<span class="et et-ext">Si te sobra tiempo</span> Reconstruye la imagen sobre `python:3.12-slim` actualizada, vuelve a pasar trivy y compara el número de hallazgos con el de la base completa: ese par de cifras es el argumento que más convence para elegir base.
 
 ## Sesión 26 · Documentación de pruebas y seguimiento
-<p class="ut-meta" markdown>21 de enero · Teoría y práctica · <span class="dur" title="Explicación unos 20 min, práctica unos 100 min">:material-school:<i class="dur-barra" style="--teoria:17%"></i>:material-flask:</span></p>
+
+<p class="ut-meta" markdown>26 de enero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Documentar las pruebas · 15 min&#10;Seguimiento periódico · 5 min&#10;Trabajo en la práctica · 90 min" data-dur="Documentar las pruebas · 15 min&#10;Seguimiento periódico · 5 min&#10;Trabajo en la práctica · 90 min">:material-school:<i class="dur-barra" style="--teoria:18%"></i>:material-flask:</span></p>
 
 Al acabar tendréis las fichas de caso con sus evidencias, el informe de pruebas de la versión con veredicto, la puerta de pruebas en Jenkins y una revisión semanal ejecutada con la plantilla que termina en un merge request de ajuste de umbral. La hoja A4.7 se apoya en los dos apartados siguientes: cómo documentar las pruebas (ficha de caso, carpeta de evidencias, informe de versión y etapa de Jenkins) y el ciclo de seguimiento periódico con su plantilla de revisión y el script de KPI semanal.
 
@@ -1051,7 +1129,7 @@ stage('Pruebas en pre') {
 
 El paso `junit` hace que Jenkins pinte la tendencia de casos OK/KO entre builds y marque el build como inestable si hay fallos; `archiveArtifacts` guarda las evidencias unidas al número de build, que es lo que después se copia a `tests/evidence/<versión>/` (o se enlaza desde el informe, si preferís que las evidencias vivan en Jenkins). El estrés no está en la etapa: se lanza a mano con otro job parametrizado, porque tumbar pre cada vez que alguien hace un commit no es aceptable para el resto del equipo que también usa pre.
 
-!!! warning "El orden importa"
+!!! ojo "El orden importa"
     trivy va antes que k6 y ZAP porque es el más barato (segundos) y el que más veces falla. No tiene sentido gastar 13 minutos de carga sobre una imagen que no va a pasar a producción por una CVE crítica.
 
 ### Seguimiento periódico
@@ -1060,16 +1138,26 @@ Los indicadores se revisan en un ciclo fijo, no solo cuando salta una alarma. Un
 
 ```mermaid
 flowchart TD
-    D[Diario · 10 min<br/>panel de estado: disponibilidad,<br/>errores, latencia, alarmas activas] --> S
-    S[Semanal · 45 min<br/>tendencias de capacidad, presupuesto<br/>de error consumido, alarmas repetidas] --> M
-    M[Mensual · 2 h<br/>cumplimiento de SLO, revisión de umbrales,<br/>certificados, versiones] --> R
-    R[Registro: fecha, quién,<br/>hallazgos, acciones] --> A{¿Acción?}
-    A -- ajustar umbral --> U[MR en el repositorio alerting]
-    A -- ampliar capacidad --> T[Tarea en el gestor]
+    D["<b>Diario · 10 min</b><br><small>disponibilidad, errores, latencia, alarmas activas</small>"]:::act
+    S["<b>Semanal · 45 min</b><br><small>tendencias de capacidad, presupuesto de error,<br>alarmas repetidas</small>"]:::act
+    M["<b>Mensual · 2 h</b><br><small>cumplimiento de SLO, umbrales, certificados, versiones</small>"]:::act
+    R["<b>Registro</b><br><small>fecha, quién, hallazgos, acciones</small>"]:::dato
+    A{"<b>¿Acción?</b>"}:::dato
+    U["<b>MR en el repositorio alerting</b>"]:::ok
+    T["<b>Tarea en el gestor</b>"]:::ok
+    D --> S --> M --> R --> A
+    A -- ajustar umbral --> U --> D
+    A -- ampliar capacidad --> T --> D
     A -- nada --> D
-    U --> D
-    T --> D
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
 ```
+
+<p class="pie" markdown>El ciclo se cierra siempre en el registro: una revisión que no deja rastro escrito no se puede auditar ni mejorar.</p>
 
 - Diario: panel de estado (disponibilidad, errores, latencia, alarmas activas). Es un vistazo de 10 minutos al empezar el día y su valor es detectar lo que pasó de noche sin llegar a alarma: un pico de errores a las 3:00 que duró 4 minutos y no llegó a los 5 del `for`.
 - Semanal: tendencias de capacidad (disco, memoria, conexiones), presupuesto de error consumido en lo que va de mes, alarmas repetidas. Una alarma que ha saltado cuatro veces en la semana y se ha cerrado sola las cuatro es o un umbral mal puesto o un problema real intermitente; en ambos casos hay que decidir algo.
@@ -1139,16 +1227,16 @@ Se lanza los lunes a las 7:00 con un `cron` o un job de Jenkins, y la revisión 
 
 Documentar las pruebas y montar el ciclo de revisión comparten sesión: lo primero deja las evidencias en su sitio, lo segundo decide quién las mira y cuándo.
 
-**Objetivo.** Diez fichas de caso con sus evidencias, el informe de pruebas de la versión con veredicto, la puerta de pruebas en Jenkins demostrada con un fallo provocado, y una revisión semanal ejecutada con la plantilla que termina en un merge request de ajuste de umbral.
+<span class="et et-obj">Objetivo</span> Diez fichas de caso con sus evidencias, el informe de pruebas de la versión con veredicto, la puerta de pruebas en Jenkins demostrada con un fallo provocado, y una revisión semanal ejecutada con la plantilla que termina en un merge request de ajuste de umbral.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Las evidencias de la A4.4, la A4.5 y la A4.6 en `tests/evidence/1.4.2/`.
 - El job de Jenkins de la A4.4 y, si ya existe, el `Jenkinsfile` del pipeline de despliegue de 5166 UT6; si no, se sigue en el job aparte.
 - Dos semanas de datos en Prometheus (las pruebas de las sesiones anteriores cuentan como tráfico).
 - Lo explicado al principio de la sesión: [la ficha de caso y el informe de versión](#documentar-las-pruebas), [la puerta de pruebas en Jenkins](#la-puerta-de-pruebas-en-el-pipeline-de-jenkins) y [el ciclo de revisión](#seguimiento-periodico).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Crea `tests/evidence/1.4.2/casos/` y rellena la ficha de caso del apartado para las diez pruebas más relevantes: por ejemplo seis funcionales (PF-01 a PF-06), dos de rendimiento (PR-01 rampa 50, PR-02 rampa 100), una de estrés (PE-01) y una de seguridad (PS-01 o PS-02). En Procedimiento va el comando exacto con sus variables; en Evidencias, ficheros que existan en la carpeta.
 
@@ -1175,18 +1263,19 @@ Documentar las pruebas y montar el ciclo de revisión comparten sesión: lo prim
 
 7. Elige un umbral que los datos digan que está mal (una alarma que salta y se cierra sola varias veces, o un aviso que nunca se acerca) y ajústalo con un merge request en el repositorio alerting. En la descripción del merge request pon las cifras que lo justifican y enlaza el registro de la revisión.
 
-**Comprobación.** Diez fichas cuyas evidencias existen en la carpeta; `INFORME.md` con veredicto; un build de Jenkins con evidencias archivadas y otro fallido que no llegó a prod; `ops/revisiones/README.md` y un registro semanal con acciones; un merge request abierto en alerting con la justificación.
+<span class="et et-com">Comprobación</span> Diez fichas cuyas evidencias existen en la carpeta; `INFORME.md` con veredicto; un build de Jenkins con evidencias archivadas y otro fallido que no llegó a prod; `ops/revisiones/README.md` y un registro semanal con acciones; un merge request abierto en alerting con la justificación.
 
-**Entrega.** Todo en el repositorio del servicio (`tests/evidence/1.4.2/`, `Jenkinsfile`, `ops/revisiones/`) y el merge request en el repositorio alerting. Es el grueso del dossier de la práctica evaluable.
+<span class="et et-ent">Entrega</span> Todo en el repositorio del servicio (`tests/evidence/1.4.2/`, `Jenkinsfile`, `ops/revisiones/`) y el merge request en el repositorio alerting. Es el grueso del dossier de la práctica evaluable.
 
-**Si te sobra tiempo.** Deja `ops/bin/kpi-semanal.sh` del apartado funcionando desde un job de Jenkins programado los lunes a las 7:00.
+<span class="et et-ext">Si te sobra tiempo</span> Deja `ops/bin/kpi-semanal.sh` del apartado funcionando desde un job de Jenkins programado los lunes a las 7:00.
 
 ## Sesión 27 · Práctica evaluable
-<p class="ut-meta" markdown>26 de enero · Práctica evaluable · <span class="dur" title="Explicación unos 10 min, práctica unos 110 min">:material-school:<i class="dur-barra" style="--teoria:8%"></i>:material-flask:</span></p>
+
+<p class="ut-meta" markdown>28 de enero · Práctica evaluable · <span class="dur" tabindex="0" aria-label="Explicación · 10 min&#10;Trabajo en la práctica · 100 min" data-dur="Explicación · 10 min&#10;Trabajo en la práctica · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
 
 La sesión se dedica a cerrar el dossier de operación con todo lo producido en las hojas anteriores; el arranque es para aclarar dudas del enunciado. No hay teoría nueva: lo que necesitéis está en los apartados de las sesiones anteriores.
 
-**Práctica evaluable UT4 (sesión 27, 26 de enero de 2027).** Entrega el dossier de operación del servicio: fichas de métricas, tabla de indicadores con fórmulas y umbrales, catálogo de alarmas con runbooks, informe de pruebas de la versión con casos y evidencias, y el registro de la revisión periódica. Todo en el repositorio del servicio en Gitea, con un `README` en la raíz que enlace cada parte.
+**Práctica evaluable UT4 (sesión 27, 28 de enero de 2027).** Entrega el dossier de operación del servicio: fichas de métricas, tabla de indicadores con fórmulas y umbrales, catálogo de alarmas con runbooks, informe de pruebas de la versión con casos y evidencias, y el registro de la revisión periódica. Todo en el repositorio del servicio en Gitea, con un `README` en la raíz que enlace cada parte.
 
 Entregables:
 

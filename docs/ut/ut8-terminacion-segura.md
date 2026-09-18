@@ -2,7 +2,7 @@
 
 <p class="ut-meta">Módulo 5169 · 10 h · Sesiones 36 a 40 · RA5 CE a, b, c, d</p>
 
-Esta es la última unidad en el centro. Durante el curso habéis levantado el servicio, lo habéis instrumentado, protegido, probado, copiado y actualizado; ahora toca lo contrario: retirarlo sin dejar rastro. El sujeto de la baja es el entorno **pre** que creasteis con OpenTofu en la UT7 para ensayar actualizaciones. Lo vamos a dar de baja de verdad: VM, red, DNS, reglas de firewall, certificados, credenciales, copias en MinIO, logs en Loki, datos en la base de datos y toda referencia en la monitorización. Después de la sesión 41 quedan el examen y la recuperación de abril, y la formación en empresa, donde os pedirán exactamente esto cuando un cliente deje de serlo.
+Esta es la última unidad en el centro. Durante el curso habéis levantado el servicio, lo habéis instrumentado, protegido, probado, copiado y actualizado; ahora toca lo contrario: retirarlo sin dejar rastro. El sujeto de la baja es el entorno **pre** que creasteis con OpenTofu en la UT7 para ensayar actualizaciones. Lo vamos a dar de baja de verdad: VM, red, DNS, reglas de firewall, certificados, credenciales, copias en MinIO, logs en Loki, datos en la base de datos y toda referencia en la monitorización. Después de la sesión 40, la práctica evaluable, quedan el examen de la segunda evaluación y la formación en empresa, donde os pedirán exactamente esto cuando un cliente deje de serlo.
 
 ## Introducción
 
@@ -19,7 +19,7 @@ Antes de entrar en las sesiones, tres cosas: lo que tenéis que saber hacer al t
 
 ### Los conceptos de la unidad
 
-El jueves 12 de marzo, dos días después de que hayáis "dado de baja" el entorno pre parando los contenedores, alguien hace push al repositorio del servicio. El job de pre en Jenkins seguía habilitado, así que construye una imagen nueva con etiqueta `-pre`, la sube al registry e intenta desplegarla en una VM que ya no existe. A la vez, Prometheus lleva dos días con cuatro targets en rojo, Alertmanager ha abierto una incidencia por cada uno y el compañero de guardia ha recibido avisos a las once de la noche por un servicio que todo el mundo sabía que se iba a apagar. Y en MinIO sigue habiendo un repositorio de copias con la base de datos completa de pre, con los correos y teléfonos de los usuarios de prueba, que nadie va a rotar ni a vigilar nunca más. Eso es lo que pasa cuando terminar un servicio se confunde con `docker stop`. Lo que queremos conseguir al final de la unidad es sencillo de decir: que del entorno pre no quede nada que no hayamos decidido conservar, y poder demostrarlo con un acta en la que cada línea lleva su prueba.
+Un jueves de marzo, dos días después de que hayáis "dado de baja" el entorno pre parando los contenedores, alguien hace push al repositorio del servicio. El job de pre en Jenkins seguía habilitado, así que construye una imagen nueva con etiqueta `-pre`, la sube al registry e intenta desplegarla en una VM que ya no existe. A la vez, Prometheus lleva dos días con cuatro targets en rojo, Alertmanager ha abierto una incidencia por cada uno y el compañero de guardia ha recibido avisos a las once de la noche por un servicio que todo el mundo sabía que se iba a apagar. Y en MinIO sigue habiendo un repositorio de copias con la base de datos completa de pre, con los correos y teléfonos de los usuarios de prueba, que nadie va a rotar ni a vigilar nunca más. Eso es lo que pasa cuando terminar un servicio se confunde con `docker stop`. Lo que queremos conseguir al final de la unidad es sencillo de decir: que del entorno pre no quede nada que no hayamos decidido conservar, y poder demostrarlo con un acta en la que cada línea lleva su prueba.
 
 | Herramienta o concepto | Qué es, en una frase | Para qué la usamos en esta unidad |
 |---|---|---|
@@ -38,11 +38,11 @@ El jueves 12 de marzo, dos días después de que hayáis "dado de baja" el entor
 
 **Cómo está organizada la unidad.** La unidad sigue las cinco sesiones en orden y cada sesión trae primero la teoría que se explica y después su hoja de práctica. En la sesión 36 se planifica la baja como un cambio y se inventaría todo lo que pre ha dejado en la infraestructura; de ahí sale la lista de comprobación. En la 37 se ejecuta esa lista sobre la infraestructura: Docker, registry, VM, red, certificados y credenciales. En la 38 se destruyen copias y logs externos entendiendo por qué borrar no borra, y en la 39 se limpian los datos de la base de datos compartida y la monitorización. La sesión 40 cierra con el acta de baja, que es el entregable evaluable; al final quedan los errores frecuentes como material de consulta.
 
-!!! info "Lo que necesitas de la otra asignatura"
+!!! otra "Lo que necesitas de la otra asignatura"
     - El entorno pre que vais a destruir nació con OpenTofu en la [UT5 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/) (diciembre y enero). `tofu destroy` es el inverso exacto de aquel `tofu apply`; tened a mano el repositorio `infra` y el estado.
-    - Las credenciales del pipeline que retiráis (registry, SSH de app01-pre, token de Gitea) se crearon en la [UT6 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), que termina el 26 de febrero, justo al principio de esta unidad. Coordinad con el profesor de 5166 qué credencial es de pre y cuál sigue usando dev.
+    - Las credenciales del pipeline que retiráis (registry, SSH de app01-pre, token de Gitea) se crearon en la [UT6 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), que termina el 24 de marzo, un día después que esta unidad. Coordinad con el profesor de 5166 qué credencial es de pre y cuál sigue usando dev.
     - Las reglas de firewall, los aliases y la CA que revocáis vienen de la [UT3 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/) y de la UT3 de esta asignatura.
-    - Mientras haces esta unidad, la [UT7 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut7-monitorizacion/) (10 a 17 de marzo) monta la pila de monitorización "definitiva". Lo que aquí desconfiguráis (targets, reglas, rutas, dashboards) es el ensayo inverso de esa instalación: cada cosa que retiráis es una que allí tendréis que dar de alta.
+    - Justo después de esta unidad, la [UT7 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut7-monitorizacion/) (7 a 14 de abril) monta la pila de monitorización "definitiva". Lo que aquí desconfiguráis (targets, reglas, rutas, dashboards) es el ensayo inverso de esa instalación: cada cosa que retiráis es una que allí tendréis que dar de alta.
 
 ### Plan de sesiones
 
@@ -50,21 +50,43 @@ Cada sesión de dos horas empieza con una explicación corta y sigue con laborat
 
 | Sesión | Fecha | Tipo | Se explica | Se practica |
 |---:|-------|------|------------|-------------|
-| [36](#sesion-36-plan-de-baja) | 25 feb | Teoría y práctica | La baja como cambio: aprobación, ventana, qué se conserva; dónde deja rastro un servicio (25 min). | Inventariar todo lo que el servicio ha dejado en el entorno y redactar la lista de comprobación de baja con verificación por punto. |
-| [37](#sesion-37-liberar-la-infraestructura) | 9 mar | Práctica | Orden correcto de la baja (10 min). | Baja del entorno pre: compose, imágenes, redes, VM con tofu destroy, DNS, reglas, credenciales y proyecto archivado; verificar cada punto. |
-| [38](#sesion-38-copias-y-logs) | 11 mar | Teoría y práctica | Por qué borrar no borra: SSD, copy-on-write, versionado; borrado criptográfico (20 min). | Destruir la clave de restic, borrar versiones en S3, logs rotados y streams de Loki; intentar recuperar con photorec. |
-| [39](#sesion-39-datos-y-monitorizacion) | 16 mar | Teoría y práctica | DELETE, DROP y VACUUM FULL; anonimización; desconfigurar targets, reglas y dashboards (15 min). | Anonimizar y borrar con VACUUM FULL; retirar targets, reglas, rutas, dashboards y Promtail; comprobar que no quedan series ni alarmas. |
-| [40](#sesion-40-practica-evaluable) | 18 mar | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el acta de baja con la lista de comprobación completa y una evidencia por punto. |
+| [36](#sesion-36-plan-de-baja) | 9 mar | Teoría y práctica | La baja como cambio: aprobación, ventana, qué se conserva; dónde deja rastro un servicio (25 min). | Inventariar todo lo que el servicio ha dejado en el entorno y redactar la lista de comprobación de baja con verificación por punto. |
+| [37](#sesion-37-liberar-la-infraestructura) | 11 mar | Práctica | Orden correcto de la baja (10 min). | Baja del entorno pre: compose, imágenes, redes, VM con tofu destroy, DNS, reglas, credenciales y proyecto archivado; verificar cada punto. |
+| [38](#sesion-38-copias-y-logs) | 16 mar | Teoría y práctica | Por qué borrar no borra: SSD, copy-on-write, versionado; borrado criptográfico (20 min). | Destruir la clave de restic, borrar versiones en S3, logs rotados y streams de Loki; intentar recuperar con photorec. |
+| [39](#sesion-39-datos-y-monitorizacion) | 18 mar | Teoría y práctica | DELETE, DROP y VACUUM FULL; anonimización; desconfigurar targets, reglas y dashboards (15 min). | Anonimizar y borrar con VACUUM FULL; retirar targets, reglas, rutas, dashboards y Promtail; comprobar que no quedan series ni alarmas. |
+| [40](#sesion-40-practica-evaluable) | 23 mar | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el acta de baja con la lista de comprobación completa y una evidencia por punto. |
 
 ## Sesión 36 · Plan de baja
 
-<p class="ut-meta" markdown>25 de febrero · Teoría y práctica · <span class="dur" title="Explicación unos 25 min, práctica unos 95 min">:material-school:<i class="dur-barra" style="--teoria:21%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>9 de marzo · Teoría y práctica · <span class="dur" tabindex="0" aria-label="La baja es un cambio más · 10 min&#10;Inventario de rastros · 15 min&#10;A8.1 Plan de baja · 85 min" data-dur="La baja es un cambio más · 10 min&#10;Inventario de rastros · 15 min&#10;A8.1 Plan de baja · 85 min">:material-school:<i class="dur-barra" style="--teoria:23%"></i>:material-flask:</span></p>
 
 Al acabar esta sesión tendréis el plan de baja del entorno pre: el inventario de todo lo que ha dejado en la infraestructura y la lista de comprobación con un comando de verificación por punto. Para la hoja hacen falta los dos apartados que explico al principio: por qué la baja se trata como un cambio, con lo que la ley obliga a conservar, y el método para inventariar rastros a partir de las tres cadenas que hay que rastrear.
 
 ### La baja es un cambio más
 
 Terminar un contenedor "para siempre" no es `docker stop`. Un servicio deja huella en la infraestructura, en la monitorización, en las copias y en los datos, y cada rastro es un coste o un riesgo: datos personales que siguen existiendo después de que el cliente pidiera su supresión, alarmas HostDown que nadie atiende, una IP reservada que impide reutilizar el rango, un token de Jenkins con permisos sobre un repositorio que ya no existe. Por eso la baja se planifica con una lista de comprobación y se documenta como cualquier otro cambio.
+
+```mermaid
+flowchart LR
+    S["<b>docker stop</b><br><small>lo que mucha gente llama «dar de baja»</small>"]:::riesgo
+    R["<b>Lo que queda vivo</b>"]:::pieza
+    R1["<b>Datos personales</b><br><small>tras una petición de supresión</small>"]:::riesgo
+    R2["<b>Alarmas HostDown</b><br><small>que nadie atiende</small>"]:::riesgo
+    R3["<b>IP reservada</b><br><small>que bloquea el rango</small>"]:::riesgo
+    R4["<b>Token de Jenkins</b><br><small>sobre un repositorio que ya no existe</small>"]:::riesgo
+    P(["<b>Baja planificada</b><br><small>lista de comprobación, ventana,<br>y una evidencia por punto</small>"]):::ok
+    S --> R --> R1 & R2 & R3 & R4
+    R -.-> P
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>Cada rastro que se queda es un coste o un riesgo. Por eso la baja se aprueba, se ejecuta y se documenta como cualquier otro cambio.</p>
+
 
 En ITIL (el catálogo de buenas prácticas de gestión de servicios de TI), la baja de un servicio es un **cambio normal**: pasa por una solicitud (RFC), una evaluación de riesgo, la aprobación de quien tiene autoridad sobre el servicio (en una empresa pequeña el responsable técnico y el dueño del negocio; en una grande, el CAB, el comité que aprueba los cambios) y una ventana acordada. No es un cambio estándar (los cambios estándar son los repetitivos y de bajo riesgo, y una baja destruye datos, así que nunca lo es) ni una emergencia. En la práctica eso se traduce en cuatro cosas que tienen que existir antes de tocar nada:
 
@@ -202,15 +224,15 @@ El resultado de este inventario es una tabla: rastro, dónde, cómo se elimina, 
 
 ### A8.1 Plan de baja (sesión 36)
 
-**Objetivo.** `operacion/baja/pre/plan.md` con el inventario de rastros de pre y la lista de comprobación de baja, con un comando de verificación por punto.
+<span class="et et-obj">Objetivo</span> `operacion/baja/pre/plan.md` con el inventario de rastros de pre y la lista de comprobación de baja, con un comando de verificación por punto.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - SSH a mon01, app01-pre, gitea01, al nodo Proxmox y a la CA; `$TOKEN` (Jenkins), `$GT` (Gitea), `$KEY` y `$SECRET` (OPNsense) exportados en la shell.
 - Los cinco repositorios (`servicio`, `monitoring`, `alerting`, `operacion`, `infra`) clonados en `~/repos/` y actualizados.
 - Se ha explicado [la baja como cambio](#la-baja-es-un-cambio-mas) y [el inventario de rastros](#inventario-de-rastros); la [lista de comprobación completa](#lista-de-comprobacion-completa) es tu plantilla.
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Crea `operacion/baja/pre/ev/` y `operacion/baja/pre/plan.md` con cuatro secciones: "Inventario de rastros" (tabla rastro, dónde, cómo se elimina, cómo se verifica, quién), "Lista de comprobación", "Qué se conserva" (tabla elemento, motivo, dónde, hasta, responsable) y "Hallazgos no esperados".
 
@@ -267,15 +289,15 @@ El resultado de este inventario es una tabla: rastro, dónde, cómo se elimina, 
 9. Rellena "Qué se conserva" (dump bloqueado, dashboards, repositorio archivado, obligaciones legales de la tabla de conservación) con motivo, dónde y hasta cuándo.
 10. Haz commit del plan y de la evidencia del grep.
 
-**Comprobación.** Cuatro secciones rellenas; ninguna fila sin "Cómo se verifica"; la lista empieza por aprobación y silencio y termina por expiración del silencio y acta; al menos un hallazgo no esperado (si no, repasa `alerting` y los aliases).
+<span class="et et-com">Comprobación</span> Cuatro secciones rellenas; ninguna fila sin "Cómo se verifica"; la lista empieza por aprobación y silencio y termina por expiración del silencio y acta; al menos un hallazgo no esperado (si no, repasa `alerting` y los aliases).
 
-**Entrega.** `operacion/baja/pre/plan.md` y `operacion/baja/pre/ev/00-grep-repos.txt` en un commit del repositorio `operacion`.
+<span class="et et-ent">Entrega</span> `operacion/baja/pre/plan.md` y `operacion/baja/pre/ev/00-grep-repos.txt` en un commit del repositorio `operacion`.
 
-**Si te sobra tiempo.** Redacta el correo de solicitud de baja (RFC) con fecha, ventana y lo que se conserva; guárdalo como `ev/01-aprobacion.txt`.
+<span class="et et-ext">Si te sobra tiempo</span> Redacta el correo de solicitud de baja (RFC) con fecha, ventana y lo que se conserva; guárdalo como `ev/01-aprobacion.txt`.
 
 ## Sesión 37 · Liberar la infraestructura
 
-<p class="ut-meta" markdown>9 de marzo · Práctica · <span class="dur" title="Explicación unos 10 min, práctica unos 110 min">:material-school:<i class="dur-barra" style="--teoria:8%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>11 de marzo · Práctica · <span class="dur" tabindex="0" aria-label="El orden importa · 5 min&#10;Liberar los recursos de la infraestructura · 5 min&#10;A8.2 Liberar la infraestructura · 100 min" data-dur="El orden importa · 5 min&#10;Liberar los recursos de la infraestructura · 5 min&#10;A8.2 Liberar la infraestructura · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
 
 Sesión de práctica casi entera: al terminarla, del entorno pre no quedan contenedores, imágenes, VM, IP, DNS, reglas, certificados válidos ni credenciales, y cada verificación está guardada como evidencia. Al principio explico el orden de la baja, que es lo único que hay que tener claro antes de tocar nada. El detalle de cada capa (Docker, registry, OpenTofu, Proxmox, red, CA y credenciales) está en el apartado de consulta que sigue, para leerlo paso a paso mientras hacéis la hoja.
 
@@ -285,17 +307,27 @@ Hay una secuencia correcta y no es "borrar de arriba abajo". Si paráis el servi
 
 ```mermaid
 flowchart TD
-    A[Aprobación escrita<br>y lista de comprobación] --> B[Silenciar alarmas<br>y avisar]
-    B --> C[Extraer lo que se conserva:<br>dump bloqueado, evidencias, dashboards a Git]
-    C --> D[Parar el servicio<br>compose down]
-    D --> E[Periodo de gracia<br>1 a 7 días con todo parado]
-    E --> F[Liberar infraestructura:<br>volúmenes, imágenes, VM, red, DNS, firewall]
-    F --> G[Revocar certificados<br>y credenciales]
-    G --> H[Destruir copias y logs externos]
-    H --> I[Borrar o anonimizar<br>datos en la BD compartida]
-    I --> J[Desconfigurar monitorización<br>y quitar silencios]
-    J --> K[Verificar todo<br>y firmar el acta]
+    A["<b>Aprobación escrita</b><br><small>y lista de comprobación</small>"]:::act
+    B["<b>Silenciar alarmas y avisar</b>"]:::act
+    C["<b>Extraer lo que se conserva</b><br><small>dump bloqueado, evidencias, dashboards a Git</small>"]:::dato
+    D["<b>Parar el servicio</b><br><small>compose down</small>"]:::pieza
+    E["<b>Periodo de gracia</b><br><small>de 1 a 7 días con todo parado</small>"]:::infra
+    F["<b>Liberar infraestructura</b><br><small>volúmenes, imágenes, VM, red, DNS, firewall</small>"]:::pieza
+    G["<b>Revocar certificados y credenciales</b>"]:::pieza
+    H["<b>Destruir copias y logs externos</b>"]:::riesgo
+    I["<b>Borrar o anonimizar</b><br><small>datos en la BD compartida</small>"]:::riesgo
+    J["<b>Desconfigurar monitorización</b><br><small>y quitar los silencios</small>"]:::pieza
+    K(["<b>Verificar todo y firmar el acta</b>"]):::ok
+    A --> B --> C --> D --> E --> F --> G --> H --> I --> J --> K
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
 ```
+
+<p class="pie" markdown>El periodo de gracia es el único paso reversible: una vez pasado, lo de la derecha ya no se puede deshacer. De ahí que se extraiga antes lo que se conserva.</p>
 
 El periodo de gracia del paso E es opcional pero muy recomendable: el servicio está parado, nada se ha destruido, y si alguien grita ("el informe mensual tiraba de esa API") se levanta en un minuto. En una empresa una semana es lo habitual; en el laboratorio lo simulamos entre la sesión 38 y la 39.
 
@@ -335,7 +367,8 @@ Esta es la lista con la que trabajaremos. Cada línea lleva el comando de verifi
 
 ### Liberar los recursos de la infraestructura
 
-*Material de consulta: no se explica en clase; lo necesitas para la hoja de práctica de esta sesión.*
+!!! consulta "Material de consulta"
+    Esto no se explica en clase: lo necesitas para la hoja de práctica de esta sesión.
 
 Aquí empieza la parte de manos en el teclado: vamos a devolver a la infraestructura todo lo que el entorno pre tenía asignado, capa por capa, desde los contenedores hasta los certificados y las credenciales. Cada recurso tiene un comando para liberarlo y otro para comprobar que ya no está, y ese segundo es el que va al acta. La tabla resume el qué; el cómo y el por qué van debajo, por subapartados.
 
@@ -493,16 +526,16 @@ El repositorio del servicio y el Jenkinsfile no se borran: son el registro de c�
 
 ### A8.2 Liberar la infraestructura (sesión 37)
 
-**Objetivo.** El entorno pre sin contenedores, imágenes, VM, IP, DNS, reglas, certificados válidos ni credenciales, con la salida de cada verificación en `operacion/baja/pre/ev/`.
+<span class="et et-obj">Objetivo</span> El entorno pre sin contenedores, imágenes, VM, IP, DNS, reglas, certificados válidos ni credenciales, con la salida de cada verificación en `operacion/baja/pre/ev/`.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - El plan de A8.1 aprobado (nota del profesor con fecha en `ev/01-aprobacion.txt`).
 - `infra/envs/pre` con su estado, `tofu` instalado y el token de Proxmox del provider exportado.
 - Acceso a app01-pre, gitea01, nodo Proxmox, CA y OPNsense; `$TOKEN`, `$GT`, `$KEY`, `$SECRET` y `$GRAFANA_TOKEN` en la shell.
 - Se ha explicado [el orden de la baja](#el-orden-importa); el detalle de cada capa está en [Liberar los recursos de la infraestructura](#liberar-los-recursos-de-la-infraestructura).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Silencia antes de tocar nada; el silencio dura más que la ventana (hasta la sesión 39):
 
@@ -628,15 +661,15 @@ El repositorio del servicio y el Jenkinsfile no se borran: son el registro de c�
 
 13. Marca en `plan.md` cada punto con su evidencia y apunta en "Incidencias" cualquier desviación. Commit.
 
-**Comprobación.** Listados de `ev/04` a `ev/13` vacíos o con el estado esperado (`202`, `archived: true`, job `disabled`); `dig` sin respuesta; `tofu state list` vacío; la CRL con todos los `*.pre.lab`.
+<span class="et et-com">Comprobación</span> Listados de `ev/04` a `ev/13` vacíos o con el estado esperado (`202`, `archived: true`, job `disabled`); `dig` sin respuesta; `tofu state list` vacío; la CRL con todos los `*.pre.lab`.
 
-**Entrega.** Commit en `operacion` con `plan.md`, `ev/02` a `ev/13` y la matriz de reglas corregida; el `pre-bloqueo.sql.gpg` entregado al profesor fuera del repositorio.
+<span class="et et-ent">Entrega</span> Commit en `operacion` con `plan.md`, `ev/02` a `ev/13` y la matriz de reglas corregida; el `pre-bloqueo.sql.gpg` entregado al profesor fuera del repositorio.
 
-**Si te sobra tiempo.** Levanta el respondedor OCSP mínimo del apartado de certificados y guarda `Cert Status: revoked` en `ev/11b-ocsp.txt`.
+<span class="et et-ext">Si te sobra tiempo</span> Levanta el respondedor OCSP mínimo del apartado de certificados y guarda `Cert Status: revoked` en `ev/11b-ocsp.txt`.
 
 ## Sesión 38 · Copias y logs
 
-<p class="ut-meta" markdown>11 de marzo · Teoría y práctica · <span class="dur" title="Explicación unos 20 min, práctica unos 100 min">:material-school:<i class="dur-barra" style="--teoria:17%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>16 de marzo · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Por qué borrar no borra · 15 min&#10;Verificar con photorec sobre un volumen de pruebas · 5 min&#10;A8.3 Copias y logs · 90 min" data-dur="Por qué borrar no borra · 15 min&#10;Verificar con photorec sobre un volumen de pruebas · 5 min&#10;A8.3 Copias y logs · 90 min">:material-school:<i class="dur-barra" style="--teoria:18%"></i>:material-flask:</span></p>
 
 En esta sesión cambiamos de escala: ya no quitamos cosas de sistemas que obedecen a un comando, sino que garantizamos que unos datos no se puedan recuperar. Explico por qué borrar no borra (SSD, copy-on-write, versionado, snapshots) y de ahí sale el orden de opciones, con el borrado criptográfico primero; los comandos de restic, S3 y Loki están en los subapartados. El apartado de photorec es material de consulta para los tres escenarios de recuperación de la hoja.
 
@@ -645,6 +678,30 @@ En esta sesión cambiamos de escala: ya no quitamos cosas de sistemas que obedec
 Este apartado cambia de escala. Hasta ahora hemos quitado cosas de sistemas que obedecen a un comando; ahora hay que garantizar que unos datos no se puedan recuperar, y para eso hace falta entender qué ocurre en el disco cuando borráis un fichero. La idea con la que tenéis que salir es que el borrado fiable solo se consigue si los datos nunca estuvieron en claro, y por eso la lista de opciones empieza por el cifrado y no por sobrescribir.
 
 `rm` desvincula el nombre del fichero de sus bloques y marca los bloques como libres. Los datos siguen ahí hasta que otra escritura los pise, y un `photorec` (herramienta de recuperación de ficheros borrados) los recupera en minutos. Sobre eso se apilan cuatro mecanismos modernos que hacen que ni siquiera sobrescribir garantice nada:
+
+```mermaid
+flowchart LR
+    RM["<b>rm</b><br><small>desvincula el nombre<br>y marca los bloques libres</small>"]:::act
+    D["<b>Los datos siguen ahí</b><br><small>photorec los recupera en minutos</small>"]:::riesgo
+    SOB["<b>Sobrescribir</b><br><small>tampoco garantiza nada</small>"]:::riesgo
+    M1["<b>SSD y wear leveling</b><br><small>escribe en otra celda</small>"]:::infra
+    M2["<b>Copy-on-write</b><br><small>el bloque viejo sigue vivo</small>"]:::infra
+    M3["<b>Snapshots y réplicas</b>"]:::infra
+    M4["<b>Copias de seguridad</b>"]:::infra
+    CIF(["<b>Borrado criptográfico</b><br><small>si nunca estuvo en claro,<br>basta con destruir la clave</small>"]):::ok
+    RM --> D --> SOB
+    SOB --- M1 & M2 & M3 & M4
+    SOB -.-> CIF
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>Por eso la lista de opciones empieza por el cifrado y no por sobrescribir: el borrado fiable solo se consigue si los datos nunca estuvieron en claro.</p>
+
 
 - **SSD y wear leveling.** El controlador del SSD reparte las escrituras entre celdas para que se desgasten por igual. Cuando `shred` escribe tres veces sobre el mismo LBA (la dirección lógica del bloque, lo que el sistema operativo cree que es "el mismo sitio"), el controlador escribe en tres páginas físicas distintas y deja la original marcada como inválida, legible con acceso al chip. TRIM (`fstrim`, `blkdiscard`) le dice al controlador que puede borrar esas páginas, pero "puede" no es "debe", y no todos los firmwares lo hacen de inmediato.
 - **Copy-on-write en ZFS y btrfs.** Estos sistemas de ficheros nunca sobrescriben un bloque en su sitio: escriben el nuevo en otro lugar y actualizan los punteros. `shred` en ZFS crea tres copias nuevas y deja la original intacta. Y si hay un snapshot, el bloque original está referenciado y ni siquiera se marca libre. En Proxmox con storage ZFS (`local-zfs`) el disco de la VM es un zvol (un volumen de bloques dentro de ZFS) con esta propiedad.
@@ -727,7 +784,8 @@ La verificación tiene dos niveles: una consulta que no devuelve nada, y, sobre 
 
 ### Verificar con photorec sobre un volumen de pruebas
 
-*Material de consulta: no se explica en clase; lo necesitas para la hoja de práctica de esta sesión.*
+!!! consulta "Material de consulta"
+    Esto no se explica en clase: lo necesitas para la hoja de práctica de esta sesión.
 
 Para que el "irrecuperable" del acta no sea un acto de fe, la actividad A8.3 lo pone a prueba sobre un volumen que controláis del todo. Se crea un fichero imagen, se formatea, se escribe un fichero reconocible, se borra con cada método y se intenta recuperar:
 
@@ -746,15 +804,15 @@ Qué esperar: tras un `rm` en ext4, photorec recupera el dump entero (encuentra 
 
 ### A8.3 Copias y logs (sesión 38)
 
-**Objetivo.** Repositorio restic de pre irrecuperable, prefijo `pre/` del bucket sin versiones, Loki sin nada para `{env="pre"}` e informe de photorec con tres escenarios.
+<span class="et et-obj">Objetivo</span> Repositorio restic de pre irrecuperable, prefijo `pre/` del bucket sin versiones, Loki sin nada para `{env="pre"}` e informe de photorec con tres escenarios.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - A8.2 terminada: las VM de pre no existen. Queda lo de fuera: MinIO (10.10.0.30), Loki y Mailpit en mon01, y la contraseña de restic en los hosts que la tenían.
 - `mc` con el alias `s3` hacia MinIO, `aws` CLI, `restic`, `logcli`, `photorec` (paquete `testdisk`) y una máquina con ZFS (el nodo Proxmox con `local-zfs` o una VM).
 - Se ha explicado [por qué borrar no borra](#por-que-borrar-no-borra); los comandos están en [Opciones de más a menos fiable](#opciones-de-mas-a-menos-fiable), [Logs externos](#logs-externos) y [Verificar con photorec](#verificar-con-photorec-sobre-un-volumen-de-pruebas).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Borrado criptográfico del repositorio restic: lista las claves (los IDs van al acta), destruye todas sus versiones y la contraseña:
 
@@ -831,15 +889,15 @@ Qué esperar: tras un `rm` en ext4, photorec recupera el dump entero (encuentra 
 
 9. Redacta `operacion/baja/pre/informe-photorec.md` con una tabla (escenario, método, qué recuperó photorec, por qué) y la conclusión: qué método garantiza la irrecuperabilidad en un soporte que no controlas. Copia los tres `ev-photorec-*.txt` a `ev/19-photorec/`.
 
-**Comprobación.** `restic snapshots` falla con "wrong password or no key found"; `list-object-versions` de `pre/` sin `Versions` ni `DeleteMarkers`; petición de Loki en `received` o `processed`; escenario 1 recupera el dump entero, el 2 nada y el 3 conserva las 500 líneas en el snapshot.
+<span class="et et-com">Comprobación</span> `restic snapshots` falla con "wrong password or no key found"; `list-object-versions` de `pre/` sin `Versions` ni `DeleteMarkers`; petición de Loki en `received` o `processed`; escenario 1 recupera el dump entero, el 2 nada y el 3 conserva las 500 líneas en el snapshot.
 
-**Entrega.** Commit en `operacion` con `ev/14` a `ev/19` e `informe-photorec.md`; commit en `monitoring` con la `retention_stream`.
+<span class="et et-ent">Entrega</span> Commit en `operacion` con `ev/14` a `ev/19` e `informe-photorec.md`; commit en `monitoring` con la `retention_stream`.
 
-**Si te sobra tiempo.** Cuarto escenario: volumen LUKS, `cryptsetup luksErase` y photorec sobre la imagen en bruto (cero ficheros).
+<span class="et et-ext">Si te sobra tiempo</span> Cuarto escenario: volumen LUKS, `cryptsetup luksErase` y photorec sobre la imagen en bruto (cero ficheros).
 
 ## Sesión 39 · Datos y monitorización
 
-<p class="ut-meta" markdown>16 de marzo · Teoría y práctica · <span class="dur" title="Explicación unos 15 min, práctica unos 105 min">:material-school:<i class="dur-barra" style="--teoria:13%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>18 de marzo · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Datos confidenciales en la base de datos interna · 10 min&#10;Desconfigurar la monitorización y las alarmas · 5 min&#10;A8.4 Datos y monitorización · 95 min" data-dur="Datos confidenciales en la base de datos interna · 10 min&#10;Desconfigurar la monitorización y las alarmas · 5 min&#10;A8.4 Datos y monitorización · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
 
 Última sesión de ejecución: al acabar, la base de datos de dev no conserva datos personales del tenant pre y la monitorización no guarda ninguna referencia al entorno, con el silencio expirado y sin alertas. Explico dos cosas: qué hace de verdad un DELETE en PostgreSQL y cómo se anonimiza cuando hay que conservar estadísticas, y en qué orden se desconfiguran targets, reglas, rutas, dashboards y Promtail para no disparar alarmas fantasma.
 
@@ -943,16 +1001,16 @@ Si la fuente de datos era la compartida (el Prometheus y el Loki de mon01), no s
 
 ### A8.4 Datos y monitorización (sesión 39)
 
-**Objetivo.** La base de datos de dev sin datos personales del tenant `pre`, y la monitorización sin referencias a pre: cero targets, reglas, series, dashboards, silencios y alertas.
+<span class="et et-obj">Objetivo</span> La base de datos de dev sin datos personales del tenant `pre`, y la monitorización sin referencias a pre: cero targets, reglas, series, dashboards, silencios y alertas.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Acceso a db01 de dev con el usuario `app`, a mon01 y a jenkins01.
 - Prometheus arrancado con `--web.enable-lifecycle` y `--web.enable-admin-api` (si falta, añádelo al compose de mon01 y reinicia antes de empezar).
 - Los repositorios `alerting`, `monitoring` y `operacion` actualizados; los dashboards de pre ya están en Git desde A8.2.
 - Se ha explicado [DELETE y VACUUM FULL](#datos-confidenciales-en-la-base-de-datos-interna), [la anonimización](#anonimizar-cuando-hay-que-conservar-estadisticas) y [la desconfiguración de la monitorización](#desconfigurar-la-monitorizacion-y-las-alarmas).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Cierra el pendiente de la sesión anterior: la petición de borrado de Loki debe estar en `processed`.
 
@@ -1054,15 +1112,15 @@ Si la fuente de datos era la compartida (el Prometheus y el Loki de mon01), no s
 
 12. En `operacion/`, marca las fichas de alarma y runbooks de pre como retirados con fecha y enlace al acta; no los borres. Commit.
 
-**Comprobación.** `restos = 0`; `n_dead_tup` de `usuarios` y `comentarios` a 0 y sin tablas `pre_*`; `count({env="pre"})` devuelve `[]`; targets, reglas y dashboards de pre a cero; `amtool alert query env=pre` vacío dos minutos después de expirar el silencio.
+<span class="et et-com">Comprobación</span> `restos = 0`; `n_dead_tup` de `usuarios` y `comentarios` a 0 y sin tablas `pre_*`; `count({env="pre"})` devuelve `[]`; targets, reglas y dashboards de pre a cero; `amtool alert query env=pre` vacío dos minutos después de expirar el silencio.
 
-**Entrega.** Commit en `operacion` con `ev/20` a `ev/25` y los runbooks marcados; commits en `alerting` (reglas y rutas) y `monitoring` (targets y Promtail).
+<span class="et et-ent">Entrega</span> Commit en `operacion` con `ev/20` a `ev/25` y los runbooks marcados; commits en `alerting` (reglas y rutas) y `monitoring` (targets y Promtail).
 
-**Si te sobra tiempo.** `hexdump -C` sobre el fichero de `usuarios` (`pg_relation_filepath`) antes y después del `VACUUM FULL`: `DELETE` deja los bytes.
+<span class="et et-ext">Si te sobra tiempo</span> `hexdump -C` sobre el fichero de `usuarios` (`pg_relation_filepath`) antes y después del `VACUUM FULL`: `DELETE` deja los bytes.
 
 ## Sesión 40 · Práctica evaluable
 
-<p class="ut-meta" markdown>18 de marzo · Práctica evaluable · <span class="dur" title="Explicación unos 10 min, práctica unos 110 min">:material-school:<i class="dur-barra" style="--teoria:8%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>23 de marzo · Práctica evaluable · <span class="dur" tabindex="0" aria-label="Acta de baja · 10 min&#10;Trabajo en la práctica · 100 min" data-dur="Acta de baja · 10 min&#10;Trabajo en la práctica · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
 
 La práctica evaluable cierra la unidad con el acta de baja: el documento que recoge la aprobación, lo conservado, lo destruido con su método, la lista de comprobación con una evidencia por punto y los pendientes con fecha. Al principio aclaro el enunciado y repaso la plantilla del acta, que es el apartado que sigue; el resto de la sesión es para completarla y entregar.
 

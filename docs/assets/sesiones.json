@@ -2,15 +2,14 @@
  "inicio": "2026-10-01",
  "fin": "2027-06-09",
  "fe": {
-  "inicio": "2027-03-29",
+  "inicio": "2027-04-19",
   "fin": "2027-06-09"
  },
  "festivos": {
+  "2026-10-08": "Sin clase",
   "2026-10-09": "Dia de la Comunitat Valenciana",
   "2026-10-12": "Fiesta Nacional",
   "2026-12-08": "Inmaculada",
-  "2027-03-19": "San José",
-  "2027-05-01": "Día del Trabajo",
   "2026-12-22": "Navidad",
   "2026-12-23": "Navidad",
   "2026-12-24": "Navidad",
@@ -33,6 +32,7 @@
   "2027-03-03": "Magdalena",
   "2027-03-04": "Magdalena",
   "2027-03-05": "Magdalena",
+  "2027-03-19": "San José",
   "2027-03-25": "Pascua",
   "2027-03-26": "Pascua",
   "2027-03-27": "Pascua",
@@ -42,7 +42,7 @@
   "2027-03-31": "Pascua",
   "2027-04-01": "Pascua",
   "2027-04-02": "Pascua",
-  "2026-10-01": "Inicio de curso, sin clase"
+  "2027-05-01": "Día del Trabajo"
  },
  "sesiones": [
   {
@@ -73,7 +73,7 @@
   },
   {
    "n": 3,
-   "fecha": "2026-10-08",
+   "fecha": "2026-10-13",
    "ut": "UT1",
    "titulo": "Instrumentar la aplicación",
    "tipo": "Teoría y práctica",
@@ -86,7 +86,7 @@
   },
   {
    "n": 4,
-   "fecha": "2026-10-13",
+   "fecha": "2026-10-15",
    "ut": "UT1",
    "titulo": "Logs estructurados",
    "tipo": "Teoría y práctica",
@@ -99,7 +99,7 @@
   },
   {
    "n": 5,
-   "fecha": "2026-10-15",
+   "fecha": "2026-10-20",
    "ut": "UT1",
    "titulo": "Eventos",
    "tipo": "Teoría y práctica",
@@ -112,7 +112,7 @@
   },
   {
    "n": 6,
-   "fecha": "2026-10-20",
+   "fecha": "2026-10-22",
    "ut": "UT1",
    "titulo": "Integridad y almacenamiento",
    "tipo": "Teoría y práctica",
@@ -125,7 +125,7 @@
   },
   {
    "n": 7,
-   "fecha": "2026-10-22",
+   "fecha": "2026-10-27",
    "ut": "UT1",
    "titulo": "Práctica evaluable UT1",
    "tipo": "Práctica evaluable",
@@ -138,7 +138,7 @@
   },
   {
    "n": 8,
-   "fecha": "2026-10-27",
+   "fecha": "2026-10-29",
    "ut": "UT2",
    "titulo": "Umbrales sobre contadores",
    "tipo": "Teoría y práctica",
@@ -151,7 +151,7 @@
   },
   {
    "n": 9,
-   "fecha": "2026-10-29",
+   "fecha": "2026-11-03",
    "ut": "UT2",
    "titulo": "Cadenas en logs y eventos",
    "tipo": "Teoría y práctica",
@@ -164,7 +164,7 @@
   },
   {
    "n": 10,
-   "fecha": "2026-11-03",
+   "fecha": "2026-11-05",
    "ut": "UT2",
    "titulo": "Recording rules",
    "tipo": "Teoría y práctica",
@@ -177,7 +177,7 @@
   },
   {
    "n": 11,
-   "fecha": "2026-11-05",
+   "fecha": "2026-11-10",
    "ut": "UT2",
    "titulo": "Reglas de alerta",
    "tipo": "Teoría y práctica",
@@ -190,7 +190,7 @@
   },
   {
    "n": 12,
-   "fecha": "2026-11-10",
+   "fecha": "2026-11-12",
    "ut": "UT2",
    "titulo": "Alertmanager",
    "tipo": "Teoría y práctica",
@@ -203,7 +203,7 @@
   },
   {
    "n": 13,
-   "fecha": "2026-11-12",
+   "fecha": "2026-11-17",
    "ut": "UT2",
    "titulo": "Integración con incidencias",
    "tipo": "Teoría y práctica",
@@ -216,7 +216,7 @@
   },
   {
    "n": 14,
-   "fecha": "2026-11-17",
+   "fecha": "2026-11-19",
    "ut": "UT2",
    "titulo": "Verificación completa",
    "tipo": "Práctica",
@@ -229,7 +229,7 @@
   },
   {
    "n": 15,
-   "fecha": "2026-11-19",
+   "fecha": "2026-11-24",
    "ut": "UT2",
    "titulo": "Práctica evaluable UT2",
    "tipo": "Práctica evaluable",
@@ -242,7 +242,7 @@
   },
   {
    "n": 16,
-   "fecha": "2026-11-24",
+   "fecha": "2026-11-26",
    "ut": "UT3",
    "titulo": "Auditoría inicial",
    "tipo": "Teoría y práctica",
@@ -255,7 +255,7 @@
   },
   {
    "n": 17,
-   "fecha": "2026-11-26",
+   "fecha": "2026-12-01",
    "ut": "UT3",
    "titulo": "Red y firewall",
    "tipo": "Teoría y práctica",
@@ -268,7 +268,7 @@
   },
   {
    "n": 18,
-   "fecha": "2026-12-01",
+   "fecha": "2026-12-03",
    "ut": "UT3",
    "titulo": "TLS y autenticación",
    "tipo": "Teoría y práctica",
@@ -281,7 +281,7 @@
   },
   {
    "n": 19,
-   "fecha": "2026-12-03",
+   "fecha": "2026-12-10",
    "ut": "UT3",
    "titulo": "Práctica evaluable UT3",
    "tipo": "Práctica evaluable",
@@ -294,7 +294,7 @@
   },
   {
    "n": 20,
-   "fecha": "2026-12-10",
+   "fecha": "2026-12-15",
    "ut": "UT4",
    "titulo": "Fichas de métricas",
    "tipo": "Teoría y práctica",
@@ -307,7 +307,7 @@
   },
   {
    "n": 21,
-   "fecha": "2026-12-15",
+   "fecha": "2026-12-17",
    "ut": "UT4",
    "titulo": "Indicadores",
    "tipo": "Teoría y práctica",
@@ -320,7 +320,7 @@
   },
   {
    "n": 22,
-   "fecha": "2026-12-17",
+   "fecha": "2027-01-12",
    "ut": "UT4",
    "titulo": "Catálogo de alarmas",
    "tipo": "Teoría y práctica",
@@ -333,7 +333,7 @@
   },
   {
    "n": 23,
-   "fecha": "2027-01-12",
+   "fecha": "2027-01-14",
    "ut": "UT4",
    "titulo": "Pruebas funcionales",
    "tipo": "Teoría y práctica",
@@ -346,7 +346,7 @@
   },
   {
    "n": 24,
-   "fecha": "2027-01-14",
+   "fecha": "2027-01-19",
    "ut": "UT4",
    "titulo": "Calidad de servicio y rendimiento",
    "tipo": "Teoría y práctica",
@@ -359,7 +359,7 @@
   },
   {
    "n": 25,
-   "fecha": "2027-01-19",
+   "fecha": "2027-01-21",
    "ut": "UT4",
    "titulo": "Estrés y seguridad",
    "tipo": "Teoría y práctica",
@@ -372,7 +372,7 @@
   },
   {
    "n": 26,
-   "fecha": "2027-01-21",
+   "fecha": "2027-01-26",
    "ut": "UT4",
    "titulo": "Documentación de pruebas y seguimiento",
    "tipo": "Teoría y práctica",
@@ -385,7 +385,7 @@
   },
   {
    "n": 27,
-   "fecha": "2027-01-26",
+   "fecha": "2027-01-28",
    "ut": "UT4",
    "titulo": "Práctica evaluable UT4",
    "tipo": "Práctica evaluable",
@@ -398,7 +398,7 @@
   },
   {
    "n": 28,
-   "fecha": "2027-01-28",
+   "fecha": "2027-02-02",
    "ut": "EX1",
    "titulo": "Examen 1ª evaluación",
    "tipo": "Examen",
@@ -411,7 +411,7 @@
   },
   {
    "n": 29,
-   "fecha": "2027-02-02",
+   "fecha": "2027-02-04",
    "ut": "UT7",
    "titulo": "Inventario de versiones y seguimiento automático",
    "tipo": "Teoría y práctica",
@@ -424,7 +424,7 @@
   },
   {
    "n": 30,
-   "fecha": "2027-02-04",
+   "fecha": "2027-02-09",
    "ut": "UT7",
    "titulo": "Escaneo",
    "tipo": "Teoría y práctica",
@@ -437,7 +437,7 @@
   },
   {
    "n": 31,
-   "fecha": "2027-02-09",
+   "fecha": "2027-02-11",
    "ut": "UT7",
    "titulo": "Investigar y decidir",
    "tipo": "Teoría y práctica",
@@ -450,7 +450,7 @@
   },
   {
    "n": 32,
-   "fecha": "2027-02-11",
+   "fecha": "2027-02-16",
    "ut": "UT7",
    "titulo": "Actualización en pre",
    "tipo": "Teoría y práctica",
@@ -463,7 +463,7 @@
   },
   {
    "n": 33,
-   "fecha": "2027-02-16",
+   "fecha": "2027-02-18",
    "ut": "UT7",
    "titulo": "Fallo provocado",
    "tipo": "Práctica",
@@ -476,7 +476,7 @@
   },
   {
    "n": 34,
-   "fecha": "2027-02-18",
+   "fecha": "2027-02-23",
    "ut": "UT7",
    "titulo": "Trazabilidad",
    "tipo": "Teoría y práctica",
@@ -489,7 +489,7 @@
   },
   {
    "n": 35,
-   "fecha": "2027-02-23",
+   "fecha": "2027-02-25",
    "ut": "UT7",
    "titulo": "Práctica evaluable UT7",
    "tipo": "Práctica evaluable",
@@ -502,7 +502,7 @@
   },
   {
    "n": 36,
-   "fecha": "2027-02-25",
+   "fecha": "2027-03-09",
    "ut": "UT8",
    "titulo": "Plan de baja",
    "tipo": "Teoría y práctica",
@@ -515,7 +515,7 @@
   },
   {
    "n": 37,
-   "fecha": "2027-03-09",
+   "fecha": "2027-03-11",
    "ut": "UT8",
    "titulo": "Liberar la infraestructura",
    "tipo": "Práctica",
@@ -528,7 +528,7 @@
   },
   {
    "n": 38,
-   "fecha": "2027-03-11",
+   "fecha": "2027-03-16",
    "ut": "UT8",
    "titulo": "Copias y logs",
    "tipo": "Teoría y práctica",
@@ -541,7 +541,7 @@
   },
   {
    "n": 39,
-   "fecha": "2027-03-16",
+   "fecha": "2027-03-18",
    "ut": "UT8",
    "titulo": "Datos y monitorización",
    "tipo": "Teoría y práctica",
@@ -554,7 +554,7 @@
   },
   {
    "n": 40,
-   "fecha": "2027-03-18",
+   "fecha": "2027-03-23",
    "ut": "UT8",
    "titulo": "Práctica evaluable UT8",
    "tipo": "Práctica evaluable",
@@ -567,7 +567,7 @@
   },
   {
    "n": 41,
-   "fecha": "2027-03-23",
+   "fecha": "2027-04-06",
    "ut": "EX2",
    "titulo": "Examen 2ª evaluación",
    "tipo": "Examen",

@@ -1,6 +1,6 @@
 # UT6 · Copias de seguridad y restauración
 
-<p class="ut-meta">Módulo 5169 · 14 h · Formación en empresa (29 mar a 9 jun 2027) · RA4 CE a, b, c</p>
+<p class="ut-meta">Módulo 5169 · 14 h · Formación en empresa (19 abr a 9 jun 2027) · RA4 CE a, b, c</p>
 
 Hasta la UT5 todo el módulo ha transcurrido en el laboratorio del centro, sobre el servicio del curso (nginx en web01, API en app01, PostgreSQL en db01). Esta unidad y la UT5 se cursan durante la formación en empresa, y el objeto de trabajo pasa a ser un servicio real de la empresa que os acoge: revisáis o montáis sus copias de seguridad, comprobáis que llegan a un medio externo y las restauráis en un entorno de pruebas. Lo que aprendáis aquí lo vais a necesitar en la UT7 (antes de actualizar hay que poder volver atrás) y en la UT8 (terminar un servicio incluye destruir sus copias de forma controlada, y el repositorio restic (la herramienta de copias del curso) que dejasteis en MinIO (el almacenamiento de objetos del laboratorio) es justo el que se destruye allí).
 
@@ -41,12 +41,12 @@ Un lunes a las 9, en la empresa, alguien lanza `docker compose down -v` en el ho
 
 **Cómo está organizada la unidad.** La unidad sigue el orden de las tres actividades en la empresa, y cada bloque trae primero la teoría que necesita y después su hoja de actividad. En el bloque 1 se decide qué se copia y con qué RPO y RTO, se monta la copia con restic, se programa con un timer y se verifica con una alerta de ausencia (CE 4a). En el bloque 2 se comprueba el destino externo contra la política de la empresa: cifrado, ubicación, protección contra borrado, rotación y limpieza (CE 4b). En el bloque 3 se restaura la copia en una plataforma de pruebas con el cronómetro en marcha y se redacta el plan de copias que recoge todo lo anterior (CE 4c). Los errores frecuentes quedan al final como consulta.
 
-!!! info "Lo que necesitas de la otra asignatura"
-    Esta unidad y la UT5 se hacen en la empresa, del 29 de marzo al 9 de junio, a la vez que la [UT4 Nube pública de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut4-nube-publica/). Las dos trabajan sobre el mismo sitio: la nube o el CPD de la empresa es donde están los buckets a los que llegan las copias, y las cuentas, regiones y políticas de acceso que allí se explican son las que aquí compruebas en la A6.2. Si el destino de la empresa es S3, Azure Blob o B2 de verdad, la parte de credenciales, ubicación de datos y coste de descarga la tienes en esa unidad de 5166; aquí se da por sabida. Del laboratorio te llevas el repositorio restic contra MinIO y la pila de mon01 (Prometheus y Alertmanager, de 5169 UT1 y UT2), que es donde va la alerta de ausencia si la empresa no tiene la suya.
+!!! otra "Lo que necesitas de la otra asignatura"
+    Esta unidad y la UT5 se hacen en la empresa, del 19 de abril al 9 de junio, a la vez que la [UT4 Nube pública de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut4-nube-publica/). Las dos trabajan sobre el mismo sitio: la nube o el CPD de la empresa es donde están los buckets a los que llegan las copias, y las cuentas, regiones y políticas de acceso que allí se explican son las que aquí compruebas en la A6.2. Si el destino de la empresa es S3, Azure Blob o B2 de verdad, la parte de credenciales, ubicación de datos y coste de descarga la tienes en esa unidad de 5166; aquí se da por sabida. Del laboratorio te llevas el repositorio restic contra MinIO y la pila de mon01 (Prometheus y Alertmanager, de 5169 UT1 y UT2), que es donde va la alerta de ausencia si la empresa no tiene la suya.
 
 ### Plan de trabajo
 
-Las tres actividades se hacen en la empresa, con el tutor, sobre un servicio real. Los plazos orientativos dentro del periodo (29 de marzo a 9 de junio de 2027) son la primera quincena para A6.1, la segunda para A6.2 y la tercera para A6.3, dejando la última semana para el cierre. Cada actividad termina con la evidencia adjunta a la ficha y firmada por el tutor.
+Las tres actividades se hacen en la empresa, con el tutor, sobre un servicio real. Los plazos orientativos dentro del periodo (19 de abril a 9 de junio de 2027) son la primera quincena para A6.1, la segunda para A6.2 y la tercera para A6.3, dejando la última semana para el cierre. Cada actividad termina con la evidencia adjunta a la ficha y firmada por el tutor.
 
 | Bloque | CE | Qué se hace | Evidencia |
 |---|---|---|---|
@@ -115,6 +115,29 @@ Los secretos merecen aparte. El `.env` con la contraseña de la base de datos, l
 Antes de tocar ninguna herramienta hay que saber con qué vara se mide una copia. Aquí fijamos tres números que decide la empresa, no el técnico, y con los que se justifica todo lo que viene después: frecuencia, destino y método de restauración.
 
 La regla **3-2-1** es el mínimo defendible: tres copias de los datos (la de producción y dos más), en dos soportes distintos (disco local y almacenamiento de objetos, por ejemplo), y una fuera del sitio (otro centro de datos, otra región de la nube, una cinta en una caja fuerte). La variante **3-2-1-1-0**, que se ha extendido con el ransomware, añade una copia *offline* o inmutable (que nadie con credenciales del host pueda borrar) y cero errores en la verificación (las copias se comprueban y restauran, no se dan por buenas).
+
+```mermaid
+flowchart LR
+    P["<b>Producción</b><br><small>copia 1</small>"]:::pieza
+    L["<b>Disco local</b><br><small>copia 2 · soporte A</small>"]:::pieza
+    O["<b>Objetos remotos</b><br><small>copia 3 · soporte B · fuera del sitio</small>"]:::pieza
+    I["<b>+1 · inmutable u offline</b><br><small>que nadie con credenciales del host borre</small>"]:::ok
+    V["<b>+0 · cero errores</b><br><small>se verifica y se restaura de verdad</small>"]:::ok
+    RAN["<b>Ransomware con tus credenciales</b><br><small>borra todo lo que puedas borrar tú</small>"]:::riesgo
+    P --> L --> O --> I --> V
+    RAN -.-> L
+    RAN -.-> O
+    RAN -. "aquí no llega" .-x I
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
+```
+
+<p class="pie" markdown>El «+1» y el «+0» son los que se han vuelto imprescindibles: una copia que el atacante puede borrar no es una copia, y una que nunca se ha restaurado no se sabe si lo es.</p>
+
 
 Los dos parámetros que fija la empresa, no el técnico:
 
@@ -272,18 +295,31 @@ Con cron la línea equivalente en `/etc/cron.d/backup-app` es `30 2 * * * root /
 
 ```mermaid
 flowchart LR
-    T[systemd timer 02:30] --> S[backup-app.sh]
-    S --> D[pg_dump -Fc + globals]
-    D --> R[restic backup --tag app]
-    R --> M[(MinIO / S3\nbucket backups)]
-    R --> F[restic forget\nretención]
-    F --> C[restic check 5%]
-    C -->|todo OK| P[backup_app.prom\ntimestamp]
-    P --> N[node_exporter\ntextfile]
-    N --> PR[Prometheus]
-    PR -->|sin copia en 26 h| A[Alertmanager]
-    S -.->|exit != 0| O[OnFailure: aviso]
+    T["<b>systemd timer</b><br><small>02:30</small>"]:::act
+    S["<b>backup-app.sh</b>"]:::act
+    D["<b>pg_dump -Fc + globals</b>"]:::pieza
+    R["<b>restic backup --tag app</b>"]:::pieza
+    M[("<b>MinIO / S3</b><br><small>bucket backups</small>")]:::dato
+    F["<b>restic forget</b><br><small>retención</small>"]:::pieza
+    C["<b>restic check 5%</b>"]:::pieza
+    P["<b>backup_app.prom</b><br><small>marca de tiempo</small>"]:::dato
+    N["<b>node_exporter</b><br><small>textfile</small>"]:::pieza
+    PR["<b>Prometheus</b>"]:::pieza
+    A(["<b>Alertmanager</b><br><small>si no hay copia en 26 h</small>"]):::riesgo
+    O(["<b>OnFailure: aviso</b>"]):::riesgo
+    T --> S --> D --> R --> M
+    R --> F --> C
+    C -->|todo OK| P --> N --> PR -->|sin copia en 26 h| A
+    S -.->|exit != 0| O
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
 ```
+
+<p class="pie" markdown>La copia no termina cuando se escribe: termina cuando alguien puede demostrar que se escribió. De ahí la marca de tiempo y la alarma.</p>
 
 ### Verificar que se ha ejecutado
 
@@ -318,16 +354,16 @@ Si la empresa no tiene Prometheus, o el host que copia está fuera de su red de 
 
 ### A6.1 Copias programadas (CE 4a)
 
-**Objetivo.** Al terminar, la aplicación elegida tiene una copia programada que se ejecuta sola, deja rastro de que se ha ejecutado y avisa cuando falta.
+<span class="et et-obj">Objetivo</span> Al terminar, la aplicación elegida tiene una copia programada que se ejecuta sola, deja rastro de que se ha ejecutado y avisa cuando falta.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Autorización escrita del tutor para trabajar sobre la aplicación elegida (o para revisar su copia actual), y acuerdo sobre qué puedes ejecutar en producción y qué no.
 - Acceso al host de la aplicación (leer el `compose.yml`, `docker compose exec`, crear units o entradas de cron), o el tutor delante si no te lo dan.
 - Un destino aprobado por la empresa (bucket, NAS o, si no hay nada, el MinIO del laboratorio como prueba temporal).
 - Leído: [Qué se copia y qué no](#que-se-copia-y-que-no), [Regla 3-2-1, RPO y RTO](#regla-3-2-1-rpo-y-rto), [restic a fondo](#restic-a-fondo), [Programar la copia](#programar-la-copia) y [Verificar que se ha ejecutado](#verificar-que-se-ha-ejecutado).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Inventario con el tutor. Anota, en una tabla de dos columnas (componente, se copia o no y por qué), la base de datos, cada volumen de ficheros, la configuración y los secretos de la aplicación. Guarda también la versión de imagen en producción:
 
@@ -378,14 +414,14 @@ Si la empresa no tiene Prometheus, o el host que copia está fuera de su red de 
 8. Configura la alerta por ausencia: las reglas `BackupMissing` y `BackupMetricAbsent` de [Verificar que se ha ejecutado](#verificar-que-se-ha-ejecutado) si hay Prometheus, o un check de healthchecks.io (periodo 24 h, gracia 2 h) con el `curl` al final del script.
 9. Provoca la ausencia con el tutor al lado: para el timer (`systemctl stop backup-app.timer`), baja temporalmente el umbral (`> 5 * 60` en la regla, o periodo de 5 min en el check), espera a que dispare, captura y deja todo como estaba.
 
-**Comprobación.**
+<span class="et et-com">Comprobación</span>
 
 - `systemctl list-timers` muestra el timer con próxima ejecución, y `journalctl -u backup-app.service` termina con el resumen de restic (ficheros nuevos, cambiados, datos añadidos) y sin errores.
 - `restic snapshots --latest 1 --tag app` devuelve un snapshot de hoy con las rutas esperadas; `restic ls latest | grep app.dump` lo localiza dentro.
 - El dump tiene tamaño coherente con la base (`ls -la /var/backups`), no 0 bytes.
 - La alerta ha saltado en la prueba de ausencia y ha vuelto a estado normal al reactivar el timer.
 
-**Entrega.** En `a61/` del repositorio personal en Gitea: script o configuración anonimizados, unit y timer (o la línea de cron), salida de `restic snapshots` (o equivalente), la regla o el check de alerta y la captura de la alerta disparada, más la tabla de inventario del paso 1 y la lista de mejoras del paso 3 si había copias previas. Fila A6.1 de la ficha de evidencias firmada por el tutor.
+<span class="et et-ent">Entrega</span> En `a61/` del repositorio personal en Gitea: script o configuración anonimizados, unit y timer (o la línea de cron), salida de `restic snapshots` (o equivalente), la regla o el check de alerta y la captura de la alerta disparada, más la tabla de inventario del paso 1 y la lista de mejoras del paso 3 si había copias previas. Fila A6.1 de la ficha de evidencias firmada por el tutor.
 
 ## Bloque 2 · Exportación y políticas (CE 4b)
 
@@ -415,21 +451,21 @@ Las **políticas** que hay que respetar y comprobar, y que son el contenido de l
 
 La comprobación es siempre la misma: listar el destino (`restic snapshots`, `aws s3 ls --recursive`, `mc ls --versions`, listado de la NAS) y compararlo línea a línea con la política. Lo que no coincide va a la tabla de cumplimiento con una fecha de corrección.
 
-!!! warning "Las credenciales del bucket no son secretos de segunda"
+!!! ojo "Las credenciales del bucket no son secretos de segunda"
     Con `AWS_SECRET_ACCESS_KEY` y `RESTIC_PASSWORD` en el mismo fichero, quien lea `/etc/restic/env` tiene las copias enteras de la empresa. Ese fichero va con `chmod 600`, propietario root, fuera de cualquier repositorio Git y, si la empresa tiene Vault (un gestor de secretos) o similar, se sirve desde allí en tiempo de ejecución.
 
 ### A6.2 Exportación y políticas (CE 4b)
 
-**Objetivo.** Al terminar, has demostrado con listados que las copias están fuera del host, que el host que copia no puede borrarlas, y que la rotación y la limpieza que hay coinciden con la política escrita (de la empresa o la que propones tú).
+<span class="et et-obj">Objetivo</span> Al terminar, has demostrado con listados que las copias están fuera del host, que el host que copia no puede borrarlas, y que la rotación y la limpieza que hay coinciden con la política escrita (de la empresa o la que propones tú).
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Autorización del tutor para leer la configuración del destino y lanzar comandos de solo lectura contra él; los cambios (versionado, Object Lock, ciclo de vida) solo con su visto bueno y, mejor, ejecutados por él.
 - La copia de la A6.1 funcionando desde hace al menos unos días, para que haya varios snapshots que contar.
 - Credenciales de lectura al destino (`mc alias set`, `aws configure` o acceso a la NAS) y, si el destino es una nube pública, lo visto en [5166 UT4](https://victor-educ.github.io/apuntes-5166/ut/ut4-nube-publica/) sobre cuentas, regiones y coste de descarga.
 - Leído: [Destinos y políticas](#destinos-y-politicas) y el apartado de retención de [restic a fondo](#restic-a-fondo).
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Pide la política de copias escrita. Si no existe, redáctala en media página a partir del RPO de la A6.1 y del espacio disponible: cifrado, ubicación, protección contra borrado, retención y limpieza. Márcala como propuesta y que el tutor la lea antes de comprobar nada.
 2. Lista el destino y guarda la salida anonimizada:
@@ -452,13 +488,13 @@ La comprobación es siempre la misma: listar el destino (`restic snapshots`, `aw
 5. Limpieza: localiza el `prune` (timer o cron separado, en otro host o con otras credenciales) y su última ejecución (`journalctl -u backup-prune.service` o el log de cron); compara el espacio ocupado con el previsto; y comprueba que las copias caducadas han desaparecido del destino. Con versionado activado, mira la regla de ciclo de vida (`mc ilm rule ls minio/backups`) y que no queden versiones no actuales más viejas que la retención (`mc ls --versions`).
 6. Rellena la tabla de cumplimiento, una fila por punto de la política: requisito, cómo se comprobó, resultado, acción correctora con fecha si procede. Lo que no cumple se propone al tutor y, si lo autoriza, se corrige y se vuelve a comprobar.
 
-**Comprobación.**
+<span class="et et-com">Comprobación</span>
 
 - El listado del destino muestra los snapshots de la A6.1 y el recuento por tipo coincide con la política y con los flags `--keep-*`.
 - El `forget --prune` desde producción ha fallado (o hay otra prueba equivalente de que el host que copia no puede borrar).
 - La tabla de cumplimiento no tiene filas vacías y cada "no cumple" tiene acción y fecha.
 
-**Entrega.** En `a62/` del repositorio personal en Gitea: los listados del destino (anonimizados), la política (de la empresa o tu propuesta, indicando cuál) y la tabla de cumplimiento. Fila A6.2 de la ficha de evidencias firmada por el tutor.
+<span class="et et-ent">Entrega</span> En `a62/` del repositorio personal en Gitea: los listados del destino (anonimizados), la política (de la empresa o tu propuesta, indicando cuál) y la tabla de cumplimiento. Fila A6.2 de la ficha de evidencias firmada por el tutor.
 
 ## Bloque 3 · Restauración de prueba (CE 4c)
 
@@ -481,17 +517,28 @@ Una copia que no se ha restaurado nunca no es una copia; es una esperanza. La re
 
 ```mermaid
 flowchart TD
-    A[Elegir snapshot\nrestic snapshots --latest 1] --> B[Plataforma de pruebas limpia]
-    B --> C[restic restore --target /restore]
-    C --> D[pg_restore + volúmenes + config]
-    D --> E[Levantar con la imagen anotada]
-    E --> F{Datos y pruebas\nfuncionales OK?}
-    F -->|sí| G[Medir tiempo y comparar con RTO]
-    F -->|no| H[Incidencia: corregir copia o procedimiento]
-    H --> A
-    G --> I[Registrar y destruir entorno]
+    A["<b>Elegir snapshot</b><br><small>restic snapshots --latest 1</small>"]:::act
+    B["<b>Plataforma de pruebas limpia</b>"]:::pieza
+    C["<b>restic restore --target /restore</b>"]:::act
+    D["<b>pg_restore + volúmenes + configuración</b>"]:::act
+    E["<b>Levantar con la imagen anotada</b>"]:::act
+    F{"<b>¿Datos y pruebas funcionales OK?</b>"}:::dato
+    G["<b>Medir el tiempo</b><br><small>y compararlo con el RTO</small>"]:::ok
+    H["<b>Incidencia</b><br><small>corregir la copia o el procedimiento</small>"]:::riesgo
+    I(["<b>Registrar y destruir el entorno</b>"]):::ok
+    A --> B --> C --> D --> E --> F
+    F -- sí --> G --> I
+    F -- no --> H --> A
     I -.->|mes siguiente| A
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
 ```
+
+<p class="pie" markdown>Una copia que no se ha restaurado nunca es una suposición. Por eso la restauración se programa como mantenimiento preventivo, con su fecha.</p>
 
 Tres tareas complementarias que también forman parte del mantenimiento:
 
@@ -499,7 +546,7 @@ Tres tareas complementarias que también forman parte del mantenimiento:
 - **Rotación de la contraseña del repositorio** según la política (`restic key add`, probar, `restic key remove <id antiguo>`), con la nueva custodiada donde diga la empresa.
 - **Restauración de un fichero suelto**, que es lo que de verdad piden los usuarios ("he borrado el informe de marzo"). Con restic: `restic find informe-marzo.pdf` para localizar en qué snapshots está, y `restic restore <id> --target /tmp/r --include '/var/lib/docker/volumes/app_uploads/_data/informes/informe-marzo.pdf'`; o `restic mount` y copiar con `cp`. Medir este tiempo también: es un RTO distinto, y suele ser el que más veces se ejerce.
 
-!!! tip "Restauración a un punto anterior"
+!!! truco "Restauración a un punto anterior"
     Cuando el problema no es un disco roto sino un borrado lógico descubierto días después ("alguien vació la tabla de clientes el martes"), la copia que interesa no es la última sino la anterior al daño. `restic snapshots` con la fecha y `restic diff` entre dos snapshots ayudan a localizar el momento exacto; con `pg_restore -t clientes` se recupera solo esa tabla en una base auxiliar y se traspasan las filas.
 
 ### El plan de copias como documento
@@ -517,9 +564,9 @@ Lo que la empresa necesita al final no es el script, sino un documento que otra 
 
 ### A6.3 Restauración de prueba (CE 4c)
 
-**Objetivo.** Al terminar, has levantado el servicio en una plataforma de pruebas desde la última copia, con los datos verificados, un tiempo medido por fase comparado con el RTO, y el entorno de pruebas destruido.
+<span class="et et-obj">Objetivo</span> Al terminar, has levantado el servicio en una plataforma de pruebas desde la última copia, con los datos verificados, un tiempo medido por fase comparado con el RTO, y el entorno de pruebas destruido.
 
-**Antes de empezar.**
+<span class="et et-pre">Antes de empezar</span>
 
 - Autorización del tutor para restaurar datos reales en pruebas, con acuerdo escrito de que el entorno se destruye al terminar.
 - Una VM o un host de pruebas que no sea producción, con Docker, restic (o la herramienta de la empresa), acceso de lectura al destino y espacio libre por lo menos el doble del tamaño del último snapshot (`restic stats latest`).
@@ -527,7 +574,7 @@ Lo que la empresa necesita al final no es el script, sino un documento que otra 
 - Un cronómetro (`date +%s` al empezar y terminar cada fase) y una plantilla de registro: fase, inicio, fin, duración, incidencia.
 - Leído: [Restaurar: el mantenimiento preventivo](#restaurar-el-mantenimiento-preventivo) entero, incluida la restauración de un fichero suelto.
 
-**Pasos.**
+<span class="et et-pas">Pasos</span>
 
 1. Elige la copia y arranca el cronómetro:
 
@@ -578,16 +625,16 @@ Lo que la empresa necesita al final no es el script, sino un documento que otra 
 
 9. Redacta la propuesta de periodicidad para la empresa (mensual, trimestral, siempre antes de una actualización mayor) justificada con el tiempo medido y con lo que cambia en el servicio entre copias.
 
-**Comprobación.**
+<span class="et et-com">Comprobación</span>
 
 - La aplicación restaurada arranca y las pruebas funcionales pasan; los recuentos coinciden o la diferencia se explica por la hora de la copia.
 - El registro tiene un tiempo por cada fase y el total, con la comparación con el RTO escrita.
 - El fichero suelto se ha recuperado y su tiempo está anotado aparte.
 - `docker compose -p app_restore ps` no devuelve nada y `/restore` no existe.
 
-**Entrega.** En `a63/` del repositorio personal en Gitea: el registro de la restauración (comandos ejecutados, tiempos por fase, resultado, incidencias, capturas anonimizadas de la aplicación restaurada) y la propuesta de periodicidad. Fila A6.3 de la ficha de evidencias firmada por el tutor.
+<span class="et et-ent">Entrega</span> En `a63/` del repositorio personal en Gitea: el registro de la restauración (comandos ejecutados, tiempos por fase, resultado, incidencias, capturas anonimizadas de la aplicación restaurada) y la propuesta de periodicidad. Fila A6.3 de la ficha de evidencias firmada por el tutor.
 
-**Si te sobra tiempo.** Ensaya la restauración a un punto anterior: localiza con `restic snapshots` y `restic diff` la copia previa a un cambio conocido y recupera una sola tabla con `pg_restore -t <tabla>` en una base auxiliar.
+<span class="et et-ext">Si te sobra tiempo</span> Ensaya la restauración a un punto anterior: localiza con `restic snapshots` y `restic diff` la copia previa a un cambio conocido y recupera una sola tabla con `pg_restore -t <tabla>` en una base auxiliar.
 
 ## Práctica evaluable
 

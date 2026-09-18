@@ -6,28 +6,36 @@ Esta asignatura no monta un laboratorio nuevo: trabaja sobre el que se construye
 
 ```mermaid
 flowchart TB
-    subgraph pve[Proxmox VE · VPC dev]
-        subgraph mgmt[gestión 10.10.0.0/24]
-            fw[OPNsense .1]
-            mon[mon01 .20<br>Prometheus · Alertmanager · Grafana<br>+ Loki en esta asignatura]
-            jenkins[jenkins01]
-            git[gitea01 + registry]
+    subgraph pve["Proxmox VE · VPC dev"]
+        subgraph mgmt["gestión 10.10.0.0/24"]
+            fw["<b>OPNsense</b><br><small>.1</small>"]:::act
+            mon["<b>mon01</b><br><small>.20 · Prometheus · Alertmanager · Grafana<br>+ Loki en esta asignatura</small>"]:::act
+            jenkins["<b>jenkins01</b>"]:::dato
+            git["<b>gitea01 + registry</b>"]:::dato
         end
-        subgraph front[front 10.10.1.0/24]
-            web[web01 nginx]
+        subgraph front["front 10.10.1.0/24"]
+            web["<b>web01</b><br><small>nginx</small>"]:::pieza
         end
-        subgraph back[back 10.10.2.0/24]
-            app[app01<br>API en Docker Compose<br>+ cAdvisor, Promtail]
+        subgraph back["back 10.10.2.0/24"]
+            app["<b>app01</b><br><small>API en Docker Compose<br>+ cAdvisor, Promtail</small>"]:::pieza
         end
-        subgraph data[data 10.10.3.0/24]
-            db[db01 PostgreSQL<br>+ postgres_exporter]
+        subgraph data["data 10.10.3.0/24"]
+            db["<b>db01</b><br><small>PostgreSQL + postgres_exporter</small>"]:::pieza
         end
     end
     web -->|8080| app
     app -->|5432| db
     mon -.->|scrape| web & app & db & jenkins
     app -.->|logs 3100| mon
+    classDef act fill:#ea580c22,stroke:#ea580c,stroke-width:1.5px
+    classDef pieza fill:#64748b22,stroke:#64748b,stroke-width:1.5px
+    classDef dato fill:#2563eb22,stroke:#2563eb,stroke-width:1.5px
+    classDef infra fill:#a1a1aa14,stroke:#a1a1aa,stroke-width:1.5px
+    classDef ok fill:#16a34a22,stroke:#16a34a,stroke-width:1.5px
+    classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
 ```
+
+<p class="pie" markdown>Mantenimiento no construye este laboratorio: lo construye Despliegue. Aquí en naranja lo que vigila, que es lo que sí montáis vosotros.</p>
 
 Ese es el entorno completo, y no existe hasta diciembre. Las dos asignaturas van en paralelo y la de despliegue construye la VPC en noviembre y el cortafuegos en diciembre, mientras que esta empieza a vigilar contenedores el 1 de octubre. Por eso el curso arranca con un entorno provisional y se migra al definitivo cuando la otra asignatura lo tiene listo.
 
@@ -42,7 +50,7 @@ Con lo que se hace en la primera semana de la asignatura de despliegue (Proxmox 
 
 Sin firewall y sin subredes: todo está en la red del aula. Es suficiente para las UT1 y UT2, que van de sacar datos del contenedor y convertirlos en alarmas. La seguridad de esas comunicaciones se trata en la UT3 precisamente cuando hay dónde aplicarla.
 
-**Migración al entorno definitivo.** La UT3 de esta asignatura (24 de noviembre a 3 de diciembre) coincide con la UT3 de despliegue, en la que se instala OPNsense y se crean las zonas. En esa quincena app01 pasa a la subred back, se separan web01 y db01 según lo que pida la asignatura de despliegue, y mon01 pasa a la subred de gestión con la IP 10.10.0.20. Como las VM son clones de plantilla y la configuración está en compose y en Git, mover una VM de red es cambiar el bridge y la IP; los apuntes de la UT3 explican el orden para no perder los datos de Prometheus y Loki.
+**Migración al entorno definitivo.** La UT3 de esta asignatura (26 de noviembre a 10 de diciembre) coincide con la UT3 de despliegue, en la que se instala OPNsense y se crean las zonas. En esa quincena app01 pasa a la subred back, se separan web01 y db01 según lo que pida la asignatura de despliegue, y mon01 pasa a la subred de gestión con la IP 10.10.0.20. Como las VM son clones de plantilla y la configuración está en compose y en Git, mover una VM de red es cambiar el bridge y la IP; los apuntes de la UT3 explican el orden para no perder los datos de Prometheus y Loki.
 
 El entorno **pre** hace falta a partir de la UT7 (febrero) y es el que se da de baja en la UT8. Se crea con OpenTofu desde el código de la UT5 de despliegue, que termina en enero, así que llega a tiempo.
 

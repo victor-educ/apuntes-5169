@@ -72,14 +72,14 @@ Cinco resultados de aprendizaje. Los resumo con mis palabras y digo en qué unid
 | Evaluación | Qué entra | Peso |
 |------------|-----------|-----:|
 | Prácticas evaluables UT1, UT2, UT3, UT4 | Informes, repositorios y el dossier de operación | 40 % de la 1ª evaluación |
-| Examen 1ª evaluación (28 ene 2027) | UT1 a UT4, prueba práctica en el laboratorio | 60 % de la 1ª evaluación |
+| Examen 1ª evaluación (2 feb 2027) | UT1 a UT4, prueba práctica en el laboratorio | 60 % de la 1ª evaluación |
 | Prácticas evaluables UT7, UT8 | Informe de vulnerabilidades y actualización; acta de baja | 40 % de la 2ª evaluación |
-| Examen 2ª evaluación (23 mar 2027) | UT7 y UT8, prueba práctica en el laboratorio | 60 % de la 2ª evaluación |
+| Examen 2ª evaluación (6 abr 2027) | UT7 y UT8, prueba práctica en el laboratorio | 60 % de la 2ª evaluación |
 | Formación en empresa | UT5 y UT6 con ficha de evidencias firmada por el tutor | Según el plan de FE del centro |
 
-Los exámenes son las sesiones 28 (28 de enero de 2027) y 41 (23 de marzo de 2027), integradas en el calendario de cada evaluación. Cada práctica evaluable lleva su tabla de criterios y pesos al final de la unidad. Una entrega fuera de plazo sin causa justificada se corrige sobre el 50 %.
+Los exámenes son las sesiones 28 (2 de febrero de 2027) y 41 (6 de abril de 2027), integradas en el calendario de cada evaluación. Cada práctica evaluable lleva su tabla de criterios y pesos al final de la unidad. Una entrega fuera de plazo sin causa justificada se corrige sobre el 50 %.
 
-!!! warning "Lo que no se admite"
+!!! examen "Lo que no se admite"
     Informes sin evidencias (capturas o salidas de comandos con fecha), repositorios con secretos en el historial, datos reales de la empresa sin anonimizar en las fichas de evidencias, y "copias de seguridad" que nunca se han restaurado. En todos los casos la práctica vuelve al alumno sin nota hasta que lo corrija.
 
 ## Herramientas de la asignatura
