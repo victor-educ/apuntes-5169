@@ -664,15 +664,14 @@ Tres detalles: el JSON se genera siempre, falle o no la puerta, porque es lo que
 
 **Sesión 29 · 2 de febrero · Teoría y práctica · unos 95 min de práctica**
 
-La sesión arranca la unidad con dos tareas encadenadas: primero se levanta el inventario y luego, sobre él, se automatiza su vigilancia.
+Dos tareas encadenadas: primero se levanta el inventario y luego, sobre él, se automatiza su vigilancia.
 
-**Objetivo.** Al terminar, el compose y el Dockerfile del servicio no llevan ninguna etiqueta flotante, el inventario está en `docs/inventario.md`, la política en `docs/politica-actualizacion.md` y Renovate ha abierto al menos un PR en `gitea01`.
+**Objetivo.** El compose y el Dockerfile del servicio sin ninguna etiqueta flotante, el inventario en `docs/inventario.md`, la política en `docs/politica-actualizacion.md` y Renovate con al menos un PR abierto en `gitea01`.
 
 **Antes de empezar.**
 
 - La VM de dev con el servicio del curso arrancado y `docker`, `jq` y `syft` instalados.
 - Clon del repositorio `curso/servicio` de `gitea01` con permiso para abrir PR.
-- Un usuario técnico en Gitea para el robot (por ejemplo `renovate-bot`) con acceso de escritura al repositorio y su token; si no existe, se crea en el paso 6.
 - Explicado antes: [Versiones, etiquetas y digests](#versiones-etiquetas-y-digests), [Versionado semántico](#versionado-semantico), [Renovate a fondo](#renovate-a-fondo) y [La política escrita](#la-politica-escrita).
 
 **Pasos.**
@@ -695,8 +694,8 @@ La sesión arranca la unidad con dos tareas encadenadas: primero se levanta el i
     docker compose exec api pip list --format=freeze
     ```
 
-3. Marca las flotantes. Busca `latest`, etiquetas solo con mayor (`postgres:17`) y bases sin sufijo de Debian en el compose y en los Dockerfile: `grep -n "image:\|^FROM" compose.yml api/Dockerfile`.
-4. Fija versiones concretas con digest. Para el compose, `docker compose config --resolve-image-digests > compose.pinned.yml` te da los digests: cópialos al `compose.yml` original (no sustituyas el fichero entero, porque `config` expande variables y quita comentarios). Para el `FROM` del Dockerfile:
+3. Marca las flotantes (`latest`, solo mayor como `postgres:17`, sin sufijo de Debian): `grep -n "image:\|^FROM" compose.yml api/Dockerfile`.
+4. Fija versiones concretas con digest. Para el compose, `docker compose config --resolve-image-digests > compose.pinned.yml` te da los digests: cópialos al `compose.yml` original (`config` expande variables y quita comentarios, así que no sustituyas el fichero). Para el `FROM` del Dockerfile:
 
     ```bash
     docker pull python:3.13-slim-bookworm
@@ -704,10 +703,10 @@ La sesión arranca la unidad con dos tareas encadenadas: primero se levanta el i
     # FROM python:3.13-slim-bookworm@sha256:...
     ```
 
-5. Escribe `docs/inventario.md` como tabla: componente, imagen, etiqueta, digest, fecha de publicación y si era flotante antes. Abre un PR con el inventario y los cambios de compose y Dockerfile, y comprueba que `docker compose pull && docker compose up -d` arranca con las referencias fijadas.
-6. Usuario técnico. En Gitea crea `renovate-bot`, dale acceso de escritura al repositorio y genera un token de acceso en su configuración de aplicaciones. Guárdalo en la sesión: `export TOKEN_BOT=...`.
-7. `renovate.json` en la raíz del repositorio con `:pinDigests`, el grupo de software de base y automerge solo de parches y digests: el del apartado [Renovate a fondo](#renovate-a-fondo) sirve tal cual. Haz commit en la rama principal.
-8. Lanza Renovate. Las credenciales del registry propio van en `hostRules` por variable de entorno, para no escribirlas en el repositorio; la primera vez con `LOG_LEVEL=debug`:
+5. Escribe `docs/inventario.md` como tabla: componente, imagen, etiqueta, digest, fecha de publicación y si era flotante antes. Abre un PR con el inventario y los cambios, y comprueba que `docker compose pull && docker compose up -d` arranca con las referencias fijadas.
+6. Usuario técnico. En Gitea crea `renovate-bot`, dale acceso de escritura al repositorio y genera un token en su configuración de aplicaciones: `export TOKEN_BOT=...`.
+7. `renovate.json` en la raíz con `:pinDigests`, el grupo de software de base y automerge solo de parches y digests: el del apartado [Renovate a fondo](#renovate-a-fondo) sirve tal cual. Commit en la rama principal.
+8. Lanza Renovate. Las credenciales del registry propio van en `hostRules` por variable de entorno, no en el repositorio; la primera vez con `LOG_LEVEL=debug`:
 
     ```bash
     docker run --rm \
@@ -720,34 +719,270 @@ La sesión arranca la unidad con dos tareas encadenadas: primero se levanta el i
       renovate/renovate:latest 2>&1 | tee renovate.log
     ```
 
-9. Mira la pestaña de pull requests del repositorio. Si no hay ninguno y el log no dice nada raro, baja a mano una versión en el compose (por ejemplo `postgres:17.5`), haz commit en la rama principal y vuelve a lanzar.
-10. Política de actualización: `docs/politica-actualizacion.md`, media página con los seis puntos del apartado [La política escrita](#la-politica-escrita), adaptados a vuestro servicio. Añádela al PR del paso 5.
+9. Mira la pestaña de pull requests del repositorio. Si no hay ninguno, baja a mano una versión en el compose (por ejemplo `postgres:17.5`), haz commit en la rama principal y vuelve a lanzar.
+10. Política de actualización: `docs/politica-actualizacion.md`, media página con los seis puntos del apartado [La política escrita](#la-politica-escrita). Añádela al PR del paso 5.
 
-**Comprobación.** El `grep` del paso 3 no muestra ninguna etiqueta flotante; el servicio arranca con el compose fijado; en Gitea hay un PR abierto por `renovate-bot` con la etiqueta `actualizacion` y las notas de la versión en la descripción; `grep skipping renovate.log` no menciona la imagen del registry propio.
+**Comprobación.** El `grep` del paso 3 no muestra etiquetas flotantes; el servicio arranca con el compose fijado; en Gitea hay un PR de `renovate-bot` con la etiqueta `actualizacion` y las notas de la versión; `grep skipping renovate.log` no menciona la imagen del registry propio.
 
-**Entrega.** PR con `docs/inventario.md`, `docs/politica-actualizacion.md`, `renovate.json` y las versiones fijadas; captura del PR de Renovate en la carpeta de la práctica. Se reutiliza en la práctica evaluable.
+**Entrega.** PR con `docs/inventario.md`, `docs/politica-actualizacion.md`, `renovate.json` y las versiones fijadas; captura del PR de Renovate en la carpeta de la práctica.
 
-**Si te sobra tiempo.** Añade un `packageRule` con `versioning` explícito para alguna imagen que no siga semver, o comprueba en el log de depuración qué gestores detecta Renovate y si ve `requirements.txt`.
+**Si te sobra tiempo.** Añade un `packageRule` con `versioning` explícito para alguna imagen que no siga semver.
 
 ### A7.2 Escaneo (sesión 30)
 
-Genera el SBOM con Syft (CycloneDX) de la imagen de la aplicación, de la base de datos y del proxy, y escanea las tres con Trivy y con Grype. Guarda los informes en JSON. Construye la tabla de hallazgos HIGH y CRITICAL con estas columnas: CVE, imagen, componente, versión instalada, corregida en, exploit conocido (KEV o EPSS), alcanzable desde fuera (sí, no, no sé). Anota las diferencias entre los dos escáneres.
+**Sesión 30 · 4 de febrero · Teoría y práctica · unos 100 min de práctica**
+
+**Objetivo.** Tres SBOM y los informes JSON de Trivy y Grype en el repositorio, y una tabla de hallazgos HIGH y CRITICAL con las columnas de exploit conocido y alcanzable rellenas.
+
+**Antes de empezar.**
+
+- Las tres imágenes fijadas en A7.1 descargadas en la VM de dev.
+- `syft`, `trivy` y `grype` instalados con la base de datos al día (`trivy image --download-db-only`, `grype db update`); sin salida a Internet, copia `~/.cache/trivy` desde otra máquina.
+- Explicado antes: [CVE, CVSS, EPSS y KEV](#cve-cvss-epss-y-kev), [SBOM: el inventario](#sbom-el-inventario), [Escanear con Trivy](#escanear-con-trivy) y [Grype, Docker Scout y los escáneres del lenguaje](#grype-docker-scout-y-los-escaneres-del-lenguaje).
+
+**Pasos.**
+
+1. Carpeta `seguridad/` en el repositorio y variables con las imágenes exactas de tu compose:
+
+    ```bash
+    mkdir -p seguridad && cd seguridad
+    API=gitea01.lab:5000/api:1.4.2; DB=postgres:17.6-bookworm; PROXY=nginx:1.28.0-bookworm
+    ```
+
+2. SBOM en CycloneDX de cada imagen y recuento de componentes:
+
+    ```bash
+    for i in $API $DB $PROXY; do
+      syft $i -o cyclonedx-json > sbom-$(basename $i | tr ':' '-').cdx.json
+    done
+    jq '.components | length' sbom-*.cdx.json
+    ```
+
+3. Trivy: informe completo en JSON (sin filtrar, es el que se archiva) y tabla legible con HIGH y CRITICAL:
+
+    ```bash
+    for i in $API $DB $PROXY; do
+      n=$(basename $i | tr ':' '-')
+      trivy image --format json -o trivy-$n.json $i
+      trivy image --severity HIGH,CRITICAL $i > trivy-$n.txt
+    done
+    ```
+
+4. Grype sobre los SBOM, también en JSON y en tabla:
+
+    ```bash
+    for s in sbom-*.cdx.json; do
+      grype sbom:$s -o json > grype-${s%.cdx.json}.json
+      grype sbom:$s -o table > grype-${s%.cdx.json}.txt
+    done
+    ```
+
+5. Extrae de los JSON de Trivy las filas HIGH y CRITICAL con las columnas que da el escáner:
+
+    ```bash
+    jq -r '.Results[] | .Target as $t | .Vulnerabilities[]?
+           | select(.Severity=="HIGH" or .Severity=="CRITICAL")
+           | [.VulnerabilityID, $t, .PkgName, .InstalledVersion, (.FixedVersion // "sin parche"), .Severity]
+           | @tsv' trivy-*.json | sort -u > hallazgos.tsv
+    ```
+
+6. Pasa `hallazgos.tsv` a una tabla en `seguridad/hallazgos.md` y rellena las dos columnas que ningún escáner da: exploit conocido (el CVE en el catálogo KEV y el EPSS en `https://api.first.org/data/v1/epss?cve=CVE-AAAA-NNNN`) y alcanzable desde fuera (sí, no, no sé).
+7. Compara los escáneres sobre la imagen de la aplicación y anota las diferencias:
+
+    ```bash
+    jq -r '.Results[].Vulnerabilities[]?.VulnerabilityID' trivy-api-1.4.2.json | sort -u > t.txt
+    jq -r '.matches[].vulnerability.id' grype-sbom-api-1.4.2.json | sort -u > g.txt
+    comm -3 t.txt g.txt      # lo que solo ve uno de los dos
+    ```
+
+**Comprobación.** La cabecera de cada informe de Trivy reconoce el sistema base (`(debian 12.x)`); `hallazgos.tsv` no está vacío; la tabla tiene las siete columnas; hay al menos un CVE anotado que solo aparece en uno de los escáneres.
+
+**Entrega.** Commit con `seguridad/` (los tres SBOM, los JSON de ambos escáneres y `hallazgos.md`). Es la base de A7.3.
+
+**Si te sobra tiempo.** `trivy fs --scanners vuln,secret .` y `pip-audit -r api/requirements.txt` sobre el repositorio; anota si ven algo que `trivy image` no vio.
 
 ### A7.3 Investigar y decidir (sesión 31)
 
-Para cinco hallazgos de la tabla anterior (al menos uno CRITICAL y uno sin parche), busca la ficha en NVD u OSV, el aviso del proyecto y el issue tracker del componente. Decide la solución (actualizar, cambiar base, mitigar, aceptar) siguiendo el diagrama de decisión y justifícala en tres o cuatro líneas por hallazgo. Reconstruye la imagen de la aplicación con base `-slim` (y, si te da tiempo, `-alpine`) y compara el número de hallazgos y el tamaño de la imagen antes y después. Escribe el `.trivyignore` con las excepciones aceptadas, comentadas y con fecha.
+**Sesión 31 · 9 de febrero · Teoría y práctica · unos 105 min de práctica**
+
+**Objetivo.** Cinco hallazgos decididos y justificados, un `.trivyignore` documentado y una comparación medida de la imagen de la aplicación con base completa y con base `-slim`.
+
+**Antes de empezar.**
+
+- `seguridad/hallazgos.md` de A7.2 y acceso a NVD, OSV, GitHub Advisory y el catálogo KEV.
+- El Dockerfile de la aplicación en el repositorio y la VM de dev para construir.
+- Explicado antes: [Leer un informe](#leer-un-informe), [Las cuatro soluciones y el registro de excepciones](#las-cuatro-soluciones-y-el-registro-de-excepciones) y [Fuentes y cómo se leen](#fuentes-y-como-se-leen).
+
+**Pasos.**
+
+1. Elige cinco filas de la tabla: al menos una CRITICAL y una sin parche (`sin parche` o `will_not_fix`).
+2. Por cada una, en este orden: ficha en NVD (`https://nvd.nist.gov/vuln/detail/CVE-AAAA-NNNN`) u OSV (`https://osv.dev/vulnerability/CVE-AAAA-NNNN`) para el vector y las versiones afectadas; aviso del proyecto (Security en GitHub, DSA en Debian) para saber si hay parche; issue tracker del componente por si hay mitigación; KEV y EPSS para la urgencia.
+3. Recorre el diagrama de decisión de [Leer un informe](#leer-un-informe) y escribe en `seguridad/decisiones.md`, por hallazgo: CVE, componente, ¿se ejecuta?, ¿alcanzable desde fuera?, KEV y EPSS, solución elegida y tres o cuatro líneas de justificación.
+4. Excepciones: `.trivyignore` en la raíz, con comentario (motivo, quién decide, fecha) y caducidad `exp:` por cada CVE aceptado. Comprueba que Trivy lo respeta:
+
+    ```bash
+    trivy image --severity HIGH,CRITICAL --ignorefile .trivyignore gitea01.lab:5000/api:1.4.2
+    ```
+
+5. Reconstruye con base slim. En el Dockerfile cambia `FROM python:3.13...` por `FROM python:3.13-slim-bookworm` (con digest) y construye:
+
+    ```bash
+    docker build -t api:slim api/
+    docker run --rm api:slim python -c "import fastapi, sqlalchemy, psycopg"
+    ```
+
+    Si falla por librerías nativas, añade `apt-get install -y --no-install-recommends libpq5` al Dockerfile o usa `psycopg[binary]` en `requirements.txt`.
+
+6. Mide antes y después, tamaño y número de hallazgos:
+
+    ```bash
+    docker images --format '{{.Repository}}:{{.Tag}}  {{.Size}}' | grep api
+    for i in gitea01.lab:5000/api:1.4.2 api:slim; do
+      echo -n "$i: "; trivy image --severity HIGH,CRITICAL --format json $i | jq '[.Results[].Vulnerabilities[]?] | length'
+    done
+    ```
+
+7. Si te da tiempo, repite los pasos 5 y 6 con `python:3.13-alpine` y anota qué se rompió y qué hubo que instalar con `apk`.
+8. Añade a `seguridad/decisiones.md` la tabla de comparación: base, tamaño, hallazgos HIGH y CRITICAL, qué hubo que tocar.
+
+**Comprobación.** Cinco entradas con las preguntas del diagrama respondidas y la fuente enlazada; Trivy con `--ignorefile` muestra menos filas que sin él y ninguna línea del `.trivyignore` va sin comentario ni fecha; la imagen slim importa las librerías y tiene menos hallazgos.
+
+**Entrega.** PR con `seguridad/decisiones.md`, `.trivyignore` y el Dockerfile con la base nueva. No lo fusiones todavía: es la 1.4.3 que se despliega en A7.4.
+
+**Si te sobra tiempo.** Quita `setuptools` de la imagen final y comprueba si desaparece una fila del informe.
 
 ### A7.4 Actualización en pre (sesión 32)
 
-Actualiza PostgreSQL a la siguiente versión menor y la aplicación a la versión con la base corregida, en dev y luego en pre, con copia previa (UT6) y plan de vuelta atrás escrito. Ejecuta el script `integridad.sql` antes y después y guarda ambas salidas. Pasa las pruebas de la UT4 (newman, k6 con umbrales, ZAP baseline) y compara los KPI con la línea base. Todo queda enlazado desde una incidencia abierta al principio.
+**Sesión 32 · 11 de febrero · Teoría y práctica · unos 100 min de práctica**
+
+**Objetivo.** PostgreSQL en la siguiente versión menor y la aplicación con la base corregida, en dev y en pre, con copia previa, `integridad.sql` idéntico antes y después, pruebas de la UT4 en verde y todo enlazado desde una incidencia.
+
+**Antes de empezar.**
+
+- El entorno pre creado por el IaC de la 5166 UT5 (no lo montes a mano) y acceso SSH a él.
+- El PR de A7.3 fusionado y la imagen `api:1.4.3` en el registry de `gitea01` (por el pipeline de la 5166 UT6 o construida a mano si aún no despliega).
+- restic configurado como en la UT6; newman, k6 con umbrales y ZAP baseline de la UT4 a mano, con la línea base de KPI apuntada.
+- Explicado antes: [El ciclo](#el-ciclo), [Paso a paso](#paso-a-paso) y [Verificación de integridad de datos](#verificacion-de-integridad-de-datos).
+
+**Pasos.**
+
+1. Abre la incidencia en Gitea antes de tocar nada: título `Actualizar postgres 17.5 → 17.6 y api 1.4.2 → 1.4.3 (dev y pre)`, etiquetas `actualizacion` y `seguridad`, cuerpo con versiones origen y destino con digest, motivo (los CVE de A7.3), responsable y plan de vuelta atrás.
+2. Crea `scripts/integridad.sql` con las seis consultas del apartado y los nombres de tabla de vuestro servicio.
+3. Dev primero. Guarda el compose anterior, cambia las versiones y despliega:
+
+    ```bash
+    docker compose config --resolve-image-digests > compose.anterior.yml
+    # edita compose.yml: postgres:17.6-bookworm@sha256:... y api:1.4.3@sha256:...
+    docker compose pull && docker compose up -d
+    docker compose logs --tail 50 db api
+    ```
+
+4. En pre, copia previa y foto de integridad antes de nada. Apunta el id del snapshot en la incidencia:
+
+    ```bash
+    ssh app01-pre
+    cd /srv/servicio
+    docker compose config --resolve-image-digests > compose.anterior.yml
+    docker compose exec -T db pg_dump -U app app > /srv/copias/app-antes.sql
+    restic backup /srv/copias /srv/servicio --tag pre-actualizacion
+    docker compose exec -T db psql -U app -d app -f - < scripts/integridad.sql > integridad-antes.txt
+    ```
+
+5. Despliega en pre: por el pipeline de la 5166 o, si aún no está, a mano (`git pull && docker compose pull && docker compose up -d`). Comprueba que las migraciones han terminado (por ejemplo `docker compose logs api | grep -i alembic`).
+6. Foto de integridad después y comparación:
+
+    ```bash
+    docker compose exec -T db psql -U app -d app -f - < scripts/integridad.sql > integridad-despues.txt
+    diff integridad-antes.txt integridad-despues.txt
+    ```
+
+    Debe salir vacío, salvo la fila de `version_num` si la 1.4.3 lleva migración.
+
+7. Pruebas de la UT4 contra pre: newman, k6 con umbrales, ZAP baseline. Compara p95 y tasa de errores con la línea base.
+8. Enlaza en la incidencia el PR, el log del pipeline o del despliegue, el snapshot, las dos salidas de integridad y las pruebas. Mueve la tarjeta a `en pre`.
+9. Prueba el plan B una vez en dev: `docker compose -f compose.anterior.yml up -d`, comprueba que responde y vuelve a la versión nueva. Así sabes que el rollback funciona antes de A7.5.
+
+**Comprobación.** `docker compose ps` en pre muestra las imágenes nuevas con el digest esperado; el `diff` de integridad vacío o solo con la fila de migración; newman sin fallos, k6 dentro de umbrales, ZAP sin alertas nuevas; la incidencia con todos los enlaces.
+
+**Entrega.** Incidencia en estado `en pre` con los enlaces; `scripts/integridad.sql` en el repositorio; `integridad-antes.txt`, `integridad-despues.txt` y los resultados de las pruebas en la carpeta de la práctica.
+
+**Si te sobra tiempo.** Borra una fila en dev y mira cómo se manifiesta en cada una de las seis consultas de integridad.
 
 ### A7.5 Fallo provocado (sesión 33)
 
-El profesor entrega una versión de la aplicación que falla al actualizar (cambio de formato de configuración). Despliégala en pre, analiza los logs, clasifica el fallo, decide rollback o parche dentro de 40 minutos y ejecuta la decisión. Redacta el reporte al equipo de desarrollo con la plantilla de la unidad: pasos para reproducir, logs, versiones y qué se pide.
+**Sesión 33 · 16 de febrero · Práctica · unos 110 min de práctica**
+
+El profesor entrega una versión de la aplicación que falla al actualizar (cambio de formato de configuración).
+
+**Objetivo.** Diagnosticar en pre una actualización que falla, tomar la decisión (rollback o parche) dentro de los 40 minutos y entregar un reporte reproducible al equipo de desarrollo.
+
+**Antes de empezar.**
+
+- Pre en la versión de A7.4, con `compose.anterior.yml` guardado y una copia reciente.
+- La imagen `api:1.5.0` del profesor en el registry de `gitea01`, con su digest.
+- Un reloj a la vista y una incidencia abierta: `Actualizar api 1.4.3 → 1.5.0 (pre)`, con el plan de vuelta atrás.
+- Explicado antes: [Cuando algo falla](#cuando-algo-falla), con la tabla de clasificación y la plantilla de reporte.
+
+**Pasos.**
+
+1. Apunta la hora de inicio en la incidencia. Copia previa y foto de integridad como en A7.4 (snapshot e `integridad-antes.txt`).
+2. Cambia la imagen en el compose a `api:1.5.0@sha256:...` y despliega solo ese servicio: `docker compose up -d api`.
+3. Observa y guarda lo que ves:
+
+    ```bash
+    docker compose ps                              # ¿se reinicia?
+    docker compose logs --tail 200 api | tee fallo-logs.txt
+    curl -i http://localhost/health                # a través del proxy
+    ```
+
+4. Diagnóstico por orden de probabilidad: notas de la versión, primeras diez líneas del log, dependencias, permisos, formato de configuración. Anota la causa probable con la línea de log que la delata.
+5. Clasifica con la tabla del apartado: bloqueante, degradación o cosmético.
+6. Decide y ejecuta antes del minuto 40, apuntando la hora:
+
+    ```bash
+    # rollback
+    docker compose -f compose.anterior.yml up -d api
+    # o parche, si es evidente y cabe en plazo: por ejemplo, la variable nueva en .env
+    docker compose up -d api
+    ```
+
+7. Verifica lo que quede desplegado: `/health`, `integridad.sql` después y la colección de newman.
+8. Redacta el reporte en `docs/reportes/2027-02-16-api-1.5.0.md` con la plantilla del apartado, con todos sus bloques y los minutos de la decisión.
+9. Cierra la incidencia con etiqueta `revertida` (o estado `verificada` si parcheaste) y enlace al reporte.
+
+**Comprobación.** Pre responde en `/health` con la versión que hayas dejado; alguien que no estuvo en clase puede reproducir el fallo con el reporte; la hora de la decisión consta y está dentro del plazo.
+
+**Entrega.** Reporte en el repositorio, incidencia cerrada con estado y enlaces, y `fallo-logs.txt` en la carpeta de la práctica.
+
+**Si te sobra tiempo.** Si hiciste rollback, prueba ahora el parche sin reloj y anota en el reporte si confirma la causa.
 
 ### A7.6 Trazabilidad (sesión 34)
 
-Registra las actualizaciones de A7.5 y A7.6 como incidencias en Gitea con etiquetas y todos los enlaces (PR, pipeline, escaneo antes y después, pruebas, integridad, copia), con el estado correcto de cada una (verificada, revertida). Actualiza el `CHANGELOG.md` en formato Keep a Changelog. Añade al Jenkinsfile del servicio la etapa de escaneo con Trivy que archive el informe y falle con CRITICAL, y demuestra que falla con una imagen vulnerable y pasa con la corregida.
+**Sesión 34 · 18 de febrero · Teoría y práctica · unos 105 min de práctica**
+
+**Objetivo.** Las actualizaciones de A7.4 (verificada) y A7.5 (revertida) registradas y enlazadas en Gitea, el `CHANGELOG.md` al día y una etapa de Trivy en el Jenkinsfile que bloquea una imagen vulnerable y deja pasar la corregida.
+
+**Antes de empezar.**
+
+- Las incidencias de A7.4 y A7.5, aunque estén incompletas.
+- El `Jenkinsfile` de la 5166 UT6 o, si aún no despliega, un job aparte que solo construya y escanee; Trivy en el agente de Jenkins.
+- El `.trivyignore` de A7.3 en la raíz del repositorio.
+- Explicado antes: [Trazabilidad](#trazabilidad), [CHANGELOG del servicio](#changelog-del-servicio) y [La etapa de escaneo en el Jenkinsfile](#la-etapa-de-escaneo-en-el-jenkinsfile).
+
+**Pasos.**
+
+1. Revisa las dos incidencias contra la lista del apartado: título con versiones, etiquetas (`actualizacion` más `seguridad` o `ciclo`, y `revertida` en la de A7.5), cuerpo con digests, motivo y plan de vuelta atrás, y enlaces con `#` y `!` al PR, pipeline, escaneo antes y después, pruebas, integridad y copia. Completa lo que falte y pon el estado de cada una en el tablero (`verificada`, `revertida`).
+2. `CHANGELOG.md` en formato Keep a Changelog: sección `[1.4.3]` con fecha, `Security` (base nueva y CVE corregidos, con `#incidencia`) y `Changed` (la versión de PostgreSQL). La 1.5.0 revertida no lleva sección porque no está desplegada.
+3. Añade al `Jenkinsfile` la etapa de escaneo del apartado, entre la construcción y la subida al registry. Commit y push.
+4. Pipeline en rojo: lanza la construcción con una imagen que tenga un CRITICAL corregible (la 1.4.2 con base `python:3.13` completa, o con el `.trivyignore` vacío). Guarda la captura y comprueba que `trivy-*.json` y `trivy-*.sarif` están en los artefactos aunque haya fallado.
+5. Pipeline en verde: lanza con la 1.4.3 (base slim) y el `.trivyignore` de A7.3. Captura y artefactos.
+6. Enlaza los dos pipelines desde la incidencia de A7.4.
+
+**Comprobación.** En Gitea, `label:actualizacion` lista las dos incidencias y sus enlaces abren; `CHANGELOG.md` tiene versión, fecha y solo las categorías fijas; en Jenkins hay un build rojo con `bloqueada por CRITICAL` y uno verde, ambos con JSON y SARIF archivados.
+
+**Entrega.** Commit con `CHANGELOG.md` y `Jenkinsfile`; capturas de los dos builds en la carpeta de la práctica; incidencias en su estado final.
+
+**Si te sobra tiempo.** Baja el umbral a `HIGH,CRITICAL` en una rama y cuenta cuántas excepciones más harían falta.
 
 ## Práctica evaluable UT7 (sesión 35)
 

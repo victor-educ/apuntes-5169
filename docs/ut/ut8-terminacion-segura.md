@@ -695,32 +695,17 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
 
 **Sesión 36 · 25 de febrero · Teoría y práctica · unos 95 min de práctica**
 
-**Objetivo.** Tener en `operacion/baja/pre/plan.md` el inventario completo de rastros del entorno pre y la lista de comprobación de baja, con un comando de verificación por punto, antes de tocar nada.
+**Objetivo.** `operacion/baja/pre/plan.md` con el inventario de rastros de pre y la lista de comprobación de baja, con un comando de verificación por punto.
 
 **Antes de empezar.**
 
-- Acceso por SSH a mon01, app01-pre, gitea01, al nodo Proxmox y a la CA del curso; token de Jenkins (`$TOKEN`), token de Gitea (`$GT`) y clave de API de OPNsense (`$KEY`, `$SECRET`) exportados en la shell.
-- Los repositorios `servicio`, `monitoring`, `alerting`, `operacion` e `infra` clonados en `~/repos/` y actualizados con `git pull`.
-- Se ha explicado [la baja como cambio](#la-baja-es-un-cambio-mas) y [el inventario de rastros](#inventario-de-rastros). Ten a mano el mapa mental de las seis familias y la [lista de comprobación completa](#lista-de-comprobacion-completa), que es tu plantilla.
+- SSH a mon01, app01-pre, gitea01, al nodo Proxmox y a la CA; `$TOKEN` (Jenkins), `$GT` (Gitea), `$KEY` y `$SECRET` (OPNsense) exportados en la shell.
+- Los cinco repositorios (`servicio`, `monitoring`, `alerting`, `operacion`, `infra`) clonados en `~/repos/` y actualizados.
+- Se ha explicado [la baja como cambio](#la-baja-es-un-cambio-mas) y [el inventario de rastros](#inventario-de-rastros); la [lista de comprobación completa](#lista-de-comprobacion-completa) es tu plantilla.
 
 **Pasos.**
 
-1. Crea la carpeta de la baja y el fichero del plan con las secciones vacías:
-
-    ```bash
-    mkdir -p ~/repos/operacion/baja/pre/ev
-    cat > ~/repos/operacion/baja/pre/plan.md <<'EOF'
-    # Plan de baja · servicio-pre
-    ## Inventario de rastros
-    | Rastro | Dónde | Cómo se elimina | Cómo se verifica | Quién |
-    |---|---|---|---|---|
-    ## Lista de comprobación (en orden de ejecución)
-    ## Qué se conserva
-    | Elemento | Motivo | Dónde | Hasta | Responsable |
-    |---|---|---|---|---|
-    ## Hallazgos no esperados
-    EOF
-    ```
+1. Crea `operacion/baja/pre/ev/` y `operacion/baja/pre/plan.md` con cuatro secciones: "Inventario de rastros" (tabla rastro, dónde, cómo se elimina, cómo se verifica, quién), "Lista de comprobación", "Qué se conserva" (tabla elemento, motivo, dónde, hasta, responsable) y "Hallazgos no esperados".
 
 2. Rastrea las tres cadenas (`pre.lab`, `env=pre`, el rango `10.20.`) en los cinco repositorios y guarda la salida como primera evidencia:
 
@@ -763,40 +748,40 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     dig +short app01.pre.lab @10.10.0.1; dig +short -x 10.20.2.10 @10.10.0.1
     ```
 
-6. En OPNsense, aliases por API; las reglas, con la matriz de `operacion/` en la mano, comparadas contra la interfaz. En la CA, el `index.txt`:
+6. Aliases de OPNsense por API (las reglas, comparando la matriz de `operacion/` con la interfaz) y el `index.txt` de la CA:
 
     ```bash
     curl -s -k -u "$KEY:$SECRET" https://10.10.0.1/api/firewall/alias/searchItem | jq '.rows[]|select(.name|test("pre"))|{uuid,name,content}'
     grep -E 'pre\.lab' /etc/ca/index.txt
     ```
 
-7. Rellena la tabla de inventario con una fila por rastro (cómputo, red, identidad, datos, copias y logs, monitorización). Cada fila lleva el comando que lo elimina, el que lo verifica y quién lo ejecuta. Lo que haya aparecido y no esperabas (una regla de `alerts.yml`, un alias en uso, un token que nadie recordaba) va a "Hallazgos no esperados".
-8. Redacta la lista de comprobación en orden de ejecución, partiendo de la [lista completa](#lista-de-comprobacion-completa) y ajustándola a lo que has encontrado. Justifica en una línea por bloque por qué va en ese sitio (silencios antes de parar, extracción antes de destruir, silencios fuera al final).
-9. Rellena "Qué se conserva": dump bloqueado, dashboards, repositorio archivado, y cualquier dato con obligación legal según la tabla del apartado de conservación. Cada fila con motivo, dónde y hasta cuándo.
+7. Rellena la tabla de inventario con una fila por rastro y las seis familias cubiertas. Lo que haya aparecido y no esperabas (una regla de `alerts.yml`, un alias en uso, un token olvidado) va a "Hallazgos no esperados".
+8. Redacta la lista de comprobación en orden de ejecución, partiendo de la [lista completa](#lista-de-comprobacion-completa) y ajustándola a lo encontrado, con una línea por bloque que justifique su posición.
+9. Rellena "Qué se conserva" (dump bloqueado, dashboards, repositorio archivado, obligaciones legales de la tabla de conservación) con motivo, dónde y hasta cuándo.
 10. Haz commit del plan y de la evidencia del grep.
 
-**Comprobación.** El plan tiene las cuatro secciones rellenas; ninguna fila del inventario tiene vacía la columna "Cómo se verifica"; la lista de comprobación empieza por la aprobación y el silencio y termina por la expiración del silencio y el acta; hay al menos un hallazgo no esperado apuntado (si no hay ninguno, repasa el grep de `alerting` y los aliases de OPNsense).
+**Comprobación.** Cuatro secciones rellenas; ninguna fila sin "Cómo se verifica"; la lista empieza por aprobación y silencio y termina por expiración del silencio y acta; al menos un hallazgo no esperado (si no, repasa `alerting` y los aliases).
 
 **Entrega.** `operacion/baja/pre/plan.md` y `operacion/baja/pre/ev/00-grep-repos.txt` en un commit del repositorio `operacion`.
 
-**Si te sobra tiempo.** Redacta el correo de solicitud de baja (RFC) al responsable del servicio con fecha, ventana propuesta y lista de lo que se conserva; guárdalo como `ev/01-aprobacion.txt` para que el acta de la sesión 40 ya tenga su primera evidencia.
+**Si te sobra tiempo.** Redacta el correo de solicitud de baja (RFC) con fecha, ventana y lo que se conserva; guárdalo como `ev/01-aprobacion.txt`.
 
 ### A8.2 Liberar la infraestructura (sesión 37)
 
 **Sesión 37 · 9 de marzo · Práctica · unos 110 min de práctica**
 
-**Objetivo.** Al terminar, el entorno pre no tiene contenedores, imágenes, VM, IP, DNS, reglas, certificados válidos ni credenciales, y cada punto tiene su salida guardada en `operacion/baja/pre/ev/`.
+**Objetivo.** El entorno pre sin contenedores, imágenes, VM, IP, DNS, reglas, certificados válidos ni credenciales, con la salida de cada verificación en `operacion/baja/pre/ev/`.
 
 **Antes de empezar.**
 
-- El plan de A8.1 aprobado (correo o nota del profesor con fecha, guardado como `ev/01-aprobacion.txt`).
-- El repositorio `infra` con el estado de pre accesible (`infra/envs/pre`), `tofu` instalado y el token de Proxmox que usa el provider exportado.
-- Acceso a app01-pre, gitea01, al nodo Proxmox, a la CA y a OPNsense; variables `$TOKEN`, `$GT`, `$KEY`, `$SECRET` y `$GRAFANA_TOKEN` en la shell.
-- Se ha explicado [el orden de la baja](#el-orden-importa). El detalle de cada capa está en [Liberar los recursos de la infraestructura](#liberar-los-recursos-de-la-infraestructura); esta hoja lo sigue en ese orden.
+- El plan de A8.1 aprobado (nota del profesor con fecha en `ev/01-aprobacion.txt`).
+- `infra/envs/pre` con su estado, `tofu` instalado y el token de Proxmox del provider exportado.
+- Acceso a app01-pre, gitea01, nodo Proxmox, CA y OPNsense; `$TOKEN`, `$GT`, `$KEY`, `$SECRET` y `$GRAFANA_TOKEN` en la shell.
+- Se ha explicado [el orden de la baja](#el-orden-importa); el detalle de cada capa está en [Liberar los recursos de la infraestructura](#liberar-los-recursos-de-la-infraestructura).
 
 **Pasos.**
 
-1. Silencia antes de tocar nada y avisa. El silencio dura más que la ventana (aquí, hasta el final de la sesión 39):
+1. Silencia antes de tocar nada; el silencio dura más que la ventana (hasta la sesión 39):
 
     ```bash
     A=http://10.10.0.20:9093
@@ -817,9 +802,9 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     git -C ~/repos/operacion add dashboards/pre && git -C ~/repos/operacion commit -m "UT8: dashboards de pre archivados antes de la baja"
     ```
 
-    El fichero `.gpg` se entrega al profesor (hace de DPO) y no se sube al repositorio.
+    El `.gpg` se entrega al profesor (hace de DPO) y no se sube al repositorio.
 
-3. Deshabilita el job de pre en Jenkins antes de borrar nada del registry, para que un push no vuelva a construir imágenes:
+3. Deshabilita el job de pre en Jenkins antes de tocar el registry, para que un push no reconstruya imágenes:
 
     ```bash
     curl -s -o /dev/null -w '%{http_code}\n' -X POST -u ops:$TOKEN http://jenkins01.dev.lab:8080/job/servicio-pre/disable
@@ -829,8 +814,7 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
 
     ```bash
     cd /opt/servicio && docker compose -p servicio-pre down -v --rmi all --remove-orphans
-    docker ps -a --filter volume=pgdata-pre          # si un volumen era external, mira quién lo usa y luego:
-    docker volume rm pgdata-pre
+    docker volume rm pgdata-pre                      # los volúmenes external, a mano
     { docker ps -a --filter label=com.docker.compose.project=servicio-pre
       docker volume ls -q --filter label=com.docker.compose.project=servicio-pre
       docker network ls --filter label=com.docker.compose.project=servicio-pre
@@ -864,9 +848,9 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     tofu state list | tee ~/repos/operacion/baja/pre/ev/07-tofu-state.txt     # vacío
     ```
 
-    Si el estado no sirve, en el nodo Proxmox: `qm stop 210 --timeout 60 && qm destroy 210 --purge --destroy-unreferenced-disks 1`, y lo mismo para 211 a 213.
+    Si el estado no sirve: `qm stop 210 --timeout 60 && qm destroy 210 --purge --destroy-unreferenced-disks 1`, y lo mismo para 211 a 213.
 
-7. Backups vzdump y plantillas que nacieron de pre:
+7. Backups vzdump y plantillas nacidas de pre:
 
     ```bash
     pvesm list local --vmid 210
@@ -875,7 +859,7 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     { qm list | grep pre; pvesm list local --vmid 210; } | tee ev/08-proxmox.txt
     ```
 
-8. Libera IP y DNS. Si la vnet se destruyó con OpenTofu, solo verifica; si era compartida, libera las IP una a una y borra los host overrides de Unbound en OPNsense (Services, Unbound DNS, Overrides):
+8. IP y DNS. Si la vnet se destruyó con OpenTofu, solo verifica; si era compartida, libera las IP una a una y borra los host overrides de Unbound en OPNsense:
 
     ```bash
     pvesh delete /cluster/sdn/vnets/pre/ips --zone lab --vnet pre --ip 10.20.2.10
@@ -884,7 +868,7 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
       dig +short app01.pre.lab @10.10.0.1; dig +short -x 10.20.2.10 @10.10.0.1; } | tee ev/09-red-dns.txt
     ```
 
-9. En OPNsense, reglas primero y aliases después (un alias en uso no se borra): quita las reglas de mon01 hacia los exporters de pre y las de NAT hacia web01-pre, luego los aliases `pre_front`, `pre_back`, `pre_data`, y aplica. Actualiza la matriz de reglas en `operacion/` y haz commit. Verifica desde fuera y desde mon01:
+9. En OPNsense, reglas primero (mon01 hacia los exporters de pre, NAT hacia web01-pre) y aliases después (`pre_front`, `pre_back`, `pre_data`); aplica, actualiza la matriz de reglas en `operacion/` y haz commit. Verifica desde fuera y desde mon01:
 
     ```bash
     nmap -Pn 10.20.1.10 -p 80,443,8080 | tee ev/10-firewall.txt
@@ -901,7 +885,7 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     openssl crl -in crl/ca.crl.pem -noout -text | grep -B1 -A3 'cessationOfOperation' | tee ~/repos/operacion/baja/pre/ev/11-crl.txt
     ```
 
-11. Credenciales y tokens en Proxmox, Gitea y Jenkins (ajusta los identificadores a los que listaste en A8.1):
+11. Credenciales y tokens en Proxmox, Gitea y Jenkins (ajusta los identificadores a los que listaste en A8.1) y vuelve a ejecutar los listados del paso 4 de A8.1 en `ev/12-credenciales.txt`:
 
     ```bash
     pveum user token remove tofu@pve pre; pveum user delete tofu-pre@pve 2>/dev/null
@@ -910,9 +894,6 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     curl -X DELETE -H "Authorization: token $GT" $G/repos/ops/servicio/keys/7
     curl -X DELETE -H "Authorization: token $GT" $G/repos/ops/servicio/hooks/3
     curl -X POST -u ops:$TOKEN http://jenkins01.dev.lab:8080/credentials/store/system/domain/_/credential/pre-ssh-app01/doDelete
-    { pveum user token list tofu@pve
-      curl -s -H "Authorization: token $GT" $G/repos/ops/servicio/keys | jq '.[]|{id,title}'
-      curl -s -u ops:$TOKEN "http://jenkins01.dev.lab:8080/credentials/store/system/domain/_/api/json?depth=1" | jq '.credentials[]|select(.id|test("pre"))'; } | tee ev/12-credenciales.txt
     ```
 
 12. Archiva el repositorio (no lo borres) y comprueba el estado del job:
@@ -922,29 +903,29 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     curl -s -u ops:$TOKEN "http://jenkins01.dev.lab:8080/api/json?tree=jobs[name,color]" | jq '.jobs[]|select(.name|test("pre"))' | tee ev/13-archivado.txt
     ```
 
-13. Marca en `plan.md` cada punto hecho con el nombre de su evidencia y apunta en "Incidencias" cualquier desviación (un alias en uso, un recurso compartido en el estado, un 405 del registry). Commit.
+13. Marca en `plan.md` cada punto con su evidencia y apunta en "Incidencias" cualquier desviación. Commit.
 
-**Comprobación.** Todos los listados de `ev/04` a `ev/13` están vacíos o muestran el estado esperado (`202` en los DELETE del registry, `archived: true`, job en color `disabled`); `dig` no devuelve nada en directa ni en inversa; `tofu state list` no lista nada; la CRL contiene todos los `*.pre.lab` con motivo `cessationOfOperation`.
+**Comprobación.** Listados de `ev/04` a `ev/13` vacíos o con el estado esperado (`202`, `archived: true`, job `disabled`); `dig` sin respuesta; `tofu state list` vacío; la CRL con todos los `*.pre.lab`.
 
-**Entrega.** Commit en `operacion` con `plan.md` actualizado, `ev/02` a `ev/13` y la matriz de reglas corregida; el `pre-bloqueo.sql.gpg` entregado al profesor fuera del repositorio.
+**Entrega.** Commit en `operacion` con `plan.md`, `ev/02` a `ev/13` y la matriz de reglas corregida; el `pre-bloqueo.sql.gpg` entregado al profesor fuera del repositorio.
 
-**Si te sobra tiempo.** Levanta el respondedor OCSP mínimo del apartado de certificados y guarda la respuesta `Cert Status: revoked` como `ev/11b-ocsp.txt`. Y borra el estado de OpenTofu (`tofu workspace delete pre` o el fichero y sus `.backup`) tras comprobar que no queda nada dentro que necesites.
+**Si te sobra tiempo.** Levanta el respondedor OCSP mínimo del apartado de certificados y guarda `Cert Status: revoked` en `ev/11b-ocsp.txt`.
 
 ### A8.3 Copias y logs (sesión 38)
 
 **Sesión 38 · 11 de marzo · Teoría y práctica · unos 100 min de práctica**
 
-**Objetivo.** Que el repositorio restic de pre sea irrecuperable, que el prefijo `pre/` del bucket no tenga versiones, que Loki no devuelva nada para `{env="pre"}` y que tengas un informe de photorec con los tres escenarios.
+**Objetivo.** Repositorio restic de pre irrecuperable, prefijo `pre/` del bucket sin versiones, Loki sin nada para `{env="pre"}` e informe de photorec con tres escenarios.
 
 **Antes de empezar.**
 
-- A8.2 terminada: las VM de pre no existen. Lo que queda está fuera de ellas: MinIO (10.10.0.30), Loki y Mailpit en mon01, y la contraseña de restic en los hosts que la tenían.
-- Cliente `mc` con el alias `s3` configurado hacia MinIO, `aws` CLI, `restic`, `logcli`, `photorec` (paquete `testdisk`) y una máquina con un dataset ZFS de pruebas (vale el nodo Proxmox con `local-zfs` o una VM con ZFS).
-- Se ha explicado [por qué borrar no borra](#por-que-borrar-no-borra). El detalle de los comandos está en [Opciones de más a menos fiable](#opciones-de-mas-a-menos-fiable), [Logs externos](#logs-externos) y [Verificar con photorec](#verificar-con-photorec-sobre-un-volumen-de-pruebas).
+- A8.2 terminada: las VM de pre no existen. Queda lo de fuera: MinIO (10.10.0.30), Loki y Mailpit en mon01, y la contraseña de restic en los hosts que la tenían.
+- `mc` con el alias `s3` hacia MinIO, `aws` CLI, `restic`, `logcli`, `photorec` (paquete `testdisk`) y una máquina con ZFS (el nodo Proxmox con `local-zfs` o una VM).
+- Se ha explicado [por qué borrar no borra](#por-que-borrar-no-borra); los comandos están en [Opciones de más a menos fiable](#opciones-de-mas-a-menos-fiable), [Logs externos](#logs-externos) y [Verificar con photorec](#verificar-con-photorec-sobre-un-volumen-de-pruebas).
 
 **Pasos.**
 
-1. Borrado criptográfico del repositorio restic. Primero lista las claves (los IDs van al acta), luego destruye todas sus versiones y la contraseña:
+1. Borrado criptográfico del repositorio restic: lista las claves (los IDs van al acta), destruye todas sus versiones y la contraseña:
 
     ```bash
     export RESTIC_REPOSITORY=s3:http://10.10.0.30:9000/backups/pre
@@ -965,16 +946,14 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     aws $E s3api list-object-versions --bucket backups --prefix pre/ \
       --query '{Objects: [Versions[].{Key:Key,VersionId:VersionId}, DeleteMarkers[].{Key:Key,VersionId:VersionId}][]}' \
       --output json > versiones.json
-    jq '.Objects|length' versiones.json                          # si pasa de 1000, trocea el fichero
-    aws $E s3api delete-objects --bucket backups --delete file://versiones.json
+    aws $E s3api delete-objects --bucket backups --delete file://versiones.json   # máximo 1000 claves por llamada
     aws $E s3api list-object-versions --bucket backups --prefix pre/ | tee ~/repos/operacion/baja/pre/ev/16-s3-versions.json
     mc replicate ls s3/backups | tee -a ~/repos/operacion/baja/pre/ev/16-s3-versions.json
-    mc ilm ls s3/backups
     ```
 
-    Si el bucket tiene Object Lock en modo compliance, el `delete-objects` fallará para esos objetos: apunta la fecha de retención en "Pendientes con fecha" del plan; la clave ya destruida los convierte en ruido mientras tanto.
+    Con Object Lock en modo compliance, `delete-objects` fallará: apunta la fecha de retención en "Pendientes con fecha".
 
-3. Comprueba que el compactor de Loki en mon01 admite peticiones de borrado (`retention_enabled: true`, `deletion_mode: filter-and-delete` en `/etc/loki/config.yml`; si no, corrígelo y reinicia Loki). Envía la petición y comprueba el estado:
+3. Comprueba que el compactor de Loki en mon01 admite borrados (`retention_enabled: true`, `deletion_mode: filter-and-delete`; si no, corrígelo y reinicia Loki). Envía la petición y comprueba el estado:
 
     ```bash
     L=http://10.10.0.20:3100
@@ -983,18 +962,18 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     curl -s "$L/loki/api/v1/delete" | jq . | tee ~/repos/operacion/baja/pre/ev/17-loki-delete.json   # status: received
     ```
 
-    El compactor la procesa después del periodo de cancelación (24 h por defecto). Apúntalo en el plan como pendiente: la verificación de `logcli` se hace al empezar la sesión 39.
+    El compactor la procesa tras el periodo de cancelación (24 h por defecto); la verificación con `logcli` se hace al empezar la sesión 39.
 
-4. Añade la `retention_stream` de 24 h para `{env="pre"}` en la configuración de Loki dentro del repositorio `monitoring`, commit y despliegue, para que un log rezagado desaparezca solo.
+4. Añade la `retention_stream` de 24 h para `{env="pre"}` en la configuración de Loki del repositorio `monitoring`, commit y despliegue.
 
-5. Logs fuera de las VM destruidas, en mon01: la bandeja de Mailpit con el texto de las alertas de pre, y el journal si algo de pre escribía ahí:
+5. Logs fuera de las VM destruidas, en mon01: la bandeja de Mailpit y el journal:
 
     ```bash
     ssh mon01 'curl -s -X DELETE http://localhost:8025/api/v1/messages; sudo journalctl --vacuum-time=1s'
     ssh mon01 'curl -s http://localhost:8025/api/v1/messages | jq .total' | tee ~/repos/operacion/baja/pre/ev/18-mailpit.txt   # 0
     ```
 
-6. Prueba de recuperación, escenario 1 (`rm` en ext4). Prepara el volumen de pruebas y un fichero reconocible:
+6. Escenario 1 de recuperación (`rm` en ext4), con un volumen de pruebas y un fichero reconocible:
 
     ```bash
     mkdir -p ~/photorec && cd ~/photorec
@@ -1006,9 +985,9 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     grep -rl 'INSERT INTO usuarios' rec-rm/ | head | tee ev-photorec-rm.txt
     ```
 
-7. Escenario 2 (`shred` en ext4): repite el paso 6 pero sustituye `sudo rm` por `sudo shred -u -n 3 /mnt/prueba/dump.sql`, recupera en `rec-shred/` y guarda el resultado del `grep` en `ev-photorec-shred.txt`.
+7. Escenario 2 (`shred` en ext4): repite el paso 6 con `sudo shred -u -n 3 /mnt/prueba/dump.sql` en lugar de `rm`, recupera en `rec-shred/` y guarda el `grep` en `ev-photorec-shred.txt`.
 
-8. Escenario 3 (ZFS con snapshot): en la máquina con ZFS, crea un dataset, copia `dump.sql` dentro, haz un snapshot, ejecuta `shred -u` y busca en el snapshot:
+8. Escenario 3 (ZFS con snapshot):
 
     ```bash
     sudo zfs create rpool/prueba
@@ -1019,26 +998,26 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     sudo zfs destroy -r rpool/prueba
     ```
 
-9. Redacta `operacion/baja/pre/informe-photorec.md` con una tabla (escenario, método de borrado, qué recuperó photorec, por qué) y la conclusión: qué método garantiza la irrecuperabilidad en un soporte que no controlas. Copia los tres `ev-photorec-*.txt` a `ev/19-photorec/`.
+9. Redacta `operacion/baja/pre/informe-photorec.md` con una tabla (escenario, método, qué recuperó photorec, por qué) y la conclusión: qué método garantiza la irrecuperabilidad en un soporte que no controlas. Copia los tres `ev-photorec-*.txt` a `ev/19-photorec/`.
 
-**Comprobación.** `restic snapshots` falla con "wrong password or no key found" aunque la contraseña sea la correcta; `list-object-versions` del prefijo `pre/` devuelve un JSON sin `Versions` ni `DeleteMarkers`; la petición de Loki aparece en estado `received` (o `processed` si ya pasó el ciclo); en el escenario 1 el `grep` encuentra el dump entero, en el 2 no encuentra nada y en el 3 el snapshot conserva las 500 líneas.
+**Comprobación.** `restic snapshots` falla con "wrong password or no key found"; `list-object-versions` de `pre/` sin `Versions` ni `DeleteMarkers`; petición de Loki en `received` o `processed`; escenario 1 recupera el dump entero, el 2 nada y el 3 conserva las 500 líneas en el snapshot.
 
 **Entrega.** Commit en `operacion` con `ev/14` a `ev/19` e `informe-photorec.md`; commit en `monitoring` con la `retention_stream`.
 
-**Si te sobra tiempo.** Repite el escenario 1 sobre un volumen LUKS (`cryptsetup luksFormat prueba.img`, abrir, formatear, escribir, cerrar, `cryptsetup luksErase`) y pasa photorec sobre `prueba.img` en bruto: debe devolver cero ficheros. Añádelo al informe como cuarto escenario.
+**Si te sobra tiempo.** Cuarto escenario: volumen LUKS, `cryptsetup luksErase` y photorec sobre la imagen en bruto (cero ficheros).
 
 ### A8.4 Datos y monitorización (sesión 39)
 
 **Sesión 39 · 16 de marzo · Teoría y práctica · unos 105 min de práctica**
 
-**Objetivo.** La base de datos compartida de dev no conserva ningún dato personal del tenant `pre`, y Prometheus, Alertmanager, Grafana y Promtail no tienen ninguna referencia a pre: cero targets, reglas, series, dashboards, silencios y alertas.
+**Objetivo.** La base de datos de dev sin datos personales del tenant `pre`, y la monitorización sin referencias a pre: cero targets, reglas, series, dashboards, silencios y alertas.
 
 **Antes de empezar.**
 
-- Acceso a db01 de dev con el usuario `app` (o uno con permisos sobre las tablas del servicio), a mon01 y a jenkins01.
-- Prometheus arrancado con `--web.enable-lifecycle` y `--web.enable-admin-api` (mira `systemctl cat prometheus` o el compose de mon01; si falta, añádelo y reinicia antes de empezar).
-- Los repositorios `alerting`, `monitoring` y `operacion` actualizados. Los dashboards de pre ya están en Git desde A8.2.
-- Se ha explicado [qué hace DELETE y VACUUM FULL](#datos-confidenciales-en-la-base-de-datos-interna), [la anonimización](#anonimizar-cuando-hay-que-conservar-estadisticas) y [la desconfiguración de la monitorización](#desconfigurar-la-monitorizacion-y-las-alarmas).
+- Acceso a db01 de dev con el usuario `app`, a mon01 y a jenkins01.
+- Prometheus arrancado con `--web.enable-lifecycle` y `--web.enable-admin-api` (si falta, añádelo al compose de mon01 y reinicia antes de empezar).
+- Los repositorios `alerting`, `monitoring` y `operacion` actualizados; los dashboards de pre ya están en Git desde A8.2.
+- Se ha explicado [DELETE y VACUUM FULL](#datos-confidenciales-en-la-base-de-datos-interna), [la anonimización](#anonimizar-cuando-hay-que-conservar-estadisticas) y [la desconfiguración de la monitorización](#desconfigurar-la-monitorizacion-y-las-alarmas).
 
 **Pasos.**
 
@@ -1051,15 +1030,9 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     logcli --addr=$L series '{env="pre"}' | tee -a ~/repos/operacion/baja/pre/ev/20-loki-vacio.txt
     ```
 
-2. En db01 de dev, mide antes de tocar nada y guarda la salida:
+2. En db01 de dev, mide antes de tocar nada: la consulta de `pg_stat_user_tables` del paso 5 y `SELECT count(*) FROM usuarios WHERE tenant='pre';`.
 
-    ```sql
-    SELECT relname, n_live_tup, n_dead_tup, pg_size_pretty(pg_total_relation_size(relid)) AS tam
-    FROM pg_stat_user_tables WHERE relname LIKE 'pre_%' OR relname IN ('usuarios','comentarios');
-    SELECT count(*) FROM usuarios WHERE tenant='pre';
-    ```
-
-3. Anonimiza la tabla de usuarios del tenant `pre` con sal de un solo uso y borra las tablas satélite con texto libre, en una sola transacción:
+3. Anonimiza los usuarios del tenant `pre` con sal de un solo uso y borra las tablas satélite con texto libre, en una transacción:
 
     ```sql
     BEGIN;
@@ -1083,9 +1056,9 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     VACUUM FULL usuarios, comentarios;
     ```
 
-    Si `VACUUM FULL` falla por espacio, es lo que cuenta el apartado de errores: necesita el doble del tamaño de la tabla; comprueba con `df -h` y haz primero los `DROP`.
+    Si `VACUUM FULL` falla por espacio (necesita el doble del tamaño de la tabla), haz primero los `DROP`.
 
-5. Consulta de control y estadísticas después; la salida va al acta:
+5. Consulta de control y estadísticas; la salida va al acta:
 
     ```bash
     psql -U app -d servicio -c "SELECT count(*) AS restos FROM usuarios WHERE tenant='pre' AND (email NOT LIKE '%@anon.invalid' OR telefono IS NOT NULL OR direccion IS NOT NULL OR ip_alta IS NOT NULL);" \
@@ -1093,18 +1066,17 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
       | tee ~/repos/operacion/baja/pre/ev/21-db-control.txt
     ```
 
-6. Revisa dónde más pueden vivir esos datos: réplica en streaming (`SELECT * FROM pg_stat_replication;` y su base backup inicial), dumps sueltos y cachés:
+6. Revisa dónde más pueden vivir esos datos: réplica (`SELECT * FROM pg_stat_replication;`), dumps sueltos, WAL archivado y cachés:
 
     ```bash
-    ssh db01 'sudo find /tmp /var/tmp /home -name "*.sql*" -o -name "*.dump" 2>/dev/null'
+    ssh db01 'sudo find /tmp /var/tmp /home -name "*.sql*" -o -name "*.dump" 2>/dev/null; ls /var/lib/postgresql/archive 2>/dev/null | tail -3'
     ssh jenkins01 'sudo find /var/lib/jenkins/workspace -name "*.sql*" 2>/dev/null'
-    ssh db01 'ls /var/lib/postgresql/archive 2>/dev/null | tail -3'      # WAL archivado: apunta la retención
     redis-cli -h 10.20.2.11 --scan --pattern 'pre:*' | head 2>/dev/null   # si sobrevive un Redis compartido
     ```
 
-    Lo que encuentres se borra (`shred -u` en los dumps) y se anota; el WAL archivado con fecha de expiración va a "Pendientes con fecha".
+    Lo que aparezca se borra con `shred -u` y se anota; el WAL archivado va a "Pendientes con fecha".
 
-7. Prometheus: quita los targets de pre en el repositorio `monitoring` (`prometheus.yml` o el fichero de `file_sd`), commit, despliega, valida y recarga; luego borra las series:
+7. Prometheus: quita los targets de pre en `monitoring` (`prometheus.yml` o `file_sd`), commit y despliegue; valida, recarga y borra las series:
 
     ```bash
     P=http://10.10.0.20:9090
@@ -1116,20 +1088,20 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     curl -s -G $P/api/v1/query --data-urlencode 'query=count({env="pre"})' | jq '.data.result' | tee ~/repos/operacion/baja/pre/ev/22-prometheus.txt   # []
     ```
 
-8. Reglas: retira de `alerting/alerts.yml` y de las recording rules todo lo que filtre por `env="pre"`; commit y despliegue por el pipeline. El silencio sigue activo, así que la recarga no dispara nada.
+8. Reglas: retira de `alerting/alerts.yml` y de las recording rules lo que filtre por `env="pre"`; commit y despliegue. El silencio sigue activo, así que la recarga no dispara nada.
 
     ```bash
     curl -s $P/api/v1/rules | jq '.data.groups[].rules[]|select(.query|test("pre"))' | tee ~/repos/operacion/baja/pre/ev/23-reglas.txt   # vacío
     ```
 
-9. Alertmanager: quita rutas con `env: pre`, receptores exclusivos y plantillas que los usen en `alertmanager.yml` del repositorio `alerting`; valida y recarga:
+9. Alertmanager: quita rutas con `env: pre`, receptores exclusivos y sus plantillas en `alertmanager.yml` de `alerting`; valida y recarga:
 
     ```bash
     amtool check-config alertmanager.yml
     curl -X POST http://10.10.0.20:9093/-/reload
     ```
 
-10. Grafana y Promtail: borra los dashboards de pre (ya exportados) y la datasource exclusiva si la había; quita el job `env: pre` de `promtail.yml` en `monitoring` y commit.
+10. Grafana y Promtail: borra los dashboards de pre (ya exportados) y la datasource exclusiva si la había; quita el job `env: pre` de `promtail.yml` en `monitoring`, commit.
 
     ```bash
     G=http://10.10.0.20:3000; H="Authorization: Bearer $GRAFANA_TOKEN"
@@ -1143,18 +1115,17 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
     ```bash
     A=http://10.10.0.20:9093
     amtool --alertmanager.url=$A alert query env=pre                       # vacío antes de expirar
-    amtool --alertmanager.url=$A silence query env=pre                     # apunta el ID
-    amtool --alertmanager.url=$A silence expire <id>
+    amtool --alertmanager.url=$A silence expire $(amtool --alertmanager.url=$A silence query -q env=pre)
     sleep 120; amtool --alertmanager.url=$A alert query env=pre | tee ~/repos/operacion/baja/pre/ev/25-alertas.txt   # vacío
     ```
 
-12. En `operacion/`, marca la ficha de cada alarma de pre y su runbook como retirados con fecha y enlace al acta; no los borres. Commit.
+12. En `operacion/`, marca las fichas de alarma y runbooks de pre como retirados con fecha y enlace al acta; no los borres. Commit.
 
-**Comprobación.** La consulta de control devuelve `restos = 0`; `n_dead_tup` de `usuarios` y `comentarios` es 0 y las tablas `pre_*` no aparecen; `count({env="pre"})` devuelve `[]`; targets, reglas y dashboards de pre a cero; `amtool alert query env=pre` vacío dos minutos después de expirar el silencio.
+**Comprobación.** `restos = 0`; `n_dead_tup` de `usuarios` y `comentarios` a 0 y sin tablas `pre_*`; `count({env="pre"})` devuelve `[]`; targets, reglas y dashboards de pre a cero; `amtool alert query env=pre` vacío dos minutos después de expirar el silencio.
 
 **Entrega.** Commit en `operacion` con `ev/20` a `ev/25` y los runbooks marcados; commits en `alerting` (reglas y rutas) y `monitoring` (targets y Promtail).
 
-**Si te sobra tiempo.** Abre con `hexdump -C` el fichero de la tabla `usuarios` antes y después del `VACUUM FULL` (`SELECT pg_relation_filepath('usuarios');`) y busca un correo del tenant `pre`: es la demostración de que `DELETE` deja los bytes y `VACUUM FULL` desvincula el fichero, y una captura buena para el acta.
+**Si te sobra tiempo.** `hexdump -C` sobre el fichero de `usuarios` (`pg_relation_filepath`) antes y después del `VACUUM FULL`: `DELETE` deja los bytes.
 
 ## Práctica evaluable
 

@@ -2,7 +2,7 @@
 
 <p class="ut-meta">Módulo 5169 · 14 h · Formación en empresa (29 mar a 9 jun 2027) · RA3 CE a, b, c, d</p>
 
-Hasta aquí todo lo habéis hecho sobre el laboratorio: la pila de observabilidad de mon01 (UT1), las alarmas (UT2), la monitorización de seguridad (UT3) y los KPI y las pruebas de carga (UT4). Esta unidad y la siguiente (UT6, copias de seguridad) se cursan en la empresa, entre el 19 de abril y el 9 de junio de 2027, sobre un sistema real que os asigne el tutor. No hay sesiones numeradas ni laboratorio compartido: hay cuatro actividades (A5.1 a A5.4), una actividad de cierre y una ficha de evidencias que firma el tutor de empresa. Este documento es la guía de referencia para hacer ese trabajo con criterio, y al mismo tiempo la lista de lo que tenéis que traer de vuelta. Cuando volváis, la UT7 (actualización y vulnerabilidades) y la UT8 (terminación segura) cierran el módulo.
+Hasta aquí todo lo habéis hecho sobre el laboratorio: la pila de observabilidad de mon01 (UT1), las alarmas (UT2), la monitorización de seguridad (UT3) y los KPI y las pruebas de carga (UT4). Esta unidad y la siguiente (UT6, copias de seguridad) se cursan en la empresa, entre el 29 de marzo y el 9 de junio de 2027, sobre un sistema real que os asigne el tutor. No hay sesiones numeradas ni laboratorio compartido: hay cuatro actividades (A5.1 a A5.4), una actividad de cierre y una ficha de evidencias que firma el tutor de empresa. Este documento es la guía de referencia para hacer ese trabajo con criterio, y al mismo tiempo la lista de lo que tenéis que traer de vuelta. Cuando volváis, la UT7 (actualización y vulnerabilidades) y la UT8 (terminación segura) cierran el módulo.
 
 Una regla desde el principio: todo dato de la empresa que aparezca en las evidencias se anonimiza. Nombres de host, IPs públicas, nombres de usuario, dominios, rutas con nombre de cliente. Sustituidlos por equivalentes (`web01`, `203.0.113.45`, `usuario_a`, `empresa.example`) antes de pegar nada en el informe. Las redes 192.0.2.0/24, 198.51.100.0/24 y 203.0.113.0/24 están reservadas por la RFC 5737 justo para esto, para documentación, y el dominio `example` por la RFC 2606. Si dudáis de si algo se puede incluir, preguntad al tutor antes de incluirlo, no después.
 
@@ -675,9 +675,9 @@ Aunque esta unidad se hace en la empresa, estos son los tropiezos que se repiten
 - `iostat` muestra `%util` al 100 % en un volumen virtual y se concluye que el disco está saturado, cuando en dispositivos con colas paralelas (NVMe, almacenamiento en red) `%util` deja de ser fiable a partir de cierto punto. En esos casos manda `await`.
 - La captura de Grafana en la evidencia lleva el nombre real de la empresa en el título del dashboard o en la etiqueta `instance`. Revisar cada captura antes de adjuntarla; recortar o pixelar lo que haga falta.
 
-## Actividades
+## Material de práctica
 
-Las cuatro actividades se hacen sobre sistemas reales de la empresa, en el orden que el tutor considere, dentro del periodo del 19 de abril al 9 de junio de 2027. Cada una produce una evidencia concreta que se adjunta a la ficha. Anonimizad todo.
+Las cuatro actividades se hacen sobre sistemas reales de la empresa, en el orden que el tutor considere, dentro del periodo del 29 de marzo al 9 de junio de 2027. Cada una produce una evidencia concreta que se adjunta a la ficha. Anonimizad todo.
 
 ### A5.1 Revisión de logs (CE 3a)
 

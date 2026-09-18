@@ -612,9 +612,9 @@ Junto a cada regla van la fecha de la última comprobación y el nombre del fich
 **Antes de empezar.**
 
 - app01, db01 y mon01 encendidas con la pila de la UT2 funcionando (Prometheus con todos los targets en UP).
-- Acceso por SSH a las tres máquinas, a web01 y al puesto de administración (10.10.0.50). Si la VPC pre no está levantada, el puesto de administración hace de "otra VPC".
-- nmap y tcpdump instalados donde vayas a lanzarlos (`sudo apt install nmap tcpdump`).
-- Un directorio `monitoring/audit/antes/` en el repositorio `monitoring`, en el puesto, donde irán todas las salidas.
+- Acceso por SSH a las tres máquinas, a web01 y al puesto de administración (10.10.0.50), que hace de "otra VPC" si pre no está levantada.
+- nmap y tcpdump instalados donde vayas a lanzarlos.
+- Un directorio `monitoring/audit/antes/` en el repositorio `monitoring` para las salidas.
 - Se ha explicado al principio de la sesión [qué se ve en un /metrics abierto](#superficie-de-exposicion-de-la-monitorizacion) y los [cinco pasos de la auditoría](#auditar-saber-que-hay-antes-de-tocar-nada); los estados de nmap se explican en la [UT3 de despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/).
 
 **Pasos.**
@@ -642,9 +642,9 @@ Junto a cada regla van la fecha de la última comprobación y el nombre del fich
     sudo nmap -sS -p- --reason -T4 10.10.0.20 -oN escaneo-mon01-desde-web01-$(date +%F).txt
     ```
 
-4. Repite el paso 3 desde una máquina de la VPC pre o, si no existe, desde el puesto de administración, con el sufijo `-desde-pre-` o `-desde-admin-` en el nombre del fichero. Si no tienes root en el origen, usa `-sT` en lugar de `-sS`.
+4. Repite el paso 3 desde pre o desde el puesto de administración, con `-desde-pre-` o `-desde-admin-` en el nombre. Sin root en el origen, usa `-sT`.
 
-5. Protocolo y autenticación de cada puerto que salió `open` desde web01. Un `200 OK` seguido de métricas quiere decir alcanzable, en claro y sin credenciales, y las tres cosas van en columnas distintas de la matriz:
+5. Protocolo y autenticación de cada puerto que salió `open` desde web01. Un `200 OK` con métricas es alcanzable, en claro y sin credenciales:
 
     ```bash
     for p in 9100 8080 9102; do echo "== $p =="; curl -sv http://10.10.2.10:$p/metrics 2>&1 | head -20; done | tee curl-app01-desde-web01-$(date +%F).txt
@@ -696,7 +696,7 @@ Junto a cada regla van la fecha de la última comprobación y el nombre del fich
 
 3. En app01, db01 y mon01, edita la unidad de node_exporter (`systemctl edit node_exporter`) y añade a `ExecStart` `--web.listen-address=10.10.0.11:9100` (la IP de gestión de cada host). `systemctl daemon-reload && systemctl restart node_exporter`, y `ss -tlnp | grep 9100` debe mostrar esa IP, no `0.0.0.0`. En db01 haz lo mismo con postgres_exporter (`10.10.0.12:9187`).
 
-4. En mon01, edita el compose de la pila: Prometheus, Alertmanager y Loki dejan de publicar puertos y se hablan por nombre dentro de la red; Loki publica solo `10.10.0.20:3100:3100`. Grafana de momento sigue en `10.10.0.20:3000:3000` (el 443 llega en la sesión 18). `docker compose up -d` y `docker ps` debe mostrar solo esas dos flechas.
+4. En mon01, edita el compose de la pila: Prometheus y Alertmanager dejan de publicar puertos, Loki publica solo `10.10.0.20:3100:3100` y Grafana, de momento, `10.10.0.20:3000:3000` (el 443 llega en la sesión 18). `docker compose up -d` y `docker ps` debe mostrar solo esas dos flechas.
 
 5. En Prometheus, cambia los targets de los jobs a las IP de gestión (`10.10.0.11:9100`, `10.10.0.11:8080`, `10.10.0.11:9102`, `10.10.0.12:9100`, `10.10.0.12:9187`) y recarga con `docker compose kill -s HUP prometheus`. Todos los targets deben volver a UP.
 
@@ -715,9 +715,9 @@ Junto a cada regla van la fecha de la última comprobación y el nombre del fich
 
     Comprueba que Prometheus sigue en UP y que los contenedores de app01 siguen saliendo a Internet; si no, has puesto política `drop` en `forward`.
 
-8. Reinicia app01 (`sudo reboot`) y comprueba al volver que `nft list ruleset` muestra la tabla `inet fw` y que `docker ps` sigue publicando en la IP de gestión: la configuración tiene que ser persistente.
+8. Reinicia app01 y comprueba al volver que `nft list ruleset` muestra la tabla `inet fw` y que `docker ps` sigue publicando en la IP de gestión.
 
-9. En OPNsense, crea los alias `mon01`, `app01`, `db01`, `mon_ports_app` (9100, 8080, 9102) y `mon_ports_db` (9100, 9187) en Firewall, Aliases, y después las tres reglas de la [tabla del apartado](#segunda-capa-en-opnsense) en la interfaz correcta (GESTION para los scrapes; BACK y DATA para el 3100), con la casilla de registro activada. Aplica los cambios.
+9. En OPNsense, crea los alias `mon01`, `app01`, `db01`, `mon_ports_app` y `mon_ports_db` en Firewall, Aliases, y después las tres reglas de la [tabla del apartado](#segunda-capa-en-opnsense) en su interfaz, con registro activado. Aplica los cambios.
 
 10. Repite los escaneos de la A3.1 desde web01, desde pre (o el puesto) y desde mon01, con la fecha nueva, en `monitoring/audit/despues/`. Escanea solo los puertos de la matriz para no esperar diez minutos por host:
 
@@ -726,7 +726,7 @@ Junto a cada regla van la fecha de la última comprobación y el nombre del fich
     sudo nmap -sS -p 22,443,3000,3100,9090,9093,9100 --reason 10.10.0.20 -oN escaneo-mon01-desde-web01-$(date +%F).txt
     ```
 
-11. Comprueba que los intentos denegados dejan rastro en las dos capas: en app01, `sudo journalctl -k | grep mon-` debe mostrar líneas `mon-denegado:` o `mon-docker-denegado:` con la IP de web01; en OPNsense, Firewall, Log Files, Live View, filtra por el 9100 y captura la pantalla con la regla de denegación por defecto.
+11. Comprueba que los intentos denegados dejan rastro en las dos capas: en app01, `sudo journalctl -k | grep mon-` debe mostrar líneas `mon-denegado:` con la IP de web01; en OPNsense, Firewall, Log Files, Live View, filtra por el 9100 y captura la pantalla.
 
 **Comprobación.** Desde web01 y desde pre, los puertos de monitorización de app01 y mon01 salen `filtered`; desde mon01 siguen `open`. Prometheus tiene todos los targets en UP, Grafana sigue mostrando los dashboards de la UT2 y los contenedores tienen salida a Internet. Tras el reinicio de app01, todo lo anterior sigue igual.
 
@@ -773,7 +773,7 @@ Junto a cada regla van la fecha de la última comprobación y el nombre del fich
     curl --cacert /etc/node_exporter/ca.crt -u prometheus https://app01.dev.lab:9100/metrics | head -3
     ```
 
-5. En app01, añade al compose un contenedor nginx en la red `monitoring` que termine TLS y pida basic auth para cAdvisor y la API: dos bloques `server` (puertos 8080 y 9102) con `ssl_certificate` del certificado de app01, `auth_basic` con un fichero `htpasswd` que lleve el mismo usuario `prometheus`, y `proxy_pass http://cadvisor:8080` y `http://api:9102`. Los `ports` del compose pasan a nginx (`10.10.0.11:8080:8080` y `10.10.0.11:9102:9102`) y `cadvisor` y `api` dejan de publicar. Comprueba con `docker ps` que solo nginx publica.
+5. En app01, añade al compose un contenedor nginx en la red `monitoring` que termine TLS y pida basic auth para cAdvisor y la API: dos bloques `server` (8080 y 9102) con el certificado de app01, `auth_basic` con un fichero `htpasswd` del usuario `prometheus`, y `proxy_pass` a `cadvisor:8080` y `api:9102`. Los `ports` pasan a nginx y `cadvisor` y `api` dejan de publicar; `docker ps` debe mostrar solo nginx.
 
 6. En mon01, crea `/etc/prometheus/secrets/node_exporter.pass` con la contraseña en claro (600, fuera del repositorio) y móntalo junto a `ca.crt` en el contenedor de Prometheus. Cambia todos los jobs al esquema `https` con `tls_config` y `basic_auth` como en el ejemplo del apartado. Recarga con `docker compose kill -s HUP prometheus`: si algún target está DOWN, su mensaje de error está en [Errores frecuentes](#errores-frecuentes-en-el-laboratorio).
 
@@ -781,9 +781,9 @@ Junto a cada regla van la fecha de la última comprobación y el nombre del fich
 
 8. En app01 y db01, copia el certificado de cliente de Promtail y `ca.crt` a `/etc/promtail/tls/`, cambia `clients` a `https://mon01.dev.lab:3100/loki/api/v1/push` con el `tls_config` del apartado y reinicia Promtail. `docker logs promtail` (o `journalctl -u promtail`) debe dejar de mostrar errores de envío. Aprovecha para añadir las tres etapas `replace` de [Datos: redacción, retención y permisos](#datos-redaccion-retencion-y-permisos) al `pipeline_stages`, y pruébalas antes con `promtail --dry-run` sobre un fichero con una línea `password=hunter2`.
 
-9. En mon01, da a Grafana su certificado de cliente para Loki: en el provisioning del datasource, `jsonData: { tlsAuth: true, tlsAuthWithCACert: true }` y `secureJsonData` con `tlsCACert`, `tlsClientCert` y `tlsClientKey` (el contenido de los ficheros, con `$__file{/ruta}` si tu versión lo admite). Reinicia Grafana y comprueba en Explore que una consulta a Loki devuelve logs.
+9. En mon01, da a Grafana su certificado de cliente para Loki en el provisioning del datasource: `jsonData: { tlsAuth: true, tlsAuthWithCACert: true }` y `secureJsonData` con `tlsCACert`, `tlsClientCert` y `tlsClientKey`. Reinicia Grafana y comprueba en Explore que Loki devuelve logs.
 
-10. Pon Grafana detrás de nginx: añade el contenedor nginx al compose de mon01 con la configuración del apartado (`mon01.crt`, `proxy_pass http://grafana:3000`, cabeceras `X-Forwarded-*` y WebSocket), publica `10.10.0.20:443:443`, quita el `3000` de Grafana y añade las variables `GF_*` de seguridad (contraseña de admin por `__FILE`, sin anónimo, sin registro, `Viewer` por defecto). Retira el 3000 de `nftables.conf` de mon01 y recarga con `nft -f`. Entra en `https://mon01.dev.lab/` desde el puesto (con `ca.crt` importada en el navegador) y crea un usuario nominal para cada miembro del grupo.
+10. Pon Grafana detrás de nginx: añade el contenedor nginx al compose de mon01 con la configuración del apartado, publica `10.10.0.20:443:443`, quita el `3000` de Grafana y añade las variables `GF_*` de seguridad. Retira el 3000 de `nftables.conf` de mon01 y recarga con `nft -f`. Entra en `https://mon01.dev.lab/` desde el puesto (con `ca.crt` importada en el navegador) y crea un usuario nominal para cada miembro del grupo.
 
 11. Fija la retención y los permisos: en Loki `limits_config: retention_period: 168h` con `compactor: { retention_enabled: true, delete_request_store: filesystem }`; en Prometheus `--storage.tsdb.retention.time=15d`; y en mon01 `chmod 700` y `chown` de `/var/lib/monitoring/{prometheus,loki,grafana}` a los UID 65534, 10001 y 472.
 
@@ -796,7 +796,7 @@ Junto a cada regla van la fecha de la última comprobación y el nombre del fich
 
 **Comprobación.** Todos los targets en UP con `scrapeUrl` que empieza por `https://`. `curl` sin CA da error 60, con CA y sin credenciales da 401, con las dos devuelve métricas. `curl --cacert ca.crt https://mon01.dev.lab:3100/ready` sin certificado de cliente falla con `certificate required` y con él responde `ready`. En tcpdump del 9100 ya no se lee `GET /metrics`; `nmap -sV` muestra `ssl/http`. Grafana abre en el 443 con certificado válido, sin acceso anónimo, y muestra logs de Loki. En Grafana, `{service="api"} |= "password="` no devuelve nada sin asteriscos.
 
-**Entrega.** Nada que entregar todavía. Deja en `monitoring/seguridad/` los `web.yml` (con el hash sustituido por `<bcrypt>`), la configuración de nginx, los fragmentos de Loki y Promtail, las variables de Grafana y los ficheros de comprobación en `monitoring/audit/despues/`. Completa la columna "obtenido (después)" de la matriz. Todo esto es la parte "después" de la práctica evaluable.
+**Entrega.** Nada que entregar todavía. Deja en `monitoring/seguridad/` los `web.yml` (hash sustituido por `<bcrypt>`), la configuración de nginx, los fragmentos de Loki y Promtail y las variables de Grafana; las comprobaciones van en `monitoring/audit/despues/`. Completa la columna "obtenido (después)" de la matriz.
 
 **Si te sobra tiempo.** Emite un certificado con otra CA improvisada, ponlo en un node_exporter y observa el error exacto que da Prometheus; vuelve a dejar el bueno.
 

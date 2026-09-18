@@ -887,7 +887,7 @@ Repetid la prueba con un corte de 12 minutos, o bajando `max_retries` a 3, y ya 
 
 ## Material de práctica
 
-Cada hoja corresponde a una sesión y está pensada para seguirla de arriba abajo sin volver a los apartados teóricos: los comandos y ficheros que hacen falta están copiados aquí. Si algo falla, el apartado [Errores frecuentes en el laboratorio](#errores-frecuentes-en-el-laboratorio) tiene los diez fallos que más se repiten.
+Una hoja por sesión, para seguirla de arriba abajo. Los ficheros largos (compose, `promtail.yml`, código de la API) están en el apartado teórico que enlaza cada paso; los comandos, aquí. Si algo falla, mira primero [Errores frecuentes en el laboratorio](#errores-frecuentes-en-el-laboratorio).
 
 ### A1.1 Presentación y el contenedor de referencia (sesión 1)
 
@@ -899,9 +899,9 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
 
 **Antes de empezar.**
 
-- La VM app01 creada desde la plantilla cloud-init de 5166 o, si todavía no existe, Docker Engine en tu puesto; el servicio se traslada a la VM en cuanto Despliegue la clone.
-- El compose del servicio del curso (el tuyo de 5166 o el que doy en clase, en Aules).
-- La pila mínima de mon01 (compose que doy en clase); en esta sesión no la usamos todavía, pero conviene levantarla para la próxima.
+- La VM app01 de 5166 o, si todavía no existe, Docker Engine en tu puesto.
+- El compose del servicio del curso (el tuyo de 5166 o el de clase, en Aules).
+- La pila mínima de mon01 (compose de clase); hoy no se usa, pero conviene dejarla levantada para la próxima sesión.
 - Lo explicado antes: [Qué expone un contenedor](#que-expone-un-contenedor).
 
 **Pasos.**
@@ -916,15 +916,7 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
 
     Si trabajas en el puesto y no en app01, sustituye la IP de web01 por `localhost` en todo lo que sigue.
 
-2. Abre tres terminales en app01 y deja cada una con uno de estos comandos en marcha:
-
-    ```bash
-    docker stats
-    docker logs -f servicio-app-1
-    docker events --format '{{json .}}'
-    ```
-
-    Si el contenedor de la API se llama de otra forma, `docker compose ps` te dice el nombre.
+2. Abre tres terminales en app01, una con `docker stats`, otra con `docker logs -f servicio-app-1` y otra con `docker events --format '{{json .}}'` (si el contenedor de la API se llama de otra forma, `docker compose ps` te dice el nombre).
 
 3. Desde tu puesto genera tráfico en un cuarto terminal:
 
@@ -932,7 +924,7 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
     while true; do curl -s -o /dev/null -w '%{http_code}\n' http://10.10.1.10/health; sleep 0.2; done
     ```
 
-    Apunta qué cambia en `docker stats` (CPU y red del contenedor `app`) y qué escribe la API por cada petición.
+    Apunta qué cambia en `docker stats` y qué escribe la API por cada petición.
 
 4. Para la base de datos y mira el reloj:
 
@@ -951,13 +943,13 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
     grep -E '^(anon|file|inactive_file) ' /sys/fs/cgroup/system.slice/docker-$ID.scope/memory.stat
     ```
 
-    `memory.current` es bytes; la columna MEM USAGE de `docker stats` va en MiB y descuenta parte de la caché. Calcula `memory.current - inactive_file` y compáralo con lo que muestra `docker stats`.
+    Calcula `memory.current - inactive_file` (en MiB) y compáralo con la columna MEM USAGE de `docker stats`.
 
-**Comprobación.** El bucle de `curl` devuelve 200 con la base de datos arriba y 500 (o 503) con ella parada; en el terminal de eventos aparece el `die` de `db` con `exitCode` 0 (parada limpia) y después el `start`; la resta `memory.current - inactive_file` se queda a unos pocos MiB de lo que dice `docker stats`.
+**Comprobación.** El bucle de `curl` devuelve 200 con la base de datos arriba y 500 (o 503) con ella parada; en el terminal de eventos aparece el `die` de `db` con `exitCode` 0 y después el `start`; la resta del paso 5 se queda a unos pocos MiB de lo que dice `docker stats`.
 
-**Entrega.** Una tabla con tres filas (métricas, logs, eventos) y tres columnas (qué se vio al parar la BD, cuántos segundos tardó, qué se vio al arrancarla), más la comparación de memoria del paso 5. Se guarda en `tests/evidence/ut1/a1.1.md` del repositorio `servicio`.
+**Entrega.** Una tabla con tres filas (métricas, logs, eventos) y tres columnas (qué se vio al parar la BD, cuántos segundos tardó, qué se vio al arrancarla), más la comparación de memoria, en `tests/evidence/ut1/a1.1.md` del repositorio `servicio`.
 
-**Si te sobra tiempo.** Cambia el bucle para que pida una ruta que consulte la base de datos (no `/health`) y comprueba si la API devuelve error o se queda colgada: la diferencia la marca el timeout de conexión a PostgreSQL de tu API.
+**Si te sobra tiempo.** Repite con una ruta que consulte la base de datos (no `/health`) y comprueba si la API devuelve error o se queda colgada.
 
 ### A1.2 Métricas de recursos (sesión 2)
 
@@ -973,33 +965,7 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
 
 **Pasos.**
 
-1. Crea en app01 el compose de agentes, separado del servicio para que reiniciar la API no tumbe los agentes:
-
-    ```yaml
-    # /opt/agentes/compose.yml en app01
-    services:
-      cadvisor:
-        image: gcr.io/cadvisor/cadvisor:v0.52.1
-        container_name: cadvisor
-        privileged: true
-        devices:
-          - /dev/kmsg
-        volumes:
-          - /:/rootfs:ro
-          - /var/run:/var/run:ro
-          - /sys:/sys:ro
-          - /var/lib/docker/:/var/lib/docker:ro
-          - /dev/disk/:/dev/disk:ro
-        command:
-          - --docker_only=true
-          - --housekeeping_interval=10s
-          - --store_container_labels=false
-          - --whitelisted_container_labels=com.docker.compose.service,com.docker.compose.project
-          - --disable_metrics=percpu,sched,tcp,udp,hugetlb,referenced_memory,cpu_topology,resctrl
-        ports:
-          - "8081:8080"
-        restart: unless-stopped
-    ```
+1. Crea en app01 `/opt/agentes/compose.yml` con el servicio `cadvisor` tal como está en [cAdvisor en compose](#cadvisor-en-compose) (compose separado del servicio, para que reiniciar la API no tumbe los agentes) y arráncalo:
 
     ```bash
     cd /opt/agentes && docker compose up -d
@@ -1008,33 +974,9 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
 
     Localiza en esa salida la etiqueta que identifica cada servicio de compose (`container_label_com_docker_compose_service`) y apunta qué valores toma.
 
-2. Cuenta cuántas métricas distintas expone cAdvisor antes de filtrar, para compararlo después:
+2. Cuenta cuántas métricas distintas expone cAdvisor antes de filtrar: `curl -s localhost:8081/metrics | grep -v '^#' | cut -d'{' -f1 | sort -u | wc -l`.
 
-    ```bash
-    curl -s localhost:8081/metrics | grep -v '^#' | cut -d'{' -f1 | sort -u | wc -l
-    ```
-
-3. Añade el job en `prometheus.yml` de mon01 con el relabel que deja `service`. Primero sin el bloque `keep` (las tres últimas líneas), para medir:
-
-    ```yaml
-    # prometheus.yml en mon01 (fragmento)
-    scrape_configs:
-      - job_name: cadvisor
-        scrape_interval: 15s
-        static_configs:
-          - targets: ["10.10.2.10:8081"]
-            labels: { host: app01 }
-        metric_relabel_configs:
-          - source_labels: [container_label_com_docker_compose_service]
-            target_label: service
-          - regex: container_label_com_docker_compose_project
-            action: labeldrop
-          - source_labels: [__name__]
-            regex: container_(cpu_usage_seconds_total|memory_working_set_bytes|memory_usage_bytes|spec_memory_limit_bytes|network_(receive|transmit)_bytes_total|fs_(reads|writes)_bytes_total|oom_events_total|last_seen)
-            action: keep
-    ```
-
-    Sustituye `10.10.2.10` por la IP de tu app01 en vmbr0. Recarga Prometheus (`docker compose restart prometheus` en mon01, o `curl -X POST localhost:9090/-/reload` si arranca con `--web.enable-lifecycle`) y comprueba en `http://<mon01>:9090/targets` que `cadvisor` está en UP.
+3. Añade en `prometheus.yml` de mon01 el job `cadvisor` de [Etiquetas y cardinalidad](#etiquetas-y-cardinalidad), con la IP de tu app01 en vmbr0 y, de momento, sin las tres últimas líneas (el bloque `keep`), para poder medir. Recarga Prometheus (`docker compose restart prometheus` en mon01, o `curl -X POST localhost:9090/-/reload` si arranca con `--web.enable-lifecycle`) y comprueba en `http://<mon01>:9090/targets` que `cadvisor` está en UP.
 
 4. Sin el `keep`, ejecuta en `http://<mon01>:9090/graph` y apunta el resultado:
 
@@ -1056,15 +998,15 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
     container_memory_working_set_bytes{service!=""} / container_spec_memory_limit_bytes * 100
     ```
 
-    Si el porcentaje sale casi cero es que el contenedor no tiene límite: pon `mem_limit: 256m` al servicio `app` en el compose del servicio, `docker compose up -d` y vuelve a mirar.
+    Si el porcentaje sale casi cero, el contenedor no tiene límite: pon `mem_limit: 256m` al servicio `app`, `docker compose up -d` y vuelve a mirar.
 
-6. Genera tráfico con el bucle de A1.1 durante dos minutos y comprueba que el panel de CPU del servicio `app` sube.
+6. Genera tráfico con el bucle de A1.1 durante dos minutos y comprueba que la CPU de `app` sube en el panel.
 
-**Comprobación.** `cadvisor` en UP en Targets; las series llevan `service="app"`, `service="db"`, `service="nginx"` y ninguna `container_label_*`; los dos paneles pintan una línea por servicio y el número de series después del `keep` es varias veces menor que antes.
+**Comprobación.** `cadvisor` en UP en Targets; las series llevan `service` y ninguna `container_label_*`; los dos paneles pintan una línea por servicio y el número de series tras el `keep` es varias veces menor.
 
-**Entrega.** Captura de los dos paneles y una línea con los cuatro números (métricas distintas y series, antes y después del `keep`), en `tests/evidence/ut1/a1.2.md`. Guarda también `/opt/agentes/compose.yml` y el fragmento de `prometheus.yml` en el repositorio `monitoring`.
+**Entrega.** Captura de los dos paneles y los cuatro números (métricas distintas y series, antes y después del `keep`), en `tests/evidence/ut1/a1.2.md`. El compose de agentes y el fragmento de `prometheus.yml` van al repositorio `monitoring`.
 
-**Si te sobra tiempo.** Cambia la ventana del `rate()` a `[30s]` en el panel de CPU y observa cómo se rompe la gráfica; después vuelve a `[2m]`. Añade un tercer panel con `rate(container_network_receive_bytes_total{service!=""}[2m])`.
+**Si te sobra tiempo.** Cambia la ventana del `rate()` a `[30s]` en el panel de CPU y observa cómo se rompe la gráfica; después vuelve a `[2m]`.
 
 ### A1.3 Instrumentar la aplicación (sesión 3)
 
@@ -1080,45 +1022,7 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
 
 **Pasos.**
 
-1. Añade la librería cliente a las dependencias de la API (`prometheus_client` en `requirements.txt`, o `npm install prom-client`) y crea el módulo de instrumentación. Para Python:
-
-    ```python
-    # metrics.py
-    import time
-    from flask import Flask, request, g
-    from prometheus_client import Counter, Histogram, Gauge, start_http_server
-
-    REQUESTS = Counter(
-        "app_http_requests_total",
-        "Peticiones HTTP atendidas",
-        ["method", "route", "status"],
-    )
-    LATENCY = Histogram(
-        "app_http_request_duration_seconds",
-        "Duración de la petición en segundos",
-        ["method", "route"],
-        buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5),
-    )
-    INFLIGHT = Gauge("app_http_requests_in_flight", "Peticiones en curso")
-
-    def instrument(app: Flask) -> None:
-        @app.before_request
-        def _start():
-            g.t0 = time.perf_counter()
-            INFLIGHT.inc()
-
-        @app.after_request
-        def _end(resp):
-            route = request.url_rule.rule if request.url_rule else "unmatched"
-            LATENCY.labels(request.method, route).observe(time.perf_counter() - g.t0)
-            REQUESTS.labels(request.method, route, str(resp.status_code)).inc()
-            INFLIGHT.dec()
-            return resp
-
-        start_http_server(9102)   # sirve /metrics en 0.0.0.0:9102
-    ```
-
-    Llama a `instrument(app)` al crear la aplicación. Para Node, el equivalente con prom-client está en el apartado teórico; el nombre de las métricas y las etiquetas tienen que ser los mismos.
+1. Añade la librería cliente a las dependencias de la API (`prometheus_client` en `requirements.txt`, o `npm install prom-client`) y crea el módulo de instrumentación copiando `metrics.py` de [Python con prometheus_client](#python-con-prometheus_client) o `metrics.js` de [Node con prom-client](#node-con-prom-client). Llama a `instrument(app)` al crear la aplicación. Los nombres de las métricas y sus etiquetas (`method`, `route`, `status`) tienen que quedar como en el apartado.
 
 2. Publica el puerto 9102 del contenedor `app` en el compose del servicio (`ports: ["9102:9102"]`), reconstruye y comprueba:
 
@@ -1129,45 +1033,9 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
 
     Si la API corre con gunicorn y más de un worker, los valores saltarán entre scrapes: pon un solo worker por ahora o activa el modo multiproceso de la librería.
 
-3. Crea el usuario de solo lectura en PostgreSQL (db01):
+3. Crea en PostgreSQL (db01) el usuario `postgres_exporter` con el rol `pg_monitor`, con las tres sentencias SQL de [Exporters](#exporters-lo-que-no-puedes-instrumentar).
 
-    ```sql
-    CREATE USER postgres_exporter WITH PASSWORD 'cámbiame';
-    GRANT pg_monitor TO postgres_exporter;
-    GRANT CONNECT ON DATABASE servicio TO postgres_exporter;
-    ```
-
-4. Añade postgres_exporter al compose de db01 con una consulta personalizada sobre una tabla del servicio (adapta el `SELECT` a tu esquema):
-
-    ```yaml
-    # en el compose de db01
-      postgres_exporter:
-        image: quay.io/prometheuscommunity/postgres-exporter:latest
-        command: ["--extend.query-path=/etc/queries.yaml"]
-        environment:
-          DATA_SOURCE_URI: "db:5432/servicio?sslmode=disable"
-          DATA_SOURCE_USER: postgres_exporter
-          DATA_SOURCE_PASS_FILE: /run/secrets/pgx_pass
-        secrets: [pgx_pass]
-        volumes:
-          - ./queries.yaml:/etc/queries.yaml:ro
-        ports: ["9187:9187"]
-        depends_on: [db]
-    secrets:
-      pgx_pass:
-        file: ./pgx_pass.txt
-    ```
-
-    ```yaml
-    # queries.yaml
-    pedidos_pendientes:
-      query: "SELECT count(*) AS total, EXTRACT(EPOCH FROM now() - min(creado)) AS edad_max FROM pedidos WHERE estado = 'pendiente'"
-      metrics:
-        - total:    { usage: GAUGE, description: "Pedidos sin procesar" }
-        - edad_max: { usage: GAUGE, description: "Segundos del pedido pendiente más antiguo" }
-    ```
-
-    Escribe la contraseña en `pgx_pass.txt` (y añádelo a `.gitignore`), `docker compose up -d postgres_exporter` y comprueba con `curl -s localhost:9187/metrics | grep -E '^pg_up|^pg_pedidos'`. `pg_up 1` es lo primero que tiene que salir.
+4. Añade al compose de db01 el servicio `postgres_exporter` de ese mismo apartado y el fichero `queries.yaml` con una consulta sobre una tabla de tu servicio (adapta el `SELECT` a tu esquema). Para que lo lea, añade al servicio `command: ["--extend.query-path=/etc/queries.yaml"]` y monta el fichero en `/etc/queries.yaml`; el secreto `pgx_pass` se declara al final del compose con `file: ./pgx_pass.txt` (y ese fichero va en `.gitignore`). `docker compose up -d postgres_exporter` y comprueba con `curl -s localhost:9187/metrics | grep -E '^pg_up|^pg_pedidos'`: `pg_up 1` es lo primero que tiene que salir.
 
 5. Añade los dos jobs en `prometheus.yml` de mon01 y recarga:
 
@@ -1191,11 +1059,11 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
     sum(rate(app_http_requests_total{status=~"5.."}[5m])) / sum(rate(app_http_requests_total[5m])) * 100
     ```
 
-**Comprobación.** `app` y `postgres` en UP en Targets; `curl localhost:9102/metrics` muestra `app_http_requests_total` con `route` en forma de plantilla (`/items/<int:id>`, nunca `/items/48213`); `pg_up` vale 1 y la métrica personalizada aparece con el prefijo `pg_`; el p95 da un número en segundos coherente con lo que tarda la API y el porcentaje de 5xx sube solo mientras la base de datos está parada.
+**Comprobación.** `app` y `postgres` en UP en Targets; `app_http_requests_total` lleva `route` en forma de plantilla (`/items/<int:id>`, nunca `/items/48213`); `pg_up` vale 1 y la métrica personalizada aparece con prefijo `pg_`; el p95 sale en segundos y el porcentaje de 5xx sube solo mientras la base de datos está parada.
 
-**Entrega.** En `tests/evidence/ut1/a1.3.md`: el fragmento de código de la instrumentación, `queries.yaml`, los jobs de `prometheus.yml` y las dos consultas con su resultado (captura o valor). El código va además en el repositorio `servicio` con un commit propio.
+**Entrega.** En `tests/evidence/ut1/a1.3.md`: el código de la instrumentación, `queries.yaml`, los jobs de `prometheus.yml` y las dos consultas con su resultado. El código va además al repositorio `servicio` con un commit propio.
 
-**Si te sobra tiempo.** Añade el gauge `app_db_reachable` (1 si la última consulta a PostgreSQL funcionó) y comprueba que baja a 0 al parar la base de datos. Calcula el número de series del counter con `count(app_http_requests_total)` y compáralo con el producto método × ruta × estado.
+**Si te sobra tiempo.** Añade el gauge `app_db_reachable` (1 si la última consulta a PostgreSQL funcionó) y comprueba que baja a 0 al parar la base de datos.
 
 ### A1.4 Logs estructurados (sesión 4)
 
@@ -1211,15 +1079,7 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
 
 **Pasos.**
 
-1. Limita el driver `json-file` en las tres VM y recrea los contenedores (la opción solo aplica a contenedores creados después):
-
-    ```json
-    // /etc/docker/daemon.json en app01, db01 y web01
-    {
-      "log-driver": "json-file",
-      "log-opts": { "max-size": "50m", "max-file": "5" }
-    }
-    ```
+1. Limita el driver `json-file` en las tres VM con el `daemon.json` de [El driver de logs de Docker](#el-driver-de-logs-de-docker-y-por-que-limitarlo) (50 MB, 5 ficheros) y recrea los contenedores, porque la opción solo aplica a los creados después:
 
     ```bash
     sudo systemctl restart docker
@@ -1227,173 +1087,15 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
     docker inspect -f '{{.HostConfig.LogConfig}}' servicio-app-1    # {json-file map[max-file:5 max-size:50m]}
     ```
 
-2. En web01, haz que nginx genere el `request_id`, lo pase a la API y escriba el acceso en JSON:
+2. En web01, haz que nginx genere el `request_id`, lo pase a la API y escriba el acceso en JSON: las directivas están en [Logs estructurados: JSON con request_id](#logs-estructurados-json-con-request_id). `log_format` va en el bloque `http`, `proxy_set_header`, `add_header` y `access_log` en el `server`. Recarga (`nginx -t && systemctl reload nginx`, o el equivalente si nginx va en contenedor) y comprueba con `curl -i http://10.10.1.10/health | grep -i x-request-id` que la cabecera vuelve.
 
-    ```nginx
-    # web01: en el server del proxy
-    proxy_set_header X-Request-ID $request_id;
-    add_header X-Request-ID $request_id always;
+3. En la API, copia el `JsonFormatter` y los dos hooks `_rid` y `_rid_out` del mismo apartado (en Node, `pino` con un middleware que lea `req.headers["x-request-id"]` hace lo mismo). Añade un `logging.getLogger(__name__).info("request done")` en el `after_request` para que cada petición deje al menos una línea. Reconstruye (`docker compose up -d --build app`) y comprueba con `docker logs --tail 3 servicio-app-1` que cada línea es un JSON con `ts`, `level`, `msg` y `request_id`.
 
-    log_format json escape=json '{"ts":"$time_iso8601","level":"info","msg":"access",'
-      '"request_id":"$request_id","method":"$request_method","uri":"$request_uri",'
-      '"status":$status,"bytes":$body_bytes_sent,"duration_ms":$request_time,'
-      '"upstream":"$upstream_addr","client":"$remote_addr"}';
-    access_log /var/log/nginx/access.json json;
-    ```
+4. Monta Loki en mon01. Añade al compose de monitorización un servicio `loki` (imagen `grafana/loki:3.5.3`, `command: -config.file=/etc/loki/loki.yml`, puerto 3100 y un volumen con nombre montado en `/loki`) y crea `/opt/monitoring/loki/loki.yml` copiando el del apartado [Loki](#loki) tal cual. `docker compose up -d loki` y comprueba con `curl -s localhost:3100/ready` que responde `ready` (tarda unos 15 s).
 
-    `log_format` va en el bloque `http`, el resto en el `server`. Recarga (`nginx -t && systemctl reload nginx`, o el equivalente si nginx va en contenedor) y comprueba con `curl -i http://10.10.1.10/health | grep -i x-request-id` que la cabecera vuelve.
+5. Despliega Promtail en app01: copia `/opt/agentes/promtail.yml` y el servicio `promtail` del compose de agentes tal como están en [Promtail](#promtail), con la IP de tu mon01 en `clients`, y añade `user: root` al servicio (o `group_add` con el gid del grupo `docker`) para que pueda leer el socket. `docker compose up -d promtail` y mira `docker logs promtail`: no debe haber errores de socket ni respuestas 4xx de Loki.
 
-3. En la API, formateador JSON y filtro que recoge el id de la cabecera (Python; en Node, `pino` con un middleware que lea `req.headers["x-request-id"]` hace lo mismo):
-
-    ```python
-    import json, logging, uuid, sys
-    from flask import request, g
-
-    class JsonFormatter(logging.Formatter):
-        def format(self, record):
-            d = {
-                "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S") + f".{int(record.msecs):03d}Z",
-                "level": record.levelname.lower(),
-                "logger": record.name,
-                "msg": record.getMessage(),
-                "request_id": getattr(g, "request_id", None) if request else None,
-            }
-            if record.exc_info:
-                d["exc"] = self.formatException(record.exc_info)
-            return json.dumps(d, ensure_ascii=False)
-
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(JsonFormatter())
-    logging.basicConfig(level=logging.INFO, handlers=[handler])
-
-    @app.before_request
-    def _rid():
-        g.request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex)
-
-    @app.after_request
-    def _rid_out(resp):
-        resp.headers["X-Request-ID"] = g.request_id
-        return resp
-    ```
-
-    Añade un `logging.getLogger(__name__).info("request done")` en el `after_request` para que cada petición deje al menos una línea. Reconstruye (`docker compose up -d --build app`) y comprueba con `docker logs --tail 3 servicio-app-1` que cada línea es un JSON con `ts`, `level`, `msg` y `request_id`.
-
-4. Monta Loki en mon01. Añade al compose de monitorización el servicio y su configuración:
-
-    ```yaml
-    # en /opt/monitoring/compose.yml de mon01
-      loki:
-        image: grafana/loki:3.5.3
-        command: -config.file=/etc/loki/loki.yml
-        volumes:
-          - ./loki/loki.yml:/etc/loki/loki.yml:ro
-          - loki:/loki
-        ports: ["3100:3100"]
-        restart: unless-stopped
-    volumes:
-      loki:
-    ```
-
-    El fichero `/opt/monitoring/loki/loki.yml` es el del apartado [Loki](#loki), copiado tal cual (modo monolítico, retención de 7 días, `allow_structured_metadata: true`). `docker compose up -d loki` y comprueba con `curl -s localhost:3100/ready` que responde `ready` (tarda unos 15 s).
-
-5. Despliega Promtail en app01 con el compose de agentes:
-
-    ```yaml
-    # /opt/agentes/promtail.yml en app01
-    server:
-      http_listen_port: 9080
-
-    positions:
-      filename: /var/lib/promtail/positions.yaml
-
-    clients:
-      - url: http://10.10.0.20:3100/loki/api/v1/push
-        external_labels:
-          host: app01
-          env: dev
-        batchwait: 1s
-        batchsize: 1048576
-        backoff_config:
-          min_period: 500ms
-          max_period: 5m
-          max_retries: 10
-        timeout: 10s
-
-    scrape_configs:
-      - job_name: docker
-        docker_sd_configs:
-          - host: unix:///var/run/docker.sock
-            refresh_interval: 5s
-        relabel_configs:
-          - source_labels: [__meta_docker_container_name]
-            regex: '/(.*)'
-            target_label: container
-          - source_labels: [__meta_docker_container_label_com_docker_compose_service]
-            target_label: service
-          - source_labels: [__meta_docker_container_label_com_docker_compose_project]
-            target_label: project
-          - source_labels: [__meta_docker_container_log_stream]
-            target_label: stream
-        pipeline_stages:
-          - match:
-              selector: '{service="app"}'
-              stages:
-                - json:
-                    expressions:
-                      level: level
-                      ts: ts
-                      request_id: request_id
-                - timestamp:
-                    source: ts
-                    format: RFC3339Nano
-                - labels:
-                    level:
-                - structured_metadata:
-                    request_id:
-          - match:
-              selector: '{service="app"} !~ "^\\{"'
-              stages:
-                - static_labels:
-                    malformed: "true"
-    ```
-
-    ```yaml
-    # en /opt/agentes/compose.yml
-      promtail:
-        image: grafana/promtail:3.5.3
-        container_name: promtail
-        user: root
-        command: -config.file=/etc/promtail/promtail.yml
-        volumes:
-          - ./promtail.yml:/etc/promtail/promtail.yml:ro
-          - /var/run/docker.sock:/var/run/docker.sock:ro
-          - promtail-positions:/var/lib/promtail
-        ports:
-          - "9080:9080"
-        restart: unless-stopped
-    volumes:
-      promtail-positions:
-    ```
-
-    Sustituye `10.10.0.20` por la IP de tu mon01. `docker compose up -d promtail` y mira `docker logs promtail`: no debe haber errores de socket ni respuestas 4xx de Loki.
-
-6. Promtail en web01, leyendo el fichero de nginx. Mismo compose y mismo `clients` con `host: web01`, pero con `static_configs` en lugar de `docker_sd_configs`, y el fichero montado en el contenedor:
-
-    ```yaml
-    scrape_configs:
-      - job_name: nginx
-        static_configs:
-          - targets: [localhost]
-            labels:
-              service: nginx
-              container: nginx
-              __path__: /var/log/nginx/access.json
-        pipeline_stages:
-          - json:
-              expressions: { ts: ts, request_id: request_id }
-          - timestamp: { source: ts, format: RFC3339 }
-          - structured_metadata: { request_id: }
-    ```
+6. Promtail en web01, leyendo el fichero de nginx: mismo compose y mismo bloque `clients` con `host: web01`, `/var/log/nginx` montado en el contenedor, y en `scrape_configs` un job `nginx` con `static_configs` en lugar de `docker_sd_configs` (`targets: [localhost]` y `labels` con `service: nginx`, `container: nginx` y `__path__: /var/log/nginx/access.json`). El pipeline es el mismo que el de `app` sin la etapa `labels`.
 
 7. En Grafana, añade Loki como fuente de datos (`http://loki:3100`) y abre Explore. Genera unas peticiones y ejecuta:
 
@@ -1406,11 +1108,11 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
 
     El `request_id` lo sacas de la cabecera de una petición: `curl -si http://10.10.1.10/health | grep -i x-request-id`.
 
-**Comprobación.** `docker inspect` muestra los límites del driver en los tres hosts; en Explore, `{host="app01"}` devuelve líneas con `container`, `service` y `level`; la consulta con `|= "<request_id>"` devuelve exactamente dos líneas (la de nginx y la de la API) con la misma marca de tiempo salvo milisegundos; `{service="app", malformed="true"}` está vacío o solo tiene las líneas de arranque.
+**Comprobación.** `docker inspect` muestra los límites del driver en los tres hosts; `{host="app01"}` devuelve líneas con `container`, `service` y `level`; la consulta por `request_id` devuelve dos líneas (nginx y API) con la misma marca de tiempo salvo milisegundos; `{service="app", malformed="true"}` está vacío o solo tiene líneas de arranque.
 
-**Entrega.** En `tests/evidence/ut1/a1.4.md`: el `promtail.yml` de app01 y el de web01, una captura de Explore con la petición correlada en los dos hosts y la salida de `docker inspect` con los límites del driver. Los ficheros de configuración van además al repositorio `monitoring`.
+**Entrega.** En `tests/evidence/ut1/a1.4.md`: los dos `promtail.yml`, una captura de Explore con la petición correlada en los dos hosts y la salida de `docker inspect` con los límites del driver. Las configuraciones van además al repositorio `monitoring`.
 
-**Si te sobra tiempo.** Añade Promtail a db01 con `docker_sd_configs` y localiza en Loki las líneas de PostgreSQL al parar y arrancar la base de datos. Comprueba con `logcli series '{host="app01"}'` cuántos streams genera tu configuración.
+**Si te sobra tiempo.** Añade Promtail a db01 con `docker_sd_configs` y localiza en Loki las líneas de PostgreSQL al parar y arrancar la base de datos.
 
 ### A1.5 Eventos (sesión 5)
 
@@ -1432,20 +1134,7 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
     docker events --since 30m --filter type=container --format '{{json .}}'
     ```
 
-2. Añade el contenedor auxiliar al compose de agentes de app01:
-
-    ```yaml
-    # en /opt/agentes/compose.yml
-      docker-events:
-        image: docker:28-cli
-        container_name: docker-events
-        command: docker events --filter type=container --format '{{json .}}'
-        volumes:
-          - /var/run/docker.sock:/var/run/docker.sock:ro
-        restart: unless-stopped
-    ```
-
-    Como está en el mismo compose que los demás agentes, Promtail le pone `service="docker-events"` sin hacer nada.
+2. Añade al compose de agentes de app01 el servicio `docker-events` de [Eventos del demonio Docker](#eventos-del-demonio-docker) (imagen `docker:28-cli` con el socket montado). Como está en el mismo compose que los demás agentes, Promtail le pone `service="docker-events"` sin hacer nada.
 
 3. Añade en `promtail.yml` un tercer `match`, al mismo nivel que los dos de `{service="app"}`, que extrae `Action` a etiqueta y el nombre del contenedor a structured metadata:
 
@@ -1467,20 +1156,13 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
 
     `docker compose up -d` en `/opt/agentes` (arranca docker-events y recrea promtail) y comprueba en Explore que `{service="docker-events"}` empieza a devolver líneas (el `start` de docker-events es la primera).
 
-4. Provoca los tres eventos en la API, apuntando la hora de cada uno:
+4. Provoca los tres eventos en la API, apuntando la hora (`date`) de cada uno:
 
-    ```bash
-    # die con SIGKILL
-    date; docker kill -s SIGKILL servicio-app-1
-    # oom: pon mem_limit: 32m al servicio app en el compose, docker compose up -d app,
-    # y pide una ruta que cargue datos (o varias peticiones en paralelo)
-    date; for i in $(seq 1 50); do curl -s -o /dev/null http://10.10.1.10/items & done; wait
-    # unhealthy: cambia la ruta del healthcheck en el compose por una que no exista,
-    # docker compose up -d app, y espera retries × interval
-    date; docker inspect -f '{{.State.Health.Status}}' servicio-app-1
-    ```
+    - `die`: `docker kill -s SIGKILL servicio-app-1`.
+    - `oom`: pon `mem_limit: 32m` al servicio `app` en el compose, `docker compose up -d app` y lanza peticiones que carguen datos: `for i in $(seq 1 50); do curl -s -o /dev/null http://10.10.1.10/items & done; wait`. Si no salta, baja a 16 MB; si la API ni arranca, sube a 48.
+    - `health_status: unhealthy`: cambia la ruta del healthcheck en el compose por una que no exista, `docker compose up -d app` y espera `retries` × `interval`; `docker inspect -f '{{.State.Health.Status}}' servicio-app-1` dice cuándo ha pasado a `unhealthy`.
 
-    Si el `oom` no salta con 32 MB, baja a 16 o pide más datos; si la API ni arranca, sube a 48. Al terminar, deja el compose como estaba.
+    Al terminar, deja el compose como estaba.
 
 5. Localiza cada evento en Loki con una consulta:
 
@@ -1492,11 +1174,11 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
 
     Abre cada línea y apunta el `exitCode` de cada `die`: 137 tras el SIGKILL y tras el `oom`, y el código que devuelva la API cuando compose la recrea (143 si atiende SIGTERM).
 
-**Comprobación.** Las tres consultas devuelven al menos una línea cada una, con la hora que apuntaste (mismo minuto); el `oom` va seguido de un `die` con `exitCode` 137; `docker inspect` muestra `unhealthy` en el momento en que aparece el evento en Loki.
+**Comprobación.** Las tres consultas devuelven al menos una línea con la hora que apuntaste; el `oom` va seguido de un `die` con `exitCode` 137; `docker inspect` dice `unhealthy` cuando el evento aparece en Loki.
 
-**Entrega.** En `tests/evidence/ut1/a1.5.md`: las tres consultas con su resultado (captura o líneas copiadas) y la lista de `exitCode` observados con su causa. El `match` nuevo se guarda en el `promtail.yml` del repositorio `monitoring`.
+**Entrega.** En `tests/evidence/ut1/a1.5.md`: las tres consultas con su resultado y la lista de `exitCode` observados con su causa. El `match` nuevo va al `promtail.yml` del repositorio `monitoring`.
 
-**Si te sobra tiempo.** Cuenta cuántos `restart` genera una API con `restart: unless-stopped` que muere nada más arrancar (rompe el comando de arranque un minuto) con `count_over_time({service="docker-events", action="restart"}[5m])`. Comprueba que `container_oom_events_total` de cAdvisor también ha subido.
+**Si te sobra tiempo.** Comprueba que `container_oom_events_total` de cAdvisor también ha subido con el `oom`.
 
 ### A1.6 Integridad y almacenamiento (sesión 6)
 
@@ -1506,27 +1188,13 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
 
 **Antes de empezar.**
 
-- Todos los flujos funcionando (A1.2 a A1.5): cAdvisor, `/metrics` de la API, postgres_exporter, Promtail en app01 y web01, docker-events.
-- Acceso root en app01 para nftables y en las cinco VM para chrony.
-- `logcli` instalado en mon01 o en el puesto (binario de la [release de Loki](https://github.com/grafana/loki/releases)) con `export LOKI_ADDR=http://<mon01>:3100`.
+- Todos los flujos funcionando (A1.2 a A1.5) y acceso root en las cinco VM.
+- `logcli` en mon01 o en el puesto (binario de la [release de Loki](https://github.com/grafana/loki/releases)) con `export LOKI_ADDR=http://<mon01>:3100`.
 - Lo explicado antes: [Verificar la integración](#verificar-la-integracion), [relojes: chrony](#relojes-chrony) y [qué pasa cuando se pierde la red](#que-pasa-cuando-se-pierde-la-red).
 
 **Pasos.**
 
-1. Sincroniza los relojes. En las cuatro VM del servicio y en mon01:
-
-    ```bash
-    sudo apt install chrony
-    sudo tee /etc/chrony/sources.d/lab.sources <<EOT
-    pool 2.debian.pool.ntp.org iburst
-    EOT
-    echo "makestep 1 -1" | sudo tee /etc/chrony/conf.d/lab.conf
-    sudo systemctl restart chrony
-    chronyc sources -v      # ^* delante de la fuente elegida
-    chronyc tracking        # System time : 0.000213 seconds fast of NTP time
-    ```
-
-    En el entorno provisional no hay OPNsense, por eso solo la línea `pool`; cuando las VM pasen a la VPC dev se añade `server 10.10.0.1 iburst prefer`. Guarda la salida de `chronyc tracking` de cada VM.
+1. Sincroniza los relojes. En las cuatro VM del servicio y en mon01, instala chrony con los comandos de [Relojes: chrony](#relojes-chrony) (en el entorno provisional no hay OPNsense: solo la línea `pool`) y añade `makestep 1 -1` en `/etc/chrony/conf.d/lab.conf`. Guarda la salida de `chronyc tracking` de cada VM.
 
 2. Ejecuta la tabla de verificación fila a fila (está en [Verificar la integración](#verificar-la-integracion)) y anota, para cada una, el comando exacto, la salida y si cuadra con lo esperado. Para la fila de integridad de logs, haz la prueba limpia con un número conocido de líneas:
 
@@ -1542,37 +1210,19 @@ La primera media hora es la presentación de la asignatura (evaluación, laborat
 
     Apunta las dos cifras; deben ser 500 y 500 (o 1000 y 1000 si la API escribe dos líneas por petición).
 
-3. Anota los contadores de pérdidas antes del corte, en `http://<mon01>:9090/graph`:
+3. Anota antes del corte `promtail_dropped_entries_total` y `loki_discarded_samples_total` (en Prometheus) y `count_over_time({service="app"}[1h])` (en Loki).
 
-    ```promql
-    promtail_dropped_entries_total
-    loki_discarded_samples_total
-    count_over_time({service="app"}[1h])    # esta en Loki, no en Prometheus
-    ```
+4. Corte de 3 minutos. Deja el bucle de tráfico de A1.1 en marcha (así hay logs y métricas que perder), abre Targets en mon01 en el navegador y `docker logs -f promtail` en app01, y en otro terminal de app01 ejecuta los comandos `nft` de [Qué pasa cuando se pierde la red](#que-pasa-cuando-se-pierde-la-red) con la IP de tu mon01 (crean la tabla `corte`, esperan 180 s y la borran). Apunta cuánto tarda cada target de app01 en pasar a DOWN y con qué error, qué escribe Promtail (`error sending batch, will retry`), y al restaurar: cuánto tardan los targets en volver a UP, cuánto tardan las líneas del corte en aparecer en Loki y si el hueco de las gráficas de app01 se rellena o no.
 
-4. Corte de 3 minutos. Deja el bucle de tráfico de A1.1 en marcha (así hay logs y métricas que perder), abre Targets en mon01 en el navegador y `docker logs -f promtail` en app01, y en otro terminal de app01:
+5. Compara tras el corte: `count_over_time({service="app"}[1h])` en Loki frente a `docker logs --since 1h servicio-app-1 | wc -l`, y `promtail_dropped_entries_total` frente al valor del paso 3. Captura `up{host="app01"}` y la CPU de la API en un rango que incluya el corte.
 
-    ```bash
-    sudo nft add table inet corte
-    sudo nft add chain inet corte out '{ type filter hook output priority 0; }'
-    sudo nft add chain inet corte in '{ type filter hook input priority 0; }'
-    sudo nft add rule inet corte out ip daddr 10.10.0.20 drop
-    sudo nft add rule inet corte in ip saddr 10.10.0.20 drop
-    date; sleep 180; date
-    sudo nft delete table inet corte
-    ```
+6. Corte de 12 minutos: repite el paso 4 con `sleep 720` y vuelve a comparar. Esta vez el conteo de Loki debería quedar por debajo y `promtail_dropped_entries_total` subir; cuántas líneas y a partir de qué minuto es el dato del informe. Si no hay pérdida, baja `max_retries` a 3 en `promtail.yml` y repite.
 
-    Sustituye `10.10.0.20` por la IP de mon01. Durante el corte: cuánto tarda cada target de app01 en pasar a DOWN y con qué error; qué escribe Promtail (`error sending batch, will retry` con esperas crecientes). Después del corte: cuánto tarda cada target en volver a UP, cuánto tardan en aparecer en Loki las líneas del corte, y si el hueco de las gráficas de app01 en Grafana se queda o se rellena.
+**Comprobación.** Las diez filas de la tabla con resultado; desfase de reloj inferior a 100 ms en las cinco VM; tras el corte de 3 minutos los conteos de logs coinciden y `dropped_entries` no ha subido, mientras que las gráficas por scrape tienen un hueco que no se rellena; tras el de 12, hay pérdida de logs medible.
 
-5. Compara conteos tras el corte: `count_over_time({service="app"}[1h])` en Loki frente a `docker logs --since 1h servicio-app-1 | wc -l`, y `promtail_dropped_entries_total` frente al valor del paso 3. Captura una gráfica de `up{host="app01"}` y otra de CPU de la API que incluyan el corte.
+**Entrega.** En `tests/evidence/ut1/a1.6.md`: la tabla rellena (comando, salida, cuadra o no), las salidas de `chronyc tracking` y, por cada corte, horas de inicio y fin, gráficas de `up` y de CPU, conteos y valor de `promtail_dropped_entries_total`. Es la base del informe de la sesión 7.
 
-6. Corte de 12 minutos: repite el paso 4 con `sleep 720` y vuelve a comparar. Esta vez el conteo de Loki debería quedar por debajo y `promtail_dropped_entries_total` subir; ese número (cuántas líneas y a partir de qué minuto) es el dato del informe. Si no aparece pérdida, repite bajando `max_retries` a 3 en `promtail.yml` para verla.
-
-**Comprobación.** Las diez filas de la tabla con resultado; `chronyc tracking` con desfase inferior a 100 ms en las cinco VM; tras el corte de 3 minutos, los conteos de logs coinciden y `dropped_entries` no ha subido, mientras que las gráficas por scrape tienen un hueco de tres minutos que no se rellena; tras el de 12, hay pérdida de logs medible.
-
-**Entrega.** En `tests/evidence/ut1/a1.6.md`: la tabla de verificación rellena (comando, salida, cuadra o no), las salidas de `chronyc tracking`, y para cada corte: horas de inicio y fin, gráficas de `up` y de CPU, conteos antes y después y valor de `promtail_dropped_entries_total`. Es la base del informe de la sesión 7.
-
-**Si te sobra tiempo.** Monta el Prometheus local en app01 con `remote_write` hacia mon01 (configuración en [scrape y remote_write](#enviar-las-metricas-a-un-sistema-remoto-scrape-y-remote_write); el central necesita `--web.enable-remote-write-receiver`), repite el corte de 3 minutos y compara: las series que llegan por remote_write no tienen hueco. Añade esa comparación al informe.
+**Si te sobra tiempo.** Monta el Prometheus local en app01 con `remote_write` hacia mon01 (configuración en [scrape y remote_write](#enviar-las-metricas-a-un-sistema-remoto-scrape-y-remote_write); el central necesita `--web.enable-remote-write-receiver`), repite el corte de 3 minutos y compara: las series que llegan por remote_write no tienen hueco.
 
 ## Práctica evaluable
 
