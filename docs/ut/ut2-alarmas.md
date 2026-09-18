@@ -895,14 +895,19 @@ Con eso se pueden probar plantillas de correo y comprobar `send_resolved` sin mo
     $AM alert add alertname=PruebaGrupo service=app severity=critical team=ops instance=b
     ```
 
-    A los 30 s llega a Telegram un único mensaje `[FIRING:2] PruebaGrupo (app)` con dos líneas; a los 5 min (`resolve_timeout`) llega el `[RESOLVED]`.
+    A los 30 s llega a Telegram un único mensaje `[FIRING:2] PruebaGrupo (app)` con dos líneas; a los 5 min (`resolve_timeout`) llega el `[RESOLVED]`. Añade una tercera sintética por la otra rama del árbol y comprueba que el correo llega a Mailpit, no a Telegram (`service=app` para que el silencio del paso 6 no la tape):
 
-8. Repite con dos alarmas reales: para `db` con el bucle corriendo y `AppHighErrorRate` y `AppHighLatency` (ambas `service=app`) disparan con minutos de diferencia. Con `group_by: [alertname, service]` son dos mensajes; con `group_by: [service]` en la ruta critical (recarga con `curl -X POST http://mon01:9093/-/reload`), la segunda llega como actualización del primer grupo. Arranca `db` y deja el `group_by` que prefieras, justificado en el README.
-9. Commit sin `secrets/`.
+    ```bash
+    $AM alert add alertname=PruebaAviso service=app severity=warning team=ops
+    ```
+
+8. Commit sin `secrets/`.
 
 <span class="et et-com">Comprobación</span> `amtool check-config` sin errores; en Mailpit hay un correo de `warning` y en Telegram un `[FIRING:2]` con dos alertas y su `[RESOLVED]`; el silencio se ve en la interfaz; no hay secretos en el repositorio.
 
 <span class="et et-ent">Entrega</span> `alertmanager/` y el `compose.yml` de mon01, más una captura de Telegram con la notificación agrupada en `docs/capturas/`.
+
+<span class="et et-ext">Si te sobra tiempo</span> Repite la agrupación con dos alarmas reales: para `db` con el bucle corriendo y `AppHighErrorRate` y `AppHighLatency` (las dos `service=app`) disparan con minutos de diferencia. Con `group_by: [alertname, service]` son dos mensajes; con `group_by: [service]` en la ruta critical (recarga con `curl -X POST http://mon01:9093/-/reload`), la segunda llega como actualización del primer grupo. Arranca `db` y deja el `group_by` que prefieras, justificado en el README.
 
 ## Sesión 13 · Integración con incidencias
 

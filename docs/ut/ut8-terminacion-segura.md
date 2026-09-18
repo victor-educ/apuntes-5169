@@ -476,7 +476,7 @@ El repositorio del servicio y el Jenkinsfile no se borran: son el registro de c�
 
 ### A8.2 Liberar la infraestructura (sesión 37)
 
-<span class="et et-obj">Objetivo</span> El entorno pre sin contenedores, imágenes, VM, IP, DNS, reglas, certificados válidos ni credenciales, con la salida de cada verificación en `operacion/baja/pre/ev/`.
+<span class="et et-obj">Objetivo</span> El entorno pre sin contenedores, imágenes, VM, IP, DNS, reglas ni credenciales, con la CRL publicada y la salida de cada verificación en `operacion/baja/pre/ev/`, y lo que hoy no se ejecuta entero (el resto de etiquetas del registry con su recolector y el resto de certificados por revocar) anotado en la lista de comprobación con su comando y su fecha.
 
 <span class="et et-pre">Antes de empezar</span>
 
@@ -528,20 +528,17 @@ El repositorio del servicio y el Jenkinsfile no se borran: son el registro de c�
     docker system prune -af --volumes
     ```
 
-5. Borra las imágenes `-pre` del registry por digest y ejecuta el garbage collect en gitea01:
+5. Borra del registry **una sola etiqueta**, la de la imagen que estaba desplegada, para ver de cerca que se borra por digest y no por nombre. Las demás etiquetas `-pre` y el recolector de basura son lo mismo repetido: van al paso 12 con su comando.
 
     ```bash
-    R=https://registry.lab:5000
-    for t in $(curl -s $R/v2/ops/api/tags/list | jq -r '.tags[]|select(test("pre"))'); do
-      D=$(curl -sI -H 'Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
-           $R/v2/ops/api/manifests/$t | awk -F': ' '/[Dd]ocker-Content-Digest/{print $2}' | tr -d '\r')
-      echo "$t $D"; curl -s -o /dev/null -w '%{http_code}\n' -X DELETE $R/v2/ops/api/manifests/$D   # 202
-    done
-    docker compose -f /opt/registry/compose.yml stop registry
-    docker compose -f /opt/registry/compose.yml run --rm registry garbage-collect --delete-untagged /etc/docker/registry/config.yml
-    docker compose -f /opt/registry/compose.yml start registry
+    R=https://registry.lab:5000; T=1.4.2-pre
+    D=$(curl -sI -H 'Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+         $R/v2/ops/api/manifests/$T | awk -F': ' '/[Dd]ocker-Content-Digest/{print $2}' | tr -d '\r')
+    echo $D; curl -s -o /dev/null -w '%{http_code}\n' -X DELETE $R/v2/ops/api/manifests/$D   # 202
     curl -s $R/v2/ops/api/tags/list | tee ev/05-registry.txt
     ```
+
+    Si responde 405, el registry no arrancó con `REGISTRY_STORAGE_DELETE_ENABLED=true` y eso es un hallazgo: anótalo en "Incidencias" y sigue.
 
 6. Destruye las VM con OpenTofu, revisando el plan y sacando del estado lo compartido:
 
@@ -556,25 +553,22 @@ El repositorio del servicio y el Jenkinsfile no se borran: son el registro de c�
 
     Si el estado no sirve: `qm stop 210 --timeout 60 && qm destroy 210 --purge --destroy-unreferenced-disks 1`, y lo mismo para la 220 y la 230 (`web01`, `app01` y `db01` de pre; la 200 es `router-pre`, si el entorno lo tiene).
 
-7. Backups vzdump y plantillas nacidas de pre:
+7. Backups vzdump, que la destrucción de la VM no se lleva. Las plantillas nacidas de pre (`qm list | awk '$1>=9000'`) van al paso 12 con su comando:
 
     ```bash
     for ID in 210 220 230; do pvesm list local --vmid $ID; done
     pvesm free local:backup/vzdump-qemu-210-2027_02_28-02_00_01.vma.zst
-    qm list | awk '$1>=9000'
     { qm list | grep pre; for ID in 210 220 230; do pvesm list local --vmid $ID; done; } | tee ev/08-proxmox.txt
     ```
 
-8. IP y DNS. Si las vnets se destruyeron con OpenTofu, solo verifica; si eran compartidas, libera las IP una a una, cada una en la vnet de su zona, y borra los host overrides de Unbound en OPNsense:
+8. IP y DNS. Verifica primero: si las vnets se destruyeron con OpenTofu, el IPAM ya está limpio y solo queda el DNS.
 
     ```bash
-    for V in prefront:10.20.1.10 preback:10.20.2.10 predata:10.20.3.10; do
-      pvesh delete /cluster/sdn/vnets/${V%%:*}/ips --zone lab --vnet ${V%%:*} --ip ${V#*:}
-    done
-    pvesh set /cluster/sdn
     { pvesh get /cluster/sdn/ipams/pve/status --output-format json | jq '.[]|select(.ip|startswith("10.20."))'
       dig +short app01.pre.lab @10.10.0.1; dig +short -x 10.20.2.10 @10.10.0.1; } | tee ev/09-red-dns.txt
     ```
+
+    Si el IPAM aún lista alguna IP porque la vnet era compartida, libérala con el `pvesh delete` del apartado de direcciones y aplica con `pvesh set /cluster/sdn`. Si `dig` sigue resolviendo, el registro es un host override de Unbound puesto a mano en la 5166: bórralo en OPNsense y repite la verificación.
 
 9. En OPNsense, reglas primero (mon01 hacia los exporters de pre, NAT hacia web01-pre) y aliases después (`pre_front`, `pre_back`, `pre_data`); aplica, actualiza la matriz de reglas en `operacion/` y haz commit. Verifica desde fuera y desde mon01:
 
@@ -583,17 +577,20 @@ El repositorio del servicio y el Jenkinsfile no se borran: son el registro de c�
     ssh mon01 'nc -zv -w2 10.20.2.10 9100' 2>&1 | tee -a ev/10-firewall.txt
     ```
 
-10. Revoca los certificados en la CA y publica la CRL:
+10. Revoca en la CA **un** certificado, el de la máquina que estaba publicada, y publica la CRL. Con uno basta para ver el mecanismo entero y para que la CRL exista; los demás `*.pre.lab` son el mismo comando cambiando el fichero y van al paso 13 con su comando. Los comandos están en el [apartado de certificados](#certificados-revocar-en-la-ca-propia):
 
     ```bash
     cd /etc/ca
-    for c in certs/*.pre.lab.pem; do openssl ca -config ca.cnf -revoke $c -crl_reason cessationOfOperation; done
+    openssl ca -config ca.cnf -revoke certs/web01.pre.lab.pem -crl_reason cessationOfOperation
     openssl ca -config ca.cnf -gencrl -out crl/ca.crl.pem
     cp crl/ca.crl.pem /var/www/ca/ca.crl
-    openssl crl -in crl/ca.crl.pem -noout -text | grep -B1 -A3 'cessationOfOperation' | tee ~/repos/operacion/baja/pre/ev/11-crl.txt
+    openssl crl -in crl/ca.crl.pem -noout -text | grep -B1 -A3 'cessationOfOperation' \
+      | tee ~/repos/operacion/baja/pre/ev/11-crl.txt
     ```
 
-11. Credenciales y tokens en Proxmox, Gitea y Jenkins (ajusta los identificadores a los que listaste en A8.1) y vuelve a ejecutar los listados del paso 4 de A8.1 en `ev/12-credenciales.txt`:
+    La clave privada se destruyó con la VM en el paso 6, así que esto no protege de nada que sepas; protege de las copias de esa clave cuya existencia desconoces, que es la razón por la que se revoca igual.
+
+11. Credenciales y tokens en Proxmox, Gitea y Jenkins (ajusta los identificadores a los que listaste en A8.1) y vuelve a ejecutar los listados del paso 4 de A8.1 en `ev/12-credenciales.txt`. Las credenciales van al final: mientras existan, cualquiera de las capas anteriores se puede volver a levantar.
 
     ```bash
     pveum user token remove tofu@pve pre; pveum user delete tofu-pre@pve 2>/dev/null
@@ -611,13 +608,13 @@ El repositorio del servicio y el Jenkinsfile no se borran: son el registro de c�
     curl -s -u ops:$TOKEN "https://jenkins.lab/api/json?tree=jobs[name,color]" | jq '.jobs[]|select(.name|test("pre"))' | tee ev/13-archivado.txt
     ```
 
-13. Marca en `plan.md` cada punto con su evidencia y apunta en "Incidencias" cualquier desviación. Commit.
+13. Cierra el plan. Marca en `plan.md` cada punto ejecutado con su evidencia, y escribe las capas que no se ejecutan hoy como filas de la lista de comprobación con su comando de baja, su comando de verificación, responsable y fecha: el resto de etiquetas `-pre` y el recolector de basura del registry, las plantillas nacidas de pre y los demás certificados de `*.pre.lab` por revocar. Esas filas son los "pendientes con fecha" del acta, y sin comando no valen. Apunta en "Incidencias" cualquier desviación y haz commit.
 
-<span class="et et-com">Comprobación</span> Listados de `ev/04` a `ev/13` vacíos o con el estado esperado (`202`, `archived: true`, job `disabled`); `dig` sin respuesta; `tofu state list` vacío; la CRL con todos los `*.pre.lab`.
+<span class="et et-com">Comprobación</span> Listados de `ev/04` a `ev/13` vacíos o con el estado esperado (`202`, `archived: true`, job `disabled`); `dig` sin respuesta; `tofu state list` vacío; la CRL publicada con el certificado revocado dentro; ninguna fila de la lista de comprobación sin evidencia o, si queda pendiente, sin comando, responsable y fecha.
 
-<span class="et et-ent">Entrega</span> Commit en `operacion` con `plan.md`, `ev/02` a `ev/13` y la matriz de reglas corregida; el `pre-bloqueo.sql.gpg` entregado al profesor fuera del repositorio.
+<span class="et et-ent">Entrega</span> Commit en `operacion` con `plan.md`, las evidencias producidas (`ev/02` a `ev/13`) y la matriz de reglas corregida; el `pre-bloqueo.sql.gpg` entregado al profesor fuera del repositorio.
 
-<span class="et et-ext">Si te sobra tiempo</span> Levanta el respondedor OCSP mínimo del apartado de certificados y guarda `Cert Status: revoked` en `ev/11b-ocsp.txt`.
+<span class="et et-ext">Si te sobra tiempo</span> Revoca el resto de certificados de `*.pre.lab` con el mismo comando del paso 10, regenera la CRL y marca esa fila como ejecutada. Después levanta el respondedor OCSP mínimo del apartado de certificados y guarda `Cert Status: revoked` en `ev/11b-ocsp.txt`. Y si aún te queda tiempo, borra las demás etiquetas `-pre` del registry y lanza el recolector de basura con el registry parado, guardando el listado de etiquetas en `ev/05b-gc.txt`.
 
 ## Sesión 38 · Copias y logs
 
@@ -961,7 +958,7 @@ Si la fuente de datos era la compartida (el Prometheus y el Loki de mon01), no s
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Acceso a db01 de dev con el usuario `app`, a mon01 y a jenkins01.
+- Acceso a db01 de dev con el usuario `app` y a mon01.
 - Prometheus arrancado con `--web.enable-lifecycle` y `--web.enable-admin-api` (si falta, añádelo al compose de mon01 y reinicia antes de empezar).
 - Los repositorios `alerting`, `monitoring` y `operacion` actualizados; los dashboards de pre ya están en Git desde A8.2.
 - Se ha explicado [DELETE y VACUUM FULL](#datos-confidenciales-en-la-base-de-datos-interna), [la anonimización](#anonimizar-cuando-hay-que-conservar-estadisticas) y [la desconfiguración de la monitorización](#desconfigurar-la-monitorizacion-y-las-alarmas).
@@ -979,22 +976,7 @@ Si la fuente de datos era la compartida (el Prometheus y el Loki de mon01), no s
 
 2. En db01 de dev, mide antes de tocar nada: la consulta de `pg_stat_user_tables` del paso 5 y `SELECT count(*) FROM usuarios WHERE tenant='pre';`.
 
-3. Anonimiza los usuarios del tenant `pre` con sal de un solo uso y borra las tablas satélite con texto libre, en una transacción:
-
-    ```sql
-    BEGIN;
-    CREATE TEMP TABLE sal AS SELECT gen_random_uuid()::text AS s;
-    UPDATE usuarios u SET
-      email    = encode(sha256(convert_to(u.email || (SELECT s FROM sal), 'UTF8')), 'hex') || '@anon.invalid',
-      nombre   = 'Usuario ' || u.id,
-      telefono = NULL,
-      direccion = NULL,
-      ip_alta  = NULL,
-      fecha_nac = date_trunc('year', u.fecha_nac)
-    WHERE u.tenant = 'pre';
-    DELETE FROM comentarios WHERE usuario_id IN (SELECT id FROM usuarios WHERE tenant = 'pre');
-    COMMIT;
-    ```
+3. Anonimiza los usuarios del tenant `pre` con sal de un solo uso y borra las tablas satélite con texto libre, en una transacción. Copia la del apartado [Anonimizar cuando hay que conservar estadísticas](#anonimizar-cuando-hay-que-conservar-estadisticas) tal cual y cambia solo tres cosas: los nombres de las columnas que no coincidan con tu esquema, el nombre de la tabla satélite y el valor del `tenant`. Guárdala como `operacion/baja/pre/anonimiza.sql` antes de ejecutarla, porque es evidencia del método.
 
 4. Borra las tablas exclusivas del servicio y reescribe las que se conservan:
 
@@ -1013,12 +995,11 @@ Si la fuente de datos era la compartida (el Prometheus y el Loki de mon01), no s
       | tee ~/repos/operacion/baja/pre/ev/21-db-control.txt
     ```
 
-6. Revisa dónde más pueden vivir esos datos: réplica (`SELECT * FROM pg_stat_replication;`), dumps sueltos, WAL archivado y cachés:
+6. Revisa dónde más pueden vivir esos datos. Hazlo entero en db01, que es donde están, y anota en la lista de comprobación de `plan.md` las otras dos búsquedas con su comando y su responsable: el workspace de `jenkins01` (`sudo find /var/lib/jenkins/workspace -name "*.sql*"`) y el Redis compartido si sobrevive (`redis-cli -h 10.20.2.11 --scan --pattern 'pre:*'`).
 
     ```bash
+    psql -U app -d servicio -c 'SELECT * FROM pg_stat_replication;'
     ssh db01 'sudo find /tmp /var/tmp /home -name "*.sql*" -o -name "*.dump" 2>/dev/null; ls /var/lib/postgresql/archive 2>/dev/null | tail -3'
-    ssh jenkins01 'sudo find /var/lib/jenkins/workspace -name "*.sql*" 2>/dev/null'
-    redis-cli -h 10.20.2.11 --scan --pattern 'pre:*' | head 2>/dev/null   # si sobrevive un Redis compartido
     ```
 
     Lo que aparezca se borra con `shred -u`; el WAL archivado va a "Pendientes con fecha".

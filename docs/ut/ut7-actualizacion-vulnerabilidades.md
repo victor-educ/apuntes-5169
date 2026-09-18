@@ -51,7 +51,7 @@ Cada sesión son 110 minutos y empieza con una explicación corta antes del labo
 | [29](#sesion-29-inventario-de-versiones-y-seguimiento-automatico) | 4 feb | Teoría y práctica | Etiquetas frente a digests, versionado semántico, variantes de imagen; Renovate y por qué no Watchtower (25 min). | Inventario con versión y digest, fijar versiones en compose y Dockerfile; Renovate sobre el repositorio y política de actualización. |
 | [30](#sesion-30-escaneo) | 9 feb | Teoría y práctica | CVE, CVSS, EPSS y KEV; SBOM; qué hace cada escáner (20 min). | SBOM con Syft; Trivy y Grype sobre aplicación, BD y proxy; tabla de hallazgos. |
 | [31](#sesion-31-investigar-y-decidir) | 11 feb | Teoría y práctica | Cómo leer un informe de Trivy y las cuatro soluciones posibles (15 min). | Investigar cinco hallazgos en NVD y OSV, decidir y justificar; reconstruir con base slim y comparar. |
-| [32](#sesion-32-actualizacion-en-pre) | 16 feb | Teoría y práctica | El ciclo de actualización, migraciones y verificación de integridad con SQL (20 min). | Actualizar PostgreSQL y la aplicación en dev y pre con copia previa; recuentos y sumas de control antes y después; pruebas de la UT4. |
+| [32](#sesion-32-actualizacion-en-pre) | 16 feb | Teoría y práctica | El ciclo de actualización, migraciones y verificación de integridad con SQL (15 min). | Actualizar PostgreSQL y la aplicación en dev y pre con copia previa; recuentos y sumas de control antes y después; pruebas de la UT4. |
 | [33](#sesion-33-fallo-provocado) | 18 feb | Práctica | Clasificación de fallos y plantilla de reporte (10 min). | Versión que falla al actualizar: analizar, clasificar, rollback o parche en 40 minutos y reporte a desarrollo. |
 | [34](#sesion-34-trazabilidad) | 23 feb | Teoría y práctica | Incidencias enlazadas, CHANGELOG y la etapa de escaneo en el pipeline (15 min). | Registrar las actualizaciones como incidencias con enlaces, actualizar el CHANGELOG y añadir la etapa Trivy que falla con CRITICAL. |
 | [35](#sesion-35-practica-evaluable) | 25 feb | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar inventario y política, informe de vulnerabilidades, evidencia de actualización, reporte de fallo e incidencias. |
@@ -267,7 +267,7 @@ Dos tareas encadenadas: primero el inventario y luego, sobre él, su vigilancia 
 
 <span class="et et-pre">Antes de empezar</span>
 
-- La VM de dev con el servicio del curso arrancado y `docker`, `jq` y `syft` instalados.
+- La VM de dev con el servicio del curso arrancado y `docker` y `jq` instalados.
 - Clon del repositorio `curso/servicio` de `gitea01` con permiso para abrir PR.
 - Explicado antes: [Versiones, etiquetas y digests](#versiones-etiquetas-y-digests), [Versionado semántico](#versionado-semantico), [Renovate a fondo](#renovate-a-fondo) y [La política escrita](#la-politica-escrita).
 
@@ -283,12 +283,10 @@ Dos tareas encadenadas: primero el inventario y luego, sobre él, su vigilancia 
     docker manifest inspect postgres:17.6 | jq '.manifests[] | {digest, platform}'
     ```
 
-2. Dependencias de Python. Genera el SBOM o lista los paquetes desde dentro del contenedor:
+2. Dependencias de Python. Hoy basta la lista de paquetes del contenedor, que tarda un minuto; el SBOM completo con Syft se genera en la sesión siguiente y no se adelanta aquí:
 
     ```bash
-    syft registry.lab:5000/api:1.4.2 -o table > inventario-api.txt
-    # sin syft:
-    docker compose exec api pip list --format=freeze
+    docker compose exec api pip list --format=freeze > inventario-api.txt
     ```
 
 3. Marca las flotantes (`latest`, solo mayor como `postgres:17`, sin sufijo de Debian): `grep -n "image:\|^FROM" compose.yml api/Dockerfile`.
@@ -302,7 +300,7 @@ Dos tareas encadenadas: primero el inventario y luego, sobre él, su vigilancia 
 
 5. Escribe `docs/inventario.md` como tabla: componente, imagen, etiqueta, digest, fecha de publicación y si era flotante antes. Abre un PR con el inventario y los cambios, y comprueba que `docker compose pull && docker compose up -d` arranca con las referencias fijadas.
 6. Usuario técnico. En Gitea crea `renovate-bot`, dale acceso de escritura al repositorio y genera un token en su configuración de aplicaciones: `export TOKEN_BOT=...`.
-7. `renovate.json` en la raíz con `:pinDigests`, el grupo de software de base y automerge solo de parches y digests: el del apartado [Renovate a fondo](#renovate-a-fondo) sirve tal cual. Commit en la rama principal.
+7. `renovate.json` en la raíz con `:pinDigests`, el grupo de software de base y automerge solo de parches y digests: el del apartado [Renovate a fondo](#renovate-a-fondo) sirve tal cual. En el mismo commit a la rama principal, baja una línea del compose a la versión menor anterior, fijada igual que las demás (por ejemplo `postgres:17.5-bookworm` con su digest, obtenido como en el paso 4): así la primera pasada de Renovate ya tiene algo que proponer y no hay que lanzarlo dos veces.
 8. Lanza Renovate. Las credenciales del registry propio van en `hostRules` por variable de entorno, no en el repositorio; la primera vez con `LOG_LEVEL=debug`:
 
     ```bash
@@ -316,8 +314,8 @@ Dos tareas encadenadas: primero el inventario y luego, sobre él, su vigilancia 
       renovate/renovate:latest 2>&1 | tee renovate.log
     ```
 
-9. Mira la pestaña de pull requests del repositorio. Si no hay ninguno, baja a mano una versión en el compose (por ejemplo `postgres:17.5`), haz commit en la rama principal y vuelve a lanzar.
-10. Política de actualización: `docs/politica-actualizacion.md`, media página con los seis puntos del apartado [La política escrita](#la-politica-escrita). Añádela al PR del paso 5.
+9. Mira la pestaña de pull requests del repositorio: tiene que haber uno de `renovate-bot` que devuelva la versión que bajaste en el paso 7. Guarda la captura.
+10. Política de actualización: `docs/politica-actualizacion.md`, con los seis puntos del apartado [La política escrita](#la-politica-escrita) como encabezados y una o dos líneas en cada uno decididas para tu servicio (quién aprueba, en qué ventana, qué se automerge). Se cierra en la práctica evaluable de la sesión 35. Añádela al PR del paso 5.
 
 <span class="et et-com">Comprobación</span> El `grep` del paso 3 no muestra etiquetas flotantes; el servicio arranca con el compose fijado; en Gitea hay un PR de `renovate-bot` con la etiqueta `actualizacion` y las notas de la versión; `grep skipping renovate.log` no menciona la imagen del registry propio.
 
@@ -700,7 +698,7 @@ Al investigar un hallazgo en la actividad A7.3, el orden de lectura es: ficha NV
 
 ## Sesión 32 · Actualización en pre
 
-<p class="ut-meta" markdown>16 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Actualizar · 20 min&#10;A7.4 Actualización en pre · 90 min" data-dur="Actualizar · 20 min&#10;A7.4 Actualización en pre · 90 min">:material-school:<i class="dur-barra" style="--teoria:18%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>16 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Actualizar · 15 min&#10;A7.4 Actualización en pre · 95 min" data-dur="Actualizar · 15 min&#10;A7.4 Actualización en pre · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
 
 Al acabar la sesión PostgreSQL y la aplicación están actualizados en dev y en pre con copia previa, la salida de `integridad.sql` es idéntica antes y después y las pruebas de la UT4 están en verde, todo enlazado desde una incidencia. La hoja se apoya en el ciclo completo de una actualización, en el paso a paso con el plan de vuelta atrás escrito y en las consultas de verificación de integridad; las ventanas de mantenimiento son el marco en que se hace después el paso a producción.
 
@@ -849,13 +847,13 @@ La ventana es un compromiso con los usuarios: en ese rato puede haber cortes y f
 
 7. Pruebas de la UT4 contra pre: newman, k6 con umbrales, ZAP baseline. Compara p95 y tasa de errores con la línea base.
 8. Enlaza en la incidencia el PR, el log del pipeline o del despliegue, el snapshot, las dos salidas de integridad y las pruebas. Mueve la tarjeta a `en pre`.
-9. Prueba el plan B una vez en dev: `docker compose -f compose.anterior.yml up -d`, comprueba que responde y vuelve a la versión nueva. Así sabes que el rollback funciona antes de A7.5.
+9. Comprueba que el plan B está completo antes de irte: `compose.anterior.yml` guardado en dev y en pre con los digests de la versión anterior, el id del snapshot de restic apuntado en la incidencia y la orden exacta de vuelta atrás escrita en el cuerpo. En A7.5 se ejecuta de verdad y con reloj.
 
 <span class="et et-com">Comprobación</span> `docker compose ps` en pre muestra las imágenes nuevas con el digest esperado; el `diff` de integridad vacío o solo con la fila de migración; newman sin fallos, k6 dentro de umbrales, ZAP sin alertas nuevas; la incidencia con todos los enlaces.
 
 <span class="et et-ent">Entrega</span> Incidencia en estado `en pre` con los enlaces; `scripts/integridad.sql` en el repositorio; `integridad-antes.txt`, `integridad-despues.txt` y los resultados de las pruebas en la carpeta de la práctica.
 
-<span class="et et-ext">Si te sobra tiempo</span> Borra una fila en dev y mira cómo se manifiesta en cada una de las seis consultas de integridad.
+<span class="et et-ext">Si te sobra tiempo</span> Ensaya el plan B en dev: `docker compose -f compose.anterior.yml up -d`, comprueba que responde y vuelve a la versión nueva. Y si aún te sobra, borra una fila en dev y mira cómo se manifiesta en cada una de las seis consultas de integridad.
 
 ## Sesión 33 · Fallo provocado
 
@@ -1048,10 +1046,12 @@ Tres detalles: el JSON se genera siempre, falle o no la puerta, porque es lo que
 4. Pipeline en rojo: lanza la construcción con una imagen que tenga un CRITICAL corregible (la 1.4.2 con base `python:3.13` completa, o con el `.trivyignore` vacío). Guarda la captura y comprueba que `trivy-*.json` y `trivy-*.sarif` están en los artefactos aunque haya fallado.
 5. Pipeline en verde: lanza con la 1.4.3 (base slim) y el `.trivyignore` de A7.3. Captura y artefactos.
 6. Enlaza ambos pipelines desde la incidencia de A7.4.
+7. Deja el repositorio de incidencias en condiciones de contestar a una auditoría. Comprueba que existen las seis etiquetas del apartado (`actualizacion`, `seguridad`, `funcionalidad`, `ciclo`, `mayor`, `revertida`), crea las que falten con su color y su descripción, y repasa que las dos incidencias llevan las suyas. Después contesta con una búsqueda, no de memoria, a estas tres preguntas, y guarda cada captura con la búsqueda a la vista: cuántas actualizaciones de seguridad ha habido, cuántas ha habido que deshacer (`label:actualizacion label:revertida`) y cuál fue la última actualización verificada.
+8. Monta el índice de actualizaciones en `docs/actualizaciones/README.md`, que es lo que la práctica evaluable de la sesión 35 pide enlazado: una fila por actualización con fecha, versión origen y destino con digest, motivo, estado, y los enlaces a la incidencia, al PR, al pipeline, al informe de Trivy de antes y de después, a las pruebas de la UT4 y al snapshot de la copia previa. Rellénalo con las dos actualizaciones de A7.4 y A7.5 y comprueba abriendo uno a uno que ningún enlace está roto. Enlázalo desde el `CHANGELOG.md` y desde el `README.md` del repositorio.
 
-<span class="et et-com">Comprobación</span> En Gitea, `label:actualizacion` lista las dos incidencias y sus enlaces abren; `CHANGELOG.md` tiene versión, fecha y solo las categorías fijas; en Jenkins hay un build rojo con `bloqueada por CRITICAL` y uno verde, ambos con JSON y SARIF archivados.
+<span class="et et-com">Comprobación</span> En Gitea, `label:actualizacion` lista las dos incidencias y sus enlaces abren; `CHANGELOG.md` tiene versión, fecha y solo las categorías fijas; en Jenkins hay un build rojo con `bloqueada por CRITICAL` y uno verde, ambos con JSON y SARIF archivados; las tres búsquedas de auditoría devuelven lo que esperabas; el índice no tiene ninguna celda vacía ni ningún enlace roto.
 
-<span class="et et-ent">Entrega</span> Commit con `CHANGELOG.md` y `Jenkinsfile`; capturas de los dos builds en la carpeta de la práctica; incidencias en su estado final.
+<span class="et et-ent">Entrega</span> Commit con `CHANGELOG.md`, `docs/actualizaciones/README.md` y `Jenkinsfile`; capturas de los dos builds y de las tres búsquedas en la carpeta de la práctica; incidencias en su estado final.
 
 <span class="et et-ext">Si te sobra tiempo</span> Baja el umbral a `HIGH,CRITICAL` en una rama y cuenta las excepciones que harían falta.
 

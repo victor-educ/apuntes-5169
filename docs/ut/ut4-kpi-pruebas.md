@@ -1201,7 +1201,7 @@ Se lanza los lunes a las 7:00 con un `cron` o un job de Jenkins, y la revisión 
 
 Documentar las pruebas y montar el ciclo de revisión comparten sesión: lo primero deja las evidencias en su sitio, lo segundo decide quién las mira y cuándo.
 
-<span class="et et-obj">Objetivo</span> Diez fichas de caso con sus evidencias, el informe de pruebas de la versión con veredicto, la puerta de pruebas escrita para el pipeline y comprobada a mano con un fallo provocado, y una revisión semanal ejecutada con la plantilla que termina en una propuesta de ajuste de umbral.
+<span class="et et-obj">Objetivo</span> Seis fichas de caso con sus evidencias, una por cada tipo de prueba ejecutada en la unidad, el informe de pruebas de la versión con veredicto, la puerta de pruebas escrita para el pipeline y comprobada a mano con un fallo provocado, y una revisión semanal ejecutada con la plantilla que termina en una propuesta de ajuste de umbral.
 
 <span class="et et-pre">Antes de empezar</span>
 
@@ -1212,15 +1212,15 @@ Documentar las pruebas y montar el ciclo de revisión comparten sesión: lo prim
 
 <span class="et et-pas">Pasos</span>
 
-1. Crea `tests/evidence/1.4.2/casos/` y rellena la ficha de caso del apartado para las diez pruebas más relevantes: por ejemplo seis funcionales (PF-01 a PF-06), dos de rendimiento (PR-01 rampa 50, PR-02 rampa 100), una de estrés (PE-01) y una de seguridad (PS-01 o PS-02). En Procedimiento va el comando exacto con sus variables; en Evidencias, ficheros que existan en la carpeta.
+1. Crea `tests/evidence/1.4.2/casos/` y rellena la ficha de caso del apartado para seis pruebas, una por cada cosa distinta que se ha ejecutado: dos funcionales (PF-01 un caso correcto, PF-02 un error esperado), dos de rendimiento (PR-01 rampa 50, PR-02 rampa 100), una de estrés (PE-01) y una de seguridad (PS-01 ZAP o PS-02 trivy). Rellenar seis fichas distintas enseña lo mismo que rellenar diez iguales. En Procedimiento va el comando exacto con sus variables; en Evidencias, ficheros que existan en la carpeta. Las pruebas que no tienen ficha propia salen igualmente en la tabla del informe del paso 2.
 
 2. Escribe `tests/evidence/1.4.2/INFORME.md` con la tabla por bloque del apartado y el veredicto único de la versión, firmado. Si trivy o ZAP dejaron un hallazgo en FAIL, la versión es NO APTA aunque el resto pase.
 
 3. Escribe la etapa `Pruebas en pre` del apartado en `ci/Jenkinsfile.pruebas`, en el sitio que ocupará dentro del pipeline de 5166 (entre el despliegue en pre y el de prod), con `junit` y `archiveArtifacts` en `post { always }`. Añade a `ci/README.md` la lista de lo que habrá que crear en febrero: la credencial `api-token-pre`, el orden de las etapas y quién puede lanzarlas. Comprueba línea a línea que cada `sh` es un comando que has ejecutado en la A4.4, la A4.5 o la A4.6.
 
-4. Provoca el fallo a mano, que es la parte que sí se puede demostrar hoy: pon un umbral imposible en `carga.js` (`http_req_duration: ['p(95)<1']`), lanza `k6 run` y comprueba que sale con código 99. Encadena los comandos de la etapa con `&&` en un script (`ci/puerta-pruebas.sh`) y verás que la cadena se detiene ahí, que es exactamente lo que hará la etapa. Guarda la salida como evidencia y deshaz el umbral. Anota en `ci/README.md` que, con Jenkins, un build en amarillo no detiene el pipeline y hace falta `options { skipStagesAfterUnstable() }`.
+4. Provoca el fallo a mano, que es la parte que sí se puede demostrar hoy: pon un umbral imposible en `carga.js` (`http_req_duration: ['p(95)<1']`) y lánzalo con una sola rampa corta, que para esto sobra y no cuesta trece minutos: `k6 run --vus 10 --duration 1m tests/k6/carga.js`. Comprueba que sale con código 99. Encadena los comandos de la etapa con `&&` en un script (`ci/puerta-pruebas.sh`) y verás que la cadena se detiene ahí, que es exactamente lo que hará la etapa. Guarda la salida como evidencia y deshaz el umbral. Anota en `ci/README.md` que, con Jenkins, un build en amarillo no detiene el pipeline y hace falta `options { skipStagesAfterUnstable() }`.
 
-5. Escribe `ops/revisiones/README.md` con el diseño del ciclo para tu servicio: para cada revisión (diaria, semanal, mensual), duración, quién la hace y qué mira, adaptando las listas del apartado a tus indicadores y alarmas.
+5. Escribe `ops/revisiones/README.md` con el diseño del ciclo para tu servicio: copia las tres listas del apartado [Seguimiento periódico](#seguimiento-periodico) con su duración y, en cada una, sustituye los ejemplos por tus indicadores y tus alarmas y añade quién la hace. Tres líneas por revisión bastan.
 
 6. Ejecuta la revisión semanal con los datos de las dos últimas semanas en `ops/revisiones/AAAA-Wnn.md`, con la plantilla del apartado. Las cifras de Estado salen de Prometheus:
 
@@ -1237,7 +1237,7 @@ Documentar las pruebas y montar el ciclo de revisión comparten sesión: lo prim
 
 7. Elige un umbral que los datos digan que está mal (una alarma que salta y se cierra sola varias veces, o un aviso que nunca se acerca) y ajústalo en una rama del repositorio `alerting`, no en `main`. En el mensaje del commit pon las cifras que lo justifican y enlaza el registro de la revisión: ese texto es el que se convertirá en la descripción del merge request en cuanto el repositorio tenga remoto.
 
-<span class="et et-com">Comprobación</span> Diez fichas cuyas evidencias existen en la carpeta; `INFORME.md` con veredicto; `ci/Jenkinsfile.pruebas` y `ci/README.md` completos, con la salida del fallo provocado que demuestra que la cadena se detiene; `ops/revisiones/README.md` y un registro semanal con acciones; la rama de `alerting` con el umbral ajustado y su justificación.
+<span class="et et-com">Comprobación</span> Seis fichas, una por tipo de prueba, cuyas evidencias existen en la carpeta; `INFORME.md` con veredicto y con todas las pruebas en su tabla; `ci/Jenkinsfile.pruebas` y `ci/README.md` completos, con la salida del fallo provocado que demuestra que la cadena se detiene; `ops/revisiones/README.md` y un registro semanal con acciones; la rama de `alerting` con el umbral ajustado y su justificación.
 
 <span class="et et-ent">Entrega</span> Todo en el repositorio del servicio (`tests/evidence/1.4.2/`, `ci/`, `ops/revisiones/`) y la rama de ajuste de umbral en el repositorio `alerting`. Es el grueso del dossier de la práctica evaluable.
 

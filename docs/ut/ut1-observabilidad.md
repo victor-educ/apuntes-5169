@@ -55,8 +55,8 @@ Cada sesión de 110 minutos empieza con una explicación corta y sigue con labor
 | [1](#sesion-1-presentacion-y-el-contenedor-de-referencia) | 1 oct | Teoría y práctica | Presentación de la asignatura, evaluación y cómo se coordina con Despliegue (25 min). Los cuatro flujos que salen de un contenedor: métricas, logs, eventos (20 min). | Desplegar el servicio del curso con compose (en el puesto si aún no existe app01), y observar con docker stats, logs y events mientras se genera tráfico y se para la BD. |
 | [2](#sesion-2-metricas-de-recursos) | 6 oct | Teoría y práctica | cgroups v2 y cómo cAdvisor lee de ellos; etiquetas y cardinalidad (20 min). | Desplegar cAdvisor junto al servicio en el puesto, scrape desde la pila mínima de monitorización y gráfica de CPU y memoria por contenedor en Grafana. |
 | [3](#sesion-3-instrumentar-la-aplicacion) | 13 oct | Teoría y práctica | Tipos de métrica (counter, gauge, histogram, summary) y cómo se instrumenta con la librería cliente (20 min). | Endpoint /metrics en la API con counter e histogram, postgres_exporter contra el servicio db del compose, comprobar ambos en Prometheus. |
-| [4](#sesion-4-logs-estructurados) | 15 oct | Teoría y práctica | Drivers de logs de Docker, logs en JSON con request_id, cómo funciona Promtail y qué indexa Loki (25 min). | Ya sobre app01 y mon01: configurar logs JSON, limitar json-file en daemon.json, desplegar Loki y Promtail, comprobar en Grafana Explore. |
-| [5](#sesion-5-eventos) | 20 oct | Teoría y práctica | Los eventos del demonio Docker y cómo se recogen (10 min). | Recoger eventos en Loki; provocar die, oom y unhealthy y localizarlos. |
+| [4](#sesion-4-logs-estructurados) | 15 oct | Teoría y práctica | Drivers de logs de Docker, logs en JSON con request_id, cómo funciona Promtail y qué indexa Loki (20 min). | Ya sobre app01 y mon01: configurar logs JSON, limitar json-file en daemon.json, desplegar Loki y Promtail, comprobar en Grafana Explore. |
+| [5](#sesion-5-eventos) | 20 oct | Teoría y práctica | Los eventos del demonio Docker y cómo se recogen (10 min). | Recoger eventos en Loki; provocar die, oom y unhealthy y localizarlos, cruzarlos con métricas y logs y dibujar el esquema del flujo de datos. |
 | [6](#sesion-6-integridad-y-almacenamiento) | 22 oct | Teoría y práctica | Qué significa verificar una integración: comunicación, recepción, integridad, relojes, retención (15 min). | Ejecutar la tabla de comprobaciones completa y cortar la red tres minutos para ver qué se recupera y qué se pierde. |
 | [7](#sesion-7-practica-evaluable) | 27 oct | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el informe: flujo de datos, configuración, pruebas y resultado del corte de red. |
 
@@ -724,7 +724,7 @@ Lo que da `stub_status` es poco: `nginx_connections_active`, `nginx_connections_
 
 ## Sesión 4 · Logs estructurados
 
-<p class="ut-meta" markdown>15 de octubre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Logs · 25 min&#10;A1.4 Logs estructurados · 85 min" data-dur="Logs · 25 min&#10;A1.4 Logs estructurados · 85 min">:material-school:<i class="dur-barra" style="--teoria:23%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>15 de octubre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Logs · 20 min&#10;A1.4 Logs estructurados · 90 min" data-dur="Logs · 20 min&#10;A1.4 Logs estructurados · 90 min">:material-school:<i class="dur-barra" style="--teoria:18%"></i>:material-flask:</span></p>
 
 Al acabar, los logs de la API y de nginx llegan a Loki como JSON con el mismo `request_id`, y se puede seguir una petición en los dos hosts desde Grafana Explore. La hoja recorre los cuatro apartados de abajo en el mismo orden: limitar el driver de Docker, escribir JSON con `request_id`, desplegar Promtail y montar Loki.
 
@@ -1040,7 +1040,7 @@ En Grafana se añade Loki como fuente de datos (`http://loki:3100` si está en e
 <span class="et et-pre">Antes de empezar</span>
 
 - **A partir de hoy el trabajo se traslada del puesto a app01 y mon01.** La asignatura de Despliegue clonó ayer las dos VM de su plantilla cloud-init: están en vmbr0, la red del aula, con IP por DHCP, con el usuario `ops` (clave SSH y `sudo` sin contraseña) y con Docker Engine y el plugin compose ya instalados. Entra en cada una con `ssh ops@<IP>` y comprueba `docker compose version` antes de empezar. Llegan sin ningún servicio levantado: lo que corre encima lo pones tú.
-- Lo hecho en las sesiones 1, 2 y 3 se lleva del puesto a las VM: copia `/opt/servicio` y `/opt/agentes` a app01 y `/opt/monitoring` a mon01 con `scp -r` (o instala git en la VM con `sudo apt install -y git` y clona tus repositorios `servicio` y `monitoring`, si los tienes en un remoto accesible). Los tres composes declaran la red `obs` como externa, así que crea `docker network create obs` en app01 y en mon01 antes de levantar nada, y después `docker compose up -d` en cada pila. De la configuración cambian los targets del scrape, que dejan de ser nombres de servicio y pasan a ser la IP de app01 en vmbr0 con los puertos publicados (`:9102`, `:9187`, `:8081`), y la etiqueta `host` de cada job, que pasa de `puesto` a `app01` o `mon01` según dónde corra lo que se mide. El bloque de jobs completo, ya con las etiquetas nuevas, está en [Enviar las métricas a un sistema remoto](#enviar-las-metricas-a-un-sistema-remoto-scrape-y-remote_write). Lo que se queda en el puesto es el navegador y el bucle de tráfico.
+- Lo hecho en las sesiones 1, 2 y 3 se lleva del puesto a las VM: copia `/opt/servicio` y `/opt/agentes` a app01 y `/opt/monitoring` a mon01 con `scp -r` (o instala git en la VM con `sudo apt install -y git` y clona tus repositorios `servicio` y `monitoring`, si los tienes en un remoto accesible). Los tres composes declaran la red `obs` como externa, así que crea `docker network create obs` en app01 y en mon01 antes de levantar nada, y después `docker compose up -d` en cada pila. De la configuración cambian los targets del scrape, que dejan de ser nombres de servicio y pasan a ser la IP de app01 en vmbr0 con los puertos publicados (`:9102`, `:9187`, `:8081`), y la etiqueta `host` de cada job, que pasa de `puesto` a `app01` o `mon01` según dónde corra lo que se mide. El bloque de jobs completo, ya con las etiquetas nuevas, está en [Enviar las métricas a un sistema remoto](#enviar-las-metricas-a-un-sistema-remoto-scrape-y-remote_write): cópialo tal cual encima del tuyo y cambia solo la IP de app01, sin reescribir nada más. Lo que se queda en el puesto es el navegador y el bucle de tráfico.
 - A1.3 terminada el 13 de octubre en el puesto y ya trasladada a app01 con el punto anterior.
 - Entre 2 y 5 GB libres de disco en mon01 para Loki. Las dos VM salen de la plantilla con 2 GB de RAM; si mon01 se queda corta al añadirle Loki, súbela a 3 GB desde el hipervisor (`qm set 103 --memory 3072` y reiniciar la VM).
 - Lo explicado antes: [el driver de logs y por qué limitarlo](#el-driver-de-logs-de-docker-y-por-que-limitarlo), [logs JSON con request_id](#logs-estructurados-json-con-request_id), [Promtail](#promtail) y [Loki](#loki).
@@ -1050,7 +1050,7 @@ En Grafana se añade Loki como fuente de datos (`http://loki:3100` si está en e
 
 <span class="et et-pas">Pasos</span>
 
-1. Limita el driver `json-file` en app01 y en mon01 con el `daemon.json` de [El driver de logs de Docker](#el-driver-de-logs-de-docker-y-por-que-limitarlo) (50 MB, 5 ficheros) y recrea los contenedores, porque la opción solo aplica a los creados después:
+1. Limita el driver `json-file` en app01 con el `daemon.json` de [El driver de logs de Docker](#el-driver-de-logs-de-docker-y-por-que-limitarlo) (50 MB, 5 ficheros) y recrea los contenedores, porque la opción solo aplica a los creados después. En mon01 el fichero es exactamente el mismo y lo dejas para el final de la hoja: lo que escribe logs allí es la pila de monitorización, no el servicio:
 
     ```bash
     sudo systemctl restart docker
@@ -1071,30 +1071,7 @@ En Grafana se añade Loki como fuente de datos (`http://loki:3100` si está en e
 
 5. Despliega Promtail en app01, en el compose de agentes: copia `/opt/agentes/promtail.yml` y el servicio `promtail` tal como están en [Promtail](#promtail), con la IP de mon01 en `clients` y `user: root` en el servicio (o `group_add` con el gid del grupo `docker`) para leer el socket. `docker compose up -d promtail` y mira `docker logs promtail`: no debe haber errores de socket ni respuestas 4xx de Loki. Con `docker_sd_configs` Promtail descubre solo todos los contenedores del host, incluido `nginx`: no hace falta un segundo agente ni montar ficheros de log.
 
-6. Añade en `promtail.yml` un `match` para las líneas de nginx, junto al de `{service="app"}`, para que su JSON se parsee igual:
-
-    ```yaml
-          - match:
-              selector: '{service="nginx"}'
-              stages:
-                - json:
-                    expressions:
-                      level: level
-                      ts: ts
-                      request_id: request_id
-                      status: status
-                - timestamp:
-                    source: ts
-                    format: RFC3339
-                - labels:
-                    level:
-                - structured_metadata:
-                    request_id:
-    ```
-
-    `docker compose up -d promtail` en `/opt/agentes` para recargarlo.
-
-7. En Grafana (`http://<mon01>:3000`), añade Loki como fuente de datos (`http://loki:3100`), genera unas peticiones y ejecuta en Explore:
+6. En Grafana (`http://<mon01>:3000`), añade Loki como fuente de datos (`http://loki:3100`), genera unas peticiones y ejecuta en Explore:
 
     ```text
     {host="app01"}
@@ -1105,11 +1082,11 @@ En Grafana se añade Loki como fuente de datos (`http://loki:3100` si está en e
 
     El `request_id` sale de la cabecera de una petición (`curl -si http://<app01>/health | grep -i x-request-id`).
 
-<span class="et et-com">Comprobación</span> `docker inspect` muestra los límites del driver en app01; `{host="app01"}` devuelve líneas con `container`, `service` y `level`, y aparecen tanto `service="app"` como `service="nginx"`; la consulta por `request_id` devuelve dos líneas (nginx y API) con la misma marca de tiempo salvo milisegundos; `{service="app", malformed="true"}` está vacío o solo tiene líneas de arranque.
+<span class="et et-com">Comprobación</span> `docker inspect` muestra los límites del driver en app01; `{host="app01"}` devuelve líneas con `container`, `service` y `level`, y aparecen tanto `service="app"` como `service="nginx"` (las de nginx llegan enteras, todavía sin parsear: eso es lo primero de la sesión 5); la consulta por `request_id` devuelve dos líneas (nginx y API) con la misma marca de tiempo salvo milisegundos; `{service="app", malformed="true"}` está vacío o solo tiene líneas de arranque.
 
 <span class="et et-ent">Entrega</span> En `tests/evidence/ut1/a1.4.md`: `promtail.yml` completo, la configuración de nginx, una captura de Explore con la petición correlada en los dos servicios y la salida de `docker inspect` con los límites del driver. Las configuraciones van además al repositorio `monitoring`.
 
-<span class="et et-ext">Si te sobra tiempo</span> Localiza en Loki las líneas del servicio `db` al parar y arrancar la base de datos, y comprueba qué etiqueta `service` les pone Promtail.
+<span class="et et-ext">Si te sobra tiempo</span> Pon el mismo `daemon.json` en mon01 y recrea su pila. Después localiza en Loki las líneas del servicio `db` al parar y arrancar la base de datos, y comprueba qué etiqueta `service` les pone Promtail.
 
 ## Sesión 5 · Eventos
 
@@ -1169,7 +1146,28 @@ Dos avisos. El contenedor auxiliar solo captura eventos mientras está en marcha
 
 2. Añade al compose de agentes de app01 el servicio `docker-events` de [Eventos del demonio Docker](#eventos-del-demonio-docker) (imagen `docker:28-cli` con el socket montado). Como está en el mismo compose que los demás agentes, Promtail le pone `service="docker-events"` sin hacer nada.
 
-3. Añade en `promtail.yml` un tercer `match`, junto a los dos de `{service="app"}`:
+3. Añade en `promtail.yml` los dos `match` que faltan, junto al de `{service="app"}`. El primero es el de nginx, que quedó pendiente de la sesión 4, para que su JSON se parsee igual que el de la API:
+
+    ```yaml
+          - match:
+              selector: '{service="nginx"}'
+              stages:
+                - json:
+                    expressions:
+                      level: level
+                      ts: ts
+                      request_id: request_id
+                      status: status
+                - timestamp:
+                    source: ts
+                    format: RFC3339
+                - labels:
+                    level:
+                - structured_metadata:
+                    request_id:
+    ```
+
+    El segundo es el de los eventos:
 
     ```yaml
           - match:
@@ -1187,7 +1185,7 @@ Dos avisos. El contenedor auxiliar solo captura eventos mientras está en marcha
                     exit_code:
     ```
 
-    `docker compose up -d` en `/opt/agentes` y comprueba en Explore que `{service="docker-events"}` devuelve líneas (la primera, el `start` del propio docker-events).
+    `docker compose up -d` en `/opt/agentes` y comprueba en Explore que `{service="docker-events"}` devuelve líneas (la primera, el `start` del propio docker-events) y que `{service="nginx"}` ya trae la etiqueta `level`.
 
 4. Provoca los tres eventos en la API, apuntando la hora (`date`) de cada uno:
 
@@ -1207,11 +1205,15 @@ Dos avisos. El contenedor auxiliar solo captura eventos mientras está en marcha
 
     Apunta el `exitCode` de cada `die`: 137 tras el SIGKILL y tras el `oom`, 143 cuando compose la recrea (si la API atiende SIGTERM).
 
-<span class="et et-com">Comprobación</span> Las tres consultas devuelven al menos una línea con la hora que apuntaste; el `oom` va seguido de un `die` con `exitCode` 137; `docker inspect` dice `unhealthy` cuando el evento aparece en Loki.
+6. Cruza cada evento con las otras dos señales, que es lo que hace de verdad quien atiende una avería: un evento solo dice que algo pasó, y son la métrica y el log los que dicen qué. Con la hora que apuntaste en el paso 4, mira en Prometheus y en Explore qué se ve en ese mismo minuto y rellena una tabla de tres filas, una por evento, con las columnas «evento en Loki», «qué hace la métrica» y «qué deja en los logs». Para el `oom`, `container_oom_events_total` de cAdvisor sube y el working set de `app` cae en seco al recrearse el contenedor. Para el `die`, mira el hueco de `rate(container_cpu_usage_seconds_total{service="app"}[2m])` y la última línea que escribió la API antes de morir. Para el `health_status: unhealthy`, busca en `{service="nginx"}` qué código devolvió el proxy mientras la API estaba marcada como enferma.
 
-<span class="et et-ent">Entrega</span> En `tests/evidence/ut1/a1.5.md`: las tres consultas con su resultado y la lista de `exitCode` observados con su causa. El `match` nuevo va al `promtail.yml` del repositorio `monitoring`.
+7. Con los cuatro flujos ya completos (métricas de recursos, métricas de aplicación, logs y eventos), dibuja el esquema del flujo de datos que pide el informe de la sesión 7. Tiene que distinguir los contenedores del compose del servicio (nginx, API y PostgreSQL) y los agentes de app01, qué señal sale de cada uno, por qué puerto y en qué sentido: Prometheus va a buscar las métricas, y Promtail y docker-events envían hacia Loki. Guárdalo en `tests/evidence/ut1/flujo.md`, en Mermaid o como foto de un dibujo a mano, con el puerto escrito en cada flecha. Hoy es la primera sesión en la que el esquema está entero, y tenerlo hecho ahora ahorra media tarde en la sesión 7.
 
-<span class="et et-ext">Si te sobra tiempo</span> Comprueba que `container_oom_events_total` de cAdvisor también ha subido con el `oom`.
+<span class="et et-com">Comprobación</span> Las tres consultas devuelven al menos una línea con la hora que apuntaste; el `oom` va seguido de un `die` con `exitCode` 137; `docker inspect` dice `unhealthy` cuando el evento aparece en Loki; `{service="nginx"}` trae la etiqueta `level`; la tabla del paso 6 tiene sus tres filas con una métrica y un log por evento, y el esquema de `flujo.md` recoge los cuatro flujos con su puerto y su sentido.
+
+<span class="et et-ent">Entrega</span> En `tests/evidence/ut1/a1.5.md`: las tres consultas con su resultado, la lista de `exitCode` observados con su causa y la tabla de las tres señales del paso 6. El esquema va en `tests/evidence/ut1/flujo.md` y los dos `match` nuevos, al `promtail.yml` del repositorio `monitoring`.
+
+<span class="et et-ext">Si te sobra tiempo</span> Mide cuánto tarda un evento en llegar: apunta la hora con `date` al lanzar un `docker restart` y compárala con la marca de tiempo de la línea `start` en Loki. Ese retardo es el del camino entero, y es uno de los números que la sesión 6 mide con la tabla de verificación.
 
 ## Sesión 6 · Integridad y almacenamiento
 
