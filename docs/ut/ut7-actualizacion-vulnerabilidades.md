@@ -1,6 +1,6 @@
 # UT7 · Actualización y gestión de vulnerabilidades
 
-<p class="ut-meta">Módulo 5169 · 14 h · Sesiones 30 a 36 · RA4 CE d, e, f, g, h, i</p>
+<p class="ut-meta">Módulo 5169 · 14 h · Sesiones 29 a 35 · RA4 CE d, e, f, g, h, i</p>
 
 Hasta aquí habéis aprendido a mirar el servicio (UT1 a UT3), a medirlo y probarlo (UT4) y, en la empresa, a explotarlo y a copiarlo (UT5 y UT6). Todo eso da por hecho que el servicio no cambia. En esta unidad cambia: aparecen versiones nuevas de la base de datos, del proxy y de la aplicación, aparecen vulnerabilidades en librerías que ni sabíais que llevaba el contenedor, y hay que decidir qué se actualiza, cuándo y cómo, sin romper nada y dejando rastro. Las pruebas de la UT4 se reutilizan tal cual como red de seguridad de cada actualización, y las copias de la UT6 son el plan B. Después de esta unidad viene la UT8, donde daremos de baja el entorno pre que aquí vamos a usar tanto. Entre medias, del 1 al 5 de marzo, están las fiestas de la Magdalena, así que la práctica evaluable de la sesión 36 cierra la unidad antes del parón.
 
@@ -36,9 +36,25 @@ Un jueves a las cuatro de la tarde llega un aviso: la librería que la API usa p
     Esta unidad va del 2 al 23 de febrero y coincide con la [UT6 de Despliegue, integración continua con Jenkins](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), que va del 27 de enero al 26 de febrero. Dos cosas dependen de ella (Jenkins, sus credenciales y el registry local se explican allí y aquí se dan por conocidos):
 
     - El entorno pre que aquí actualizamos lo crea el repositorio IaC de la [UT5 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/) con OpenTofu, así que a principios de febrero ya existe. No lo montes a mano.
-    - La etapa de escaneo con Trivy que se pide en la sesión 35 (18 de febrero) se añade al Jenkinsfile que en la 5166 se está construyendo en sus sesiones 34 a 36 (del 10 al 17 de febrero), en el apartado [Pipeline declarativo](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/#pipeline-declarativo). Si ese día tu pipeline aún no despliega, prueba la etapa en un job aparte que solo construya y escanee, e intégrala cuando el pipeline esté completo.
+    - La etapa de escaneo con Trivy que se pide en la sesión 34 (18 de febrero) se añade al Jenkinsfile que en la 5166 se está construyendo en sus sesiones 32 a 34 (del 10 al 17 de febrero), en el apartado [Pipeline declarativo](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/#pipeline-declarativo). Si ese día tu pipeline aún no despliega, prueba la etapa en un job aparte que solo construya y escanee, e intégrala cuando el pipeline esté completo.
+
+## Plan de sesiones
+
+Cada sesión de dos horas empieza con una explicación corta y sigue con laboratorio. La columna "Se explica" es lo que cuento yo al principio (con su duración aproximada); la columna "Se practica" es lo que hacéis vosotros con el material de práctica de esta unidad. Las sesiones marcadas solo como práctica no traen teoría nueva.
+
+| Sesión | Fecha | Tipo | Se explica | Se practica |
+|---:|-------|------|------------|-------------|
+| [29](#a71-inventario-de-versiones-y-seguimiento-automatico-sesion-29) | 2 feb | Teoría y práctica | Etiquetas frente a digests, versionado semántico, variantes de imagen; Renovate y por qué no Watchtower (25 min). | Inventario con versión y digest, fijar versiones en compose y Dockerfile; Renovate sobre el repositorio y política de actualización. |
+| [30](#a72-escaneo-sesion-30) | 4 feb | Teoría y práctica | CVE, CVSS, EPSS y KEV; SBOM; qué hace cada escáner (20 min). | SBOM con Syft; Trivy y Grype sobre aplicación, BD y proxy; tabla de hallazgos. |
+| [31](#a73-investigar-y-decidir-sesion-31) | 9 feb | Teoría y práctica | Cómo leer un informe de Trivy y las cuatro soluciones posibles (15 min). | Investigar cinco hallazgos en NVD y OSV, decidir y justificar; reconstruir con base slim y comparar. |
+| [32](#a74-actualizacion-en-pre-sesion-32) | 11 feb | Teoría y práctica | El ciclo de actualización, migraciones y verificación de integridad con SQL (20 min). | Actualizar PostgreSQL y la aplicación en dev y pre con copia previa; recuentos y sumas de control antes y después; pruebas de la UT4. |
+| [33](#a75-fallo-provocado-sesion-33) | 16 feb | Práctica | Clasificación de fallos y plantilla de reporte (10 min). | Versión que falla al actualizar: analizar, clasificar, rollback o parche en 40 minutos y reporte a desarrollo. |
+| [34](#a76-trazabilidad-sesion-34) | 18 feb | Teoría y práctica | Incidencias enlazadas, CHANGELOG y la etapa de escaneo en el pipeline (15 min). | Registrar las actualizaciones como incidencias con enlaces, actualizar el CHANGELOG y añadir la etapa Trivy que falla con CRITICAL. |
+| [35](#practica-evaluable-ut7-sesion-35) | 23 feb | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar inventario y política, informe de vulnerabilidades, evidencia de actualización, reporte de fallo e incidencias. |
 
 ## Versiones, etiquetas y digests
+
+*Se explica en la sesión 29 (unos 15 min). El resto del apartado es material de consulta para la práctica.*
 
 Antes de actualizar nada hay que poder decir con exactitud qué hay desplegado, y con contenedores el nombre del compose no siempre identifica el mismo software. Aprendes a nombrar una imagen sin ambigüedad, a leer lo que promete un número de versión y a escoger la variante de imagen adecuada.
 
@@ -115,6 +131,8 @@ Las imágenes oficiales de Docker Hub publican un abanico de etiquetas por versi
 Una regla práctica: para el escáner, cada paquete que no está no puede ser vulnerable. Pasar la API del curso de `python:3.13` a `python:3.13-slim` quita de un plumazo cientos de hallazgos que venían de `gcc`, `perl` o `imagemagick` que nadie usaba. Lo vais a medir en la actividad A7.4.
 
 ## Seguir la aparición de versiones
+
+*Se explica en la sesión 29 (unos 10 min). El resto del apartado es material de consulta para la práctica.*
 
 Con las versiones fijadas, el problema pasa a ser el contrario: nada cambia hasta que alguien se entera de que hay una versión nueva y la propone. Vemos de dónde sale esa información, tres formas de automatizar el aviso (una descartada a propósito) y la política escrita que dice quién decide qué.
 
@@ -244,6 +262,8 @@ Aquí toca escribir media página que diga cómo se actualiza el servicio. Sin e
 - Cuánto tiempo se da a una actualización que falla antes de volver atrás: 40 minutos en pre, 20 en producción.
 
 ## Vulnerabilidades en los componentes
+
+*Se explica en la sesión 30 (unos 20 min: CVE, CVSS, EPSS y KEV, SBOM y escáneres) y en la sesión 31 (unos 15 min: leer un informe y las cuatro soluciones). El resto del apartado es material de consulta para la práctica.*
 
 Saber qué versión lleva cada pieza sirve para la segunda pregunta de la unidad: ¿alguna de esas piezas tiene un fallo de seguridad publicado? Aquí aprendes el vocabulario con el que se describen esos fallos, a inventariar y escanear una imagen y, sobre todo, a leer el resultado con calma: la mayoría de los hallazgos no requieren hacer nada hoy, y decidir cuáles sí es el trabajo.
 
@@ -426,6 +446,8 @@ Una línea sin comentario ni fecha es una excepción que nadie revisará, y en s
 
 ## Actualizar
 
+*Se explica en la sesión 32 (unos 20 min: el ciclo, migraciones e integridad) y en la sesión 33 (unos 10 min: clasificación de fallos y plantilla de reporte). El resto del apartado es material de consulta para la práctica.*
+
 Con el inventario hecho y los hallazgos decididos, toca ejecutar la actualización. Este apartado es el procedimiento: el mismo ciclo para un parche de PostgreSQL que para una versión nueva de la API, con copia previa, pruebas y un plan de vuelta atrás escrito antes de tocar nada.
 
 ### El ciclo
@@ -566,6 +588,8 @@ Con eso, quien lo lea reproduce el fallo sin preguntar nada; si falta un bloque,
 
 ## Trazabilidad
 
+*Se explica en la sesión 34 (unos 15 min). El resto del apartado es material de consulta para la práctica.*
+
 Cada actualización deja rastro en el repositorio de incidencias. En clase es el gestor de issues de Gitea (`gitea01`); en la empresa será GitLab, Jira o GLPI, y la estructura es la misma. La regla es una incidencia por actualización, abierta antes de empezar y cerrada después de verificar en producción, con este contenido:
 
 - Título: `Actualizar postgres 17.5 → 17.6 (pre y pro)`.
@@ -634,36 +658,100 @@ Tres detalles: el JSON se genera siempre, falle o no la puerta, porque es lo que
 - **La etapa de Trivy falla en Jenkins pero en local pasa.** En Jenkins no se está leyendo `.trivyignore` (el fichero está en otro directorio o falta `--ignorefile`), o la base de datos del agente está más nueva y ya conoce un CVE de ayer. Lo segundo es correcto y es la razón de tener la etapa.
 - **Renovate hace automerge de algo que no era un parche.** Un proyecto que no sigue semver (etiquetas tipo `2027.02`, o `v1.28` sin tercer número) hace que Renovate clasifique mal el cambio. Para esos paquetes se añade una `packageRule` con `versioning` explícito o se les quita el automerge.
 
-## Actividades
+## Material de práctica
 
-### A7.1 Inventario de versiones y seguimiento automático (sesión 30)
+### A7.1 Inventario de versiones y seguimiento automático (sesión 29)
 
-Esta sesión precede al examen de la 1ª evaluación (sesión 29) y arranca la unidad con dos tareas encadenadas: primero se levanta el inventario y luego, sobre él, se automatiza su vigilancia.
+**Sesión 29 · 2 de febrero · Teoría y práctica · unos 95 min de práctica**
 
-1. Lista todas las imágenes y dependencias del contenedor de referencia con su versión, digest y fecha de publicación. Para las imágenes, `docker images --digests` y `docker manifest inspect`; para las dependencias de Python, el SBOM de Syft o `pip list` dentro del contenedor. Identifica cuáles usan etiquetas flotantes (`latest`, solo mayor, sin sufijo de Debian) y fija versiones concretas con digest en el compose y en el `FROM` del Dockerfile. Entrega el inventario como tabla en el repositorio (`docs/inventario.md`) y el PR con los cambios.
-2. Configura Renovate sobre el repositorio del servicio en `gitea01`, con un usuario técnico y un `renovate.json` que fije digests, agrupe el software de base y solo permita automerge de parches. Comprueba que abre un PR con la nueva versión de una imagen (si no hay ninguna disponible, baja una versión a mano en el compose para provocarlo). Escribe la política de actualización (media página, en `docs/politica-actualizacion.md`) con los seis puntos de la sección correspondiente.
+La sesión arranca la unidad con dos tareas encadenadas: primero se levanta el inventario y luego, sobre él, se automatiza su vigilancia.
 
-### A7.2 Escaneo (sesión 31)
+**Objetivo.** Al terminar, el compose y el Dockerfile del servicio no llevan ninguna etiqueta flotante, el inventario está en `docs/inventario.md`, la política en `docs/politica-actualizacion.md` y Renovate ha abierto al menos un PR en `gitea01`.
+
+**Antes de empezar.**
+
+- La VM de dev con el servicio del curso arrancado y `docker`, `jq` y `syft` instalados.
+- Clon del repositorio `curso/servicio` de `gitea01` con permiso para abrir PR.
+- Un usuario técnico en Gitea para el robot (por ejemplo `renovate-bot`) con acceso de escritura al repositorio y su token; si no existe, se crea en el paso 6.
+- Explicado antes: [Versiones, etiquetas y digests](#versiones-etiquetas-y-digests), [Versionado semántico](#versionado-semantico), [Renovate a fondo](#renovate-a-fondo) y [La política escrita](#la-politica-escrita).
+
+**Pasos.**
+
+1. Inventario de imágenes. Para cada servicio del compose apunta etiqueta, digest y fecha de publicación:
+
+    ```bash
+    docker compose config --images                 # qué imágenes usa el compose
+    docker images --digests                        # etiqueta y digest de las descargadas
+    docker image inspect --format '{{index .RepoDigests 0}}  {{.Created}}' postgres:17.6
+    docker inspect --format '{{index .RepoDigests 0}}' app01-db-1   # la que está corriendo
+    docker manifest inspect postgres:17.6 | jq '.manifests[] | {digest, platform}'
+    ```
+
+2. Dependencias de Python. Genera el SBOM o lista los paquetes desde dentro del contenedor:
+
+    ```bash
+    syft gitea01.lab:5000/api:1.4.2 -o table > inventario-api.txt
+    # sin syft:
+    docker compose exec api pip list --format=freeze
+    ```
+
+3. Marca las flotantes. Busca `latest`, etiquetas solo con mayor (`postgres:17`) y bases sin sufijo de Debian en el compose y en los Dockerfile: `grep -n "image:\|^FROM" compose.yml api/Dockerfile`.
+4. Fija versiones concretas con digest. Para el compose, `docker compose config --resolve-image-digests > compose.pinned.yml` te da los digests: cópialos al `compose.yml` original (no sustituyas el fichero entero, porque `config` expande variables y quita comentarios). Para el `FROM` del Dockerfile:
+
+    ```bash
+    docker pull python:3.13-slim-bookworm
+    docker image inspect --format '{{index .RepoDigests 0}}' python:3.13-slim-bookworm
+    # FROM python:3.13-slim-bookworm@sha256:...
+    ```
+
+5. Escribe `docs/inventario.md` como tabla: componente, imagen, etiqueta, digest, fecha de publicación y si era flotante antes. Abre un PR con el inventario y los cambios de compose y Dockerfile, y comprueba que `docker compose pull && docker compose up -d` arranca con las referencias fijadas.
+6. Usuario técnico. En Gitea crea `renovate-bot`, dale acceso de escritura al repositorio y genera un token de acceso en su configuración de aplicaciones. Guárdalo en la sesión: `export TOKEN_BOT=...`.
+7. `renovate.json` en la raíz del repositorio con `:pinDigests`, el grupo de software de base y automerge solo de parches y digests: el del apartado [Renovate a fondo](#renovate-a-fondo) sirve tal cual. Haz commit en la rama principal.
+8. Lanza Renovate. Las credenciales del registry propio van en `hostRules` por variable de entorno, para no escribirlas en el repositorio; la primera vez con `LOG_LEVEL=debug`:
+
+    ```bash
+    docker run --rm \
+      -e RENOVATE_PLATFORM=gitea \
+      -e RENOVATE_ENDPOINT=https://gitea01.lab/api/v1 \
+      -e RENOVATE_TOKEN=$TOKEN_BOT \
+      -e RENOVATE_REPOSITORIES=curso/servicio \
+      -e RENOVATE_HOST_RULES='[{"matchHost":"gitea01.lab:5000","username":"renovate-bot","password":"'"$REGISTRY_PASS"'"}]' \
+      -e LOG_LEVEL=debug \
+      renovate/renovate:latest 2>&1 | tee renovate.log
+    ```
+
+9. Mira la pestaña de pull requests del repositorio. Si no hay ninguno y el log no dice nada raro, baja a mano una versión en el compose (por ejemplo `postgres:17.5`), haz commit en la rama principal y vuelve a lanzar.
+10. Política de actualización: `docs/politica-actualizacion.md`, media página con los seis puntos del apartado [La política escrita](#la-politica-escrita), adaptados a vuestro servicio. Añádela al PR del paso 5.
+
+**Comprobación.** El `grep` del paso 3 no muestra ninguna etiqueta flotante; el servicio arranca con el compose fijado; en Gitea hay un PR abierto por `renovate-bot` con la etiqueta `actualizacion` y las notas de la versión en la descripción; `grep skipping renovate.log` no menciona la imagen del registry propio.
+
+**Entrega.** PR con `docs/inventario.md`, `docs/politica-actualizacion.md`, `renovate.json` y las versiones fijadas; captura del PR de Renovate en la carpeta de la práctica. Se reutiliza en la práctica evaluable.
+
+**Si te sobra tiempo.** Añade un `packageRule` con `versioning` explícito para alguna imagen que no siga semver, o comprueba en el log de depuración qué gestores detecta Renovate y si ve `requirements.txt`.
+
+### A7.2 Escaneo (sesión 30)
 
 Genera el SBOM con Syft (CycloneDX) de la imagen de la aplicación, de la base de datos y del proxy, y escanea las tres con Trivy y con Grype. Guarda los informes en JSON. Construye la tabla de hallazgos HIGH y CRITICAL con estas columnas: CVE, imagen, componente, versión instalada, corregida en, exploit conocido (KEV o EPSS), alcanzable desde fuera (sí, no, no sé). Anota las diferencias entre los dos escáneres.
 
-### A7.3 Investigar y decidir (sesión 32)
+### A7.3 Investigar y decidir (sesión 31)
 
 Para cinco hallazgos de la tabla anterior (al menos uno CRITICAL y uno sin parche), busca la ficha en NVD u OSV, el aviso del proyecto y el issue tracker del componente. Decide la solución (actualizar, cambiar base, mitigar, aceptar) siguiendo el diagrama de decisión y justifícala en tres o cuatro líneas por hallazgo. Reconstruye la imagen de la aplicación con base `-slim` (y, si te da tiempo, `-alpine`) y compara el número de hallazgos y el tamaño de la imagen antes y después. Escribe el `.trivyignore` con las excepciones aceptadas, comentadas y con fecha.
 
-### A7.4 Actualización en pre (sesión 33)
+### A7.4 Actualización en pre (sesión 32)
 
 Actualiza PostgreSQL a la siguiente versión menor y la aplicación a la versión con la base corregida, en dev y luego en pre, con copia previa (UT6) y plan de vuelta atrás escrito. Ejecuta el script `integridad.sql` antes y después y guarda ambas salidas. Pasa las pruebas de la UT4 (newman, k6 con umbrales, ZAP baseline) y compara los KPI con la línea base. Todo queda enlazado desde una incidencia abierta al principio.
 
-### A7.5 Fallo provocado (sesión 34)
+### A7.5 Fallo provocado (sesión 33)
 
 El profesor entrega una versión de la aplicación que falla al actualizar (cambio de formato de configuración). Despliégala en pre, analiza los logs, clasifica el fallo, decide rollback o parche dentro de 40 minutos y ejecuta la decisión. Redacta el reporte al equipo de desarrollo con la plantilla de la unidad: pasos para reproducir, logs, versiones y qué se pide.
 
-### A7.6 Trazabilidad (sesión 35)
+### A7.6 Trazabilidad (sesión 34)
 
 Registra las actualizaciones de A7.5 y A7.6 como incidencias en Gitea con etiquetas y todos los enlaces (PR, pipeline, escaneo antes y después, pruebas, integridad, copia), con el estado correcto de cada una (verificada, revertida). Actualiza el `CHANGELOG.md` en formato Keep a Changelog. Añade al Jenkinsfile del servicio la etapa de escaneo con Trivy que archive el informe y falle con CRITICAL, y demuestra que falla con una imagen vulnerable y pasa con la corregida.
 
-## Práctica evaluable UT7 (sesión 36)
+## Práctica evaluable UT7 (sesión 35)
+
+**Sesión 35 · 23 de febrero · Práctica evaluable · unos 110 min de práctica**
 
 Sobre el servicio del curso, entrega en el repositorio de `gitea01` y en la carpeta de la práctica:
 

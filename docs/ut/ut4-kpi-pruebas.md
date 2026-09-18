@@ -1,6 +1,6 @@
 # UT4 · Indicadores, KPI y pruebas del servicio
 
-<p class="ut-meta">Módulo 5169 · 18 h · Sesiones 20 a 28 · RA2 CE a, b, c, d, e, f</p>
+<p class="ut-meta">Módulo 5169 · 16 h · Sesiones 20 a 27 · RA2 CE a, b, c, d, e, f</p>
 
 En la UT1 pusimos el contenedor de referencia a exponer métricas, logs y eventos; en la UT2 convertimos algunas de esas métricas en alarmas con Alertmanager; en la UT3 protegimos la pila de monitorización. Ahora toca ordenar todo eso para que sirva a alguien que no seáis vosotros: documentar qué mide cada contador, definir con fórmula y umbral los indicadores que de verdad describen el servicio, escribir el runbook de cada alarma (la guía de qué hacer cuando salta) y, sobre todo, probar el servicio de forma repetible (funcional, carga, estrés, seguridad) y dejar evidencia de cada prueba. Lo que salga de aquí es el dossier de operación que os pedirá cualquier empresa antes de pasar un servicio a producción. En la UT7 estas mismas pruebas serán la verificación de cada actualización, y buena parte de esta unidad entra en el examen de la primera evaluación de abril.
 
@@ -37,12 +37,29 @@ Las herramientas de monitorización las conocéis de la UT1 y la UT2; las de pru
 Cómo está organizada la unidad. Primero decidimos qué medir (señales doradas, USE y RED), porque sin criterio se documentan 400 contadores y no sirve ninguno. Con ese filtro documentamos las métricas en fichas y las clasificamos. Sobre ellas construimos los indicadores con fórmula y umbrales, y de los indicadores salen las alarmas, que reciben su runbook en el catálogo. Ese es el bloque de monitorización. El segundo son las pruebas: los tipos, la herramienta de cada uno y cómo leer los resultados junto a Grafana; después, cómo documentarlas y meterlas en el pipeline. Cierra el seguimiento periódico, que mantiene vivo todo lo anterior, y los errores frecuentes.
 
 !!! info "Lo que necesitas de la otra asignatura"
-    Esta unidad va del 3 de diciembre al 26 de enero, en paralelo con la UT5 de 5166 (infraestructura como código con OpenTofu y Ansible, del 4 de diciembre al 20 de enero): [https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/).
+    Esta unidad va del 10 de diciembre al 26 de enero, en paralelo con la UT5 de 5166 (infraestructura como código con OpenTofu y Ansible, del 9 de diciembre al 20 de enero): [https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/).
     El entorno `pre` contra el que se lanzan las pruebas de esta unidad (`pre.app.lab`) es el que crea ese repositorio IaC. Mientras no exista, lanzad las pruebas contra `app01` en la VPC dev, que está detrás del firewall desde la UT3.
     A finales de enero `pre` ya existe, y es el mismo que la UT7 actualiza y la UT8 destruye con `tofu destroy`.
     El pipeline de Jenkins en el que se integra la etapa de pruebas se construye en 5166 UT6, del 27 de enero al 26 de febrero ([https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/)): si al llegar a la A4.7 aún no está, la etapa se prueba en un job aparte de `jenkins01` y se integra en el `Jenkinsfile` cuando exista.
 
+## Plan de sesiones
+
+Cada sesión de dos horas empieza con una explicación corta y sigue con laboratorio. La columna "Se explica" es lo que cuento yo al principio (con su duración aproximada); la columna "Se practica" es lo que hacéis vosotros con el material de práctica de esta unidad. Las sesiones marcadas solo como práctica no traen teoría nueva.
+
+| Sesión | Fecha | Tipo | Se explica | Se practica |
+|---:|-------|------|------------|-------------|
+| [20](#a41-fichas-de-metricas-sesion-20) | 10 dic | Teoría y práctica | Señales doradas, USE y RED; la ficha de métrica y las tres categorías (25 min). | Documentar al menos quince métricas del contenedor de referencia y clasificarlas. |
+| [21](#a42-indicadores-sesion-21) | 15 dic | Teoría y práctica | SLI, SLO y presupuesto de error; los nueve indicadores y sus trampas (25 min). | Implementar los nueve indicadores como recording rules y panel de KPI con umbrales justificados. |
+| [22](#a43-catalogo-de-alarmas-sesion-22) | 17 dic | Teoría y práctica | Qué hace un buen runbook (15 min). | Ficha completa para al menos diez alarmas y enlace desde la anotación runbook. |
+| [23](#a44-pruebas-funcionales-sesion-23) | 12 ene | Teoría y práctica | Tipos de prueba y qué comprueba cada una; pytest y newman (20 min). | Suite con diez casos sobre la API e informe JUnit. |
+| [24](#a45-calidad-de-servicio-y-rendimiento-sesion-24) | 14 ene | Teoría y práctica | k6: options, stages, thresholds, checks; leer resultados junto a Grafana (20 min). | Script k6 con umbrales de los SLO; rampas de 10, 50 y 100 usuarios contra pre; capturas del panel. |
+| [25](#a46-estres-y-seguridad-sesion-25) | 19 ene | Teoría y práctica | Estrés frente a carga; ZAP baseline y trivy image (15 min). | Rampa hasta el fallo y tiempo de recuperación; ZAP y trivy sobre la imagen; lista de hallazgos. |
+| [26](#a47-documentacion-de-pruebas-y-seguimiento-sesion-26) | 21 ene | Teoría y práctica | La ficha de caso de prueba, el informe de versión y el ciclo de revisión diario, semanal y mensual (20 min). | Fichas de las diez pruebas con evidencias archivadas, informe de la versión, y una revisión semanal ejecutada con la plantilla y un umbral ajustado por merge request. |
+| [27](#practica-evaluable) | 26 ene | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el dossier de operación: fichas, indicadores, catálogo, informe de pruebas y registro de revisión. |
+
 ## Elegir qué medir antes de documentarlo
+
+*Se explica en la sesión 20 (unos 10 min). El resto del apartado es material de consulta para la práctica.*
 
 El error habitual al empezar es documentar los 400 contadores que expone cAdvisor (el exporter que publica las métricas de cada contenedor). No se puede vigilar todo y tampoco hace falta. Hay dos métodos clásicos que os van a servir para decidir qué métricas merecen ficha, indicador y alarma.
 
@@ -64,6 +81,8 @@ Brendan Gregg propuso el método USE para diagnosticar recursos físicos: para c
 En el laboratorio la correspondencia es directa. RED de la API sale de las dos métricas que añadisteis en la UT1 (`app_requests_total` y `app_request_seconds_bucket`). USE del contenedor sale de cAdvisor (`container_cpu_usage_seconds_total`, `container_memory_working_set_bytes`, `container_fs_*`, `container_network_*`) y del nodo (`node_*`, que publica node_exporter). USE de PostgreSQL sale de `postgres_exporter` (`pg_stat_activity_count` como saturación de conexiones, `pg_stat_database_*` como tasa y errores). Cuando en la actividad A4.1 os falten métricas de una categoría, recorred USE y RED y aparecerán.
 
 ## Documentar las métricas
+
+*Se explica en la sesión 20 (unos 15 min). El resto del apartado es material de consulta para la práctica.*
 
 Antes de vigilar un sistema hay que saber qué mide cada contador, quién lo produce, con qué unidad y para qué se usa. Eso es la ficha de métrica. Su valor no está en la ficha en sí, sino en que obliga a responder preguntas que de otro modo nadie se hace: ¿esta métrica es un gauge o un counter? ¿En segundos o en milisegundos? ¿Quién la mantiene si cambia el código?
 
@@ -116,6 +135,8 @@ Calidad responde a "¿el resultado es correcto?" y son la parte que más se olvi
 La última fila es deliberada. Ninguna herramienta os va a dar la calidad del dato: si un pedido guardado con importe negativo es un fallo del servicio, alguien tiene que escribir la consulta que lo cuenta y exponerla como gauge. En una empresa esto es lo que distingue "monitorizamos el servidor" de "monitorizamos el servicio".
 
 ## Indicadores: fórmulas y umbrales
+
+*Se explica en la sesión 21 (unos 25 min). El resto del apartado es material de consulta para la práctica.*
 
 Un indicador (KPI, *key performance indicator*) combina contadores en un valor con significado para alguien que no conoce el código. "El contenedor lleva 1.234.567 segundos de CPU" no dice nada; "la API va al 62 % de su cuota de CPU" sí. El marco que se usa en la industria para hablar de indicadores es el de SLI, SLO y SLA:
 
@@ -203,6 +224,8 @@ Y una regla práctica: ningún umbral se fija sin haber mirado antes la distribu
 
 ## Catálogo de alarmas y runbooks
 
+*Se explica en la sesión 22 (unos 15 min). El resto del apartado es material de consulta para la práctica.*
+
 Cada alarma posible tiene una ficha con lo que un operador necesita a las 3 de la mañana. No es documentación para quien escribió la alarma, es documentación para quien la recibe sin contexto, medio dormido y con un cliente esperando. La ficha del original:
 
 | Campo | AppHighErrorRate |
@@ -251,6 +274,8 @@ Dos fichas más, escritas con el mismo esquema, para que veáis cómo cambia el 
 El catálogo es la colección de fichas, versionada con las reglas de alerta y enlazada desde la anotación `runbook` de cada alarma. En la A4.3 os pido diez como mínimo; en la empresa lo normal es que haya entre 30 y 80 para un servicio mediano, y que la mitad se retiren al cabo de un año por no haber saltado nunca o por saltar sin acción posible.
 
 ## Pruebas del servicio
+
+*Se explica en las sesiones 23, 24 y 25 (unos 20, 20 y 15 min: tipos de prueba y pruebas funcionales en la 23, k6 y lectura con Grafana en la 24, estrés y seguridad en la 25). El resto del apartado es material de consulta para la práctica.*
 
 Monitorizar dice cómo se comporta el servicio con el tráfico que hay; probar dice cómo se comportará con el tráfico que habrá, o con el que no debería haber. Cada tipo de prueba responde a una pregunta distinta y se ejecuta en un momento distinto del ciclo de vida.
 
@@ -582,6 +607,8 @@ trivy image --severity HIGH,CRITICAL --ignore-unfixed registry.lab/app:1.4.2   #
 
 ## Documentar las pruebas
 
+*Se explica en la sesión 26 (unos 12 min). El resto del apartado es material de consulta para la práctica.*
+
 Una prueba que no se documenta no existe a efectos de auditoría ni de la UT7, donde tendréis que demostrar que la versión anterior pasaba lo que la nueva no pasa. Por cada ejecución relevante se rellena un caso de prueba:
 
 | Campo | Contenido |
@@ -671,6 +698,8 @@ El paso `junit` hace que Jenkins pinte la tendencia de casos OK/KO entre builds 
     trivy va antes que k6 y ZAP porque es el más barato (segundos) y el que más veces falla. No tiene sentido gastar 13 minutos de carga sobre una imagen que no va a pasar a producción por una CVE crítica.
 
 ## Seguimiento periódico
+
+*Se explica en la sesión 26 (unos 8 min). El resto del apartado es material de consulta para la práctica.*
 
 Los indicadores se revisan en un ciclo fijo, no solo cuando salta una alarma. Una alarma avisa de que algo ha pasado el umbral; la revisión detecta lo que se acerca al umbral despacio, lo que el umbral no cubre y los umbrales que están mal puestos. Son cosas que una alarma nunca os va a decir.
 
@@ -775,41 +804,410 @@ Se lanza los lunes a las 7:00 con un `cron` o un job de Jenkins, y la revisión 
 
 **El pipeline se pone en amarillo (inestable) pero despliega en prod.** `junit` marca el build como UNSTABLE si hay casos KO, y por defecto las etapas siguientes se ejecutan con UNSTABLE. Añadid `skipStagesAfterUnstable()` en `options` o comprobad `currentBuild.result` antes de la etapa de producción.
 
-## Actividades
+## Material de práctica
 
 ### A4.1 Fichas de métricas (sesión 20)
 
-Documenta todas las métricas relevantes del contenedor de referencia (aplicación, cAdvisor, postgres_exporter; mínimo 15) con la ficha del apartado de métricas y clasifícalas. Comprueba que hay al menos tres de cada categoría. Usa USE y RED para encontrar las que falten: si no llegas a tres de calidad, es que no has mirado los códigos de estado de la API ni el blackbox_exporter.
+**Sesión 20 · 10 de diciembre · Teoría y práctica · unos 95 min de práctica**
+
+**Objetivo.** Un fichero `docs/metricas.md` en el repositorio del servicio con al menos quince fichas de métrica, tres o más por categoría, y cada una con su referencia al código o al exporter.
+
+**Antes de empezar.**
+
+- La pila de monitorización de la UT1 en marcha: Prometheus en `mon01` (`http://10.10.0.20:9090`) recogiendo la API, cAdvisor, node_exporter, postgres_exporter y blackbox_exporter.
+- El repositorio del servicio clonado en tu VM de trabajo y acceso a `api/metrics.py`.
+- Lo explicado al principio de la sesión: [las señales doradas, USE y RED](#elegir-que-medir-antes-de-documentarlo) y [la ficha de métrica con sus categorías](#documentar-las-metricas).
+
+**Pasos.**
+
+1. Lista qué métricas expone cada origen. Para la API, directamente desde `app01`:
+
+    ```bash
+    curl -s http://app01:8000/metrics | grep -E '^# (HELP|TYPE)' | head -40
+    ```
+
+    Para cAdvisor y postgres_exporter, la misma consulta cambiando el puerto (`8080` y `9187`). Anota el `# TYPE` de cada métrica: es el campo Tipo de la ficha y no hay que adivinarlo.
+
+2. Comprueba en Prometheus que la métrica llega con las etiquetas que crees. En `http://10.10.0.20:9090/graph` ejecuta, por ejemplo:
+
+    ```promql
+    app_request_seconds_bucket{route="/items"}
+    container_memory_working_set_bytes{name="app"}
+    pg_stat_activity_count{datname="app"}
+    ```
+
+    Si una consulta no devuelve nada, la métrica no existe con ese nombre o esa etiqueta: corrige la ficha, no la consulta.
+
+3. Crea `docs/metricas.md` y escribe una ficha por métrica con la tabla del apartado de métricas (Nombre, Tipo, Unidad, Etiquetas, Qué mide, Referencia, Categoría, Uso). Empieza por las diez que salen en las tres tablas de categorías del apartado y añade las tuyas. En Referencia, para las métricas de la API pon fichero y función (`api/metrics.py`, `observe_request`); para las de un exporter, la página del exporter y la versión que corre (`docker inspect cadvisor --format '{{.Config.Image}}'`).
+
+4. Clasifica cada ficha en capacidad, rendimiento o calidad y cuenta cuántas hay de cada una. Si no llegas a tres de calidad, es que no has mirado los códigos de estado de la API (`app_requests_total{status=~"5.."}`, `{status="429"}`) ni el blackbox_exporter (`probe_success`). Si no llegas a tres de rendimiento, recorre RED: tasa, errores y duración de la API y las transacciones de PostgreSQL.
+
+5. Añade al final del fichero una tabla resumen con nombre, categoría y en qué indicador o alarma se usa cada métrica. La columna Uso puede quedar vacía en las que no tengan destino todavía: la rellenarás en la A4.2.
+
+**Comprobación.** Quince fichas o más, cada una con las ocho filas rellenas; tres o más por categoría; todas las métricas devuelven datos en Prometheus; el tipo de cada ficha coincide con el `# TYPE` del endpoint `/metrics`.
+
+**Entrega.** `docs/metricas.md` confirmado en el repositorio del servicio en Gitea. Forma parte del dossier de la práctica evaluable.
+
+**Si te sobra tiempo.** Añade una métrica de negocio como `app_orders_inconsistent`: escribe la consulta SQL que la calcula y una nota sobre dónde habría que exponerla en la API. No hace falta programarla todavía.
 
 ### A4.2 Indicadores (sesión 21)
 
-Implementa los nueve indicadores de la tabla como recording rules en el repositorio alerting de la UT2 (convención `nivel:métrica:operación`) y monta un panel de KPI en Grafana con ellos. Fija umbrales de aviso y crítico justificados con los datos de dos días de tráfico de prueba: para cada umbral, una línea diciendo qué distribución has visto y por qué has puesto ese valor. Calcula el presupuesto de error mensual del servicio en minutos y en peticiones.
+**Sesión 21 · 15 de diciembre · Teoría y práctica · unos 95 min de práctica**
+
+**Objetivo.** Los nueve indicadores cargados como recording rules en el Prometheus de `mon01`, un panel de KPI en Grafana que los muestra, y `docs/indicadores.md` con fórmula, categoría, umbrales y la justificación de cada umbral.
+
+**Antes de empezar.**
+
+- El repositorio alerting de la UT2 clonado, con `rules.yml` y `alerts.yml`, y el mecanismo de recarga de Prometheus que montasteis entonces (`curl -X POST http://10.10.0.20:9090/-/reload` o reinicio del contenedor).
+- Dos días de tráfico de prueba contra `app01` (el generador de la UT1 o el script de k6 de 50 usuarios lanzado a ratos). Sin datos no hay umbral que justificar.
+- Límites `cpus` y `mem_limit` en el servicio `app` de `compose.yaml`; sin ellos los indicadores de saturación dan `+Inf` y 0 %.
+- Lo explicado al principio de la sesión: [SLI, SLO y presupuesto de error](#indicadores-formulas-y-umbrales), [los nueve indicadores](#los-nueve-indicadores-del-servicio) y [cómo fijar umbrales](#como-fijar-umbrales).
+
+**Pasos.**
+
+1. Prueba cada fórmula de la tabla de los nueve indicadores en `http://10.10.0.20:9090/graph` antes de grabarla. Para la disponibilidad no uses `rate(...[30d])` sobre la métrica cruda: graba primero las tasas a 5 min y calcula la mensual sobre ellas.
+
+2. Añade las recording rules a `rules.yml` con la convención `nivel:métrica:operación`. Este es el bloque de partida; completa las que faltan:
+
+    ```yaml
+    groups:
+      - name: app-kpi
+        interval: 30s
+        rules:
+          - record: app:requests:rate5m
+            expr: sum(rate(app_requests_total[5m]))
+          - record: app:errors:rate5m
+            expr: sum(rate(app_requests_total{status=~"5.."}[5m]))
+          - record: app:errors:ratio5m
+            expr: app:errors:rate5m / app:requests:rate5m
+          - record: app:errors:ratio1h
+            expr: sum(rate(app_requests_total{status=~"5.."}[1h])) / sum(rate(app_requests_total[1h]))
+          - record: app:latency_p95:5m
+            expr: histogram_quantile(0.95, sum by(le)(rate(app_request_seconds_bucket[5m])))
+          - record: app:availability:30d
+            expr: 1 - (sum_over_time(app:errors:rate5m[30d]) / sum_over_time(app:requests:rate5m[30d]))
+          - record: app:cpu:ratio5m
+            expr: rate(container_cpu_usage_seconds_total{name="app"}[5m]) / (container_spec_cpu_quota{name="app"} / container_spec_cpu_period{name="app"})
+          - record: app:memory:ratio
+            expr: container_memory_working_set_bytes{name="app"} / container_spec_memory_limit_bytes{name="app"}
+          - record: db:disk_avail:ratio
+            expr: node_filesystem_avail_bytes{mountpoint="/data"} / node_filesystem_size_bytes{mountpoint="/data"}
+          - record: db:disk_full:predict30d
+            expr: predict_linear(node_filesystem_avail_bytes{mountpoint="/data"}[7d], 30*86400)
+          - record: db:connections:ratio
+            expr: sum(pg_stat_activity_count) / pg_settings_max_connections
+    ```
+
+3. Valida y recarga:
+
+    ```bash
+    docker run --rm -v "$PWD:/rules" prom/prometheus promtool check rules /rules/rules.yml
+    curl -X POST http://10.10.0.20:9090/-/reload
+    ```
+
+    Comprueba en `http://10.10.0.20:9090/rules` que el grupo `app-kpi` aparece sin errores y que cada regla tiene "last evaluation" reciente.
+
+4. Monta en Grafana un dashboard "KPI app" con un panel Stat por indicador, leyendo la regla grabada (no la fórmula cruda). Aplica la unidad correcta en cada panel (percent 0.0-1.0, seconds, bytes) y usa los umbrales de aviso y crítico como colores de fondo.
+
+5. Mira dos días de cada indicador en Grafana y anota la distribución: mínimo, máximo, valor habitual en hora punta. Con eso escribe `docs/indicadores.md`: una tabla con indicador, regla, categoría, umbral de aviso y crítico, y debajo una línea por umbral que diga qué has visto y por qué el valor elegido. Si el servicio vive al 75 % de CPU en hora punta, un aviso al 70 % es una alarma permanente: sube el umbral o baja la carga, pero no lo dejes.
+
+6. Calcula el presupuesto de error mensual del servicio con tu SLO y tu tráfico medio (`avg_over_time(app:requests:rate5m[2d])`), en minutos y en peticiones, y añádelo a `docs/indicadores.md` con las cuentas a la vista.
+
+**Comprobación.** `promtool check rules` sin errores; los nueve indicadores devuelven un valor en Prometheus (ninguno `NaN` ni `+Inf`); el panel de KPI muestra los nueve con colores según umbral; cada umbral tiene su línea de justificación con datos.
+
+**Entrega.** `rules.yml` en el repositorio alerting (merge request), `docs/indicadores.md` en el repositorio del servicio y la exportación JSON del dashboard en `docs/grafana/kpi.json`. Forma parte del dossier de la práctica evaluable.
+
+**Si te sobra tiempo.** Añade la alerta de burn rate en dos ventanas (`app:errors:ratio1h` y `app:errors:ratio5m` por encima de `14.4 * 0.005`) a `alerts.yml` y fuérzala parando `postgres` un par de minutos.
 
 ### A4.3 Catálogo de alarmas (sesión 22)
 
-Ficha completa (origen, fallo, impacto, análisis, resolución, escalado) para las alarmas de la UT2 más las nuevas de esta UT: mínimo diez. Enlaza cada una desde la anotación `runbook` de su regla. Los comandos de análisis deben ser copiables y llevar el host desde el que se ejecutan. Prueba al menos un runbook con un compañero que no lo haya escrito: si tiene que preguntarte algo, el runbook está incompleto.
+**Sesión 22 · 17 de diciembre · Teoría y práctica · unos 105 min de práctica**
+
+**Objetivo.** Un catálogo en `docs/alarmas/` con una ficha completa por alarma (mínimo diez) y cada regla de `alerts.yml` enlazando a la suya desde la anotación `runbook`.
+
+**Antes de empezar.**
+
+- El repositorio alerting con las alarmas de la UT2 (`AppSlow`, `AppHighErrorRate`, `HostDown`, `PgDown` y las que añadisteis) y los umbrales de la A4.2 ya cargados.
+- Un compañero disponible para la prueba cruzada del último paso.
+- Lo explicado al principio de la sesión: [la ficha de alarma](#catalogo-de-alarmas-y-runbooks), [qué hace bueno a un runbook](#que-hace-bueno-a-un-runbook) y [los dos ejemplos completos](#dos-runbooks-mas).
+
+**Pasos.**
+
+1. Haz la lista de alarmas: las de la UT2 más las que salen de los umbrales de la A4.2 (una por umbral crítico como mínimo: `AppLowAvailability`, `AppCpuSaturated`, `AppMemoryHigh`, `DbDiskLow`, `DiskWillFillIn7d`, `DbConnectionsHigh`). Si no llegas a diez, añade las de tráfico cero y de throttling de CPU.
+
+2. Crea un fichero por alarma en `docs/alarmas/<NombreAlarma>.md` con la tabla de seis filas: Origen, Posible fallo, Impacto, Análisis, Resolución, Escalado. Copia el esquema de `AppHighErrorRate` y rellénalo pensando en quien recibe la alarma a las 3 de la mañana.
+
+3. En Análisis, cada paso lleva el comando exacto y el host desde el que se lanza, y dice qué significa el resultado. Ejecuta cada comando una vez antes de escribirlo; si en tu VM no funciona tal cual, tampoco funcionará al que lo lea. Ejemplo de la forma esperada:
+
+    ```text
+    1. Desde mon01: nc -zv 10.10.3.10 5432  (si falla, red o proceso caído: salta a PgDown)
+    2. En app01: docker logs app --since 10m 2>&1 | grep -c ERROR  (más de 0: mira el primero con | head)
+    ```
+
+4. En Resolución, ordena las acciones de menos a más destructiva y marca cuáles exigen escalado previo. En Escalado, tiempo y rol concreto ("desarrollador de guardia si persiste más de 15 min"), no "avisar a alguien".
+
+5. Enlaza cada ficha desde su regla en `alerts.yml`:
+
+    ```yaml
+    - alert: AppHighErrorRate
+      expr: app:errors:ratio5m > 0.01
+      for: 5m
+      labels: { severity: critical }
+      annotations:
+        summary: "Tasa de errores 5xx por encima del 1 %"
+        runbook: "https://gitea.lab/servicio/app/src/branch/main/docs/alarmas/AppHighErrorRate.md"
+    ```
+
+    Valida con `promtool check rules alerts.yml`, recarga Prometheus y comprueba en `http://10.10.0.20:9090/alerts` que la anotación aparece en cada alarma.
+
+6. Prueba cruzada: dale un runbook a un compañero que no lo haya escrito y provoca la alarma (parar `postgres`, llenar `/data` con `fallocate -l 5G /data/relleno`, lanzar carga con k6). Él lo sigue sin preguntarte nada. Cada pregunta que te haga es una línea que falta en la ficha: corrígela antes de terminar.
+
+**Comprobación.** Diez fichas o más, con las seis filas rellenas; cada regla de `alerts.yml` tiene anotación `runbook` que apunta a una URL que abre; al menos un runbook ha pasado la prueba cruzada y el fichero recoge lo que hubo que añadir.
+
+**Entrega.** `docs/alarmas/` en el repositorio del servicio y `alerts.yml` actualizado en el repositorio alerting (merge request). Forma parte del dossier de la práctica evaluable.
+
+**Si te sobra tiempo.** Añade a `docs/alarmas/README.md` un índice con alarma, severidad y qué alarma la inhibe (las reglas `inhibit_rules` de Alertmanager de la UT2), para que el catálogo también cuente qué se silencia cuando cae un host entero.
 
 ### A4.4 Pruebas funcionales (sesión 23)
 
-Colección Postman/newman o suite pytest con al menos diez casos sobre la API, repartidos entre casos correctos, errores esperados (401, 403, 404) y validación (422). Ejecución automatizada con informe JUnit y código de salida distinto de cero cuando falla un caso. Comprueba que el informe se ve en Jenkins.
+**Sesión 23 · 12 de enero · Teoría y práctica · unos 100 min de práctica**
+
+**Objetivo.** Una suite de diez casos funcionales sobre la API (pytest o Postman/newman) que genera un informe JUnit, sale con código distinto de cero cuando falla un caso y cuyo informe se ve en Jenkins.
+
+**Antes de empezar.**
+
+- La API accesible desde tu VM de trabajo: `pre.app.lab` si el entorno `pre` de 5166 ya existe; si no, `app01` en la VPC dev.
+- Un usuario de prueba en la API con contraseña conocida (`test`), y esa contraseña fuera del repositorio.
+- `jenkins01` accesible y permiso para crear un job.
+- Lo explicado al principio de la sesión: [los tipos de prueba](#pruebas-del-servicio), [pytest](#pruebas-funcionales-con-pytest) y [Postman y newman](#pruebas-funcionales-con-postman-y-newman).
+
+**Pasos.**
+
+1. Elige herramienta: pytest si los casos necesitan preparar datos (crear un ítem y luego borrarlo), newman si el equipo ya documenta la API en Postman. Crea la carpeta en el repositorio del servicio: `tests/functional/` o `tests/postman/`.
+
+2. Escribe los diez casos repartidos en tres grupos: correctos (listar, obtener uno, crear, borrar), errores esperados (401 sin token, 403 con token de otro usuario, 404 con id inexistente) y validación (422 con precio negativo, nombre vacío, campo desconocido). Parte del fichero `test_items.py` del apartado y añade los que faltan. Con pytest, un caso de creación seguido de limpieza queda así:
+
+    ```python
+    def test_create_and_delete_item(token):
+        h = {"Authorization": f"Bearer {token}"}
+        r = requests.post(f"{BASE}/items", json={"name": "prueba", "price": 9.5}, headers=h, timeout=5)
+        assert r.status_code == 201
+        item_id = r.json()["id"]
+        r = requests.delete(f"{BASE}/items/{item_id}", headers=h, timeout=5)
+        assert r.status_code == 204
+        assert requests.get(f"{BASE}/items/{item_id}", headers=h, timeout=5).status_code == 404
+    ```
+
+3. Ejecuta en local con informe JUnit y mira el código de salida:
+
+    ```bash
+    pip install pytest requests
+    mkdir -p reports
+    API_URL=https://pre.app.lab/api API_TEST_PASS=... pytest tests/functional -v --junitxml=reports/pytest.xml
+    echo "código de salida: $?"
+    ```
+
+    Con newman:
+
+    ```bash
+    npm install -g newman
+    newman run tests/postman/api-curso.json \
+      --env-var base=https://pre.app.lab/api --env-var token="$API_TOKEN" \
+      --reporters cli,junit --reporter-junit-export reports/newman.xml
+    echo "código de salida: $?"
+    ```
+
+4. Rompe un caso a propósito (cambia un `422` esperado por `200`) y vuelve a ejecutar: el código de salida tiene que ser 1 y el XML tiene que contener un `<failure>`. Deshaz el cambio.
+
+5. Crea en `jenkins01` un job Pipeline "app-pruebas-funcionales" con este `Jenkinsfile` mínimo (la credencial `api-test-pass` la creas en Jenkins como Secret text):
+
+    ```groovy
+    pipeline {
+      agent any
+      environment {
+        API_URL = 'https://pre.app.lab/api'
+        API_TEST_PASS = credentials('api-test-pass')
+      }
+      stages {
+        stage('Funcionales') {
+          steps { sh 'pytest tests/functional -v --junitxml=reports/pytest.xml' }
+        }
+      }
+      post { always { junit 'reports/*.xml' } }
+    }
+    ```
+
+    Lanza el job y abre la pestaña "Test Result": tienen que aparecer los diez casos.
+
+**Comprobación.** Diez casos que pasan contra pre (o dev); al menos tres de cada grupo; con un caso roto, código de salida 1 y `<failure>` en el XML; el job de Jenkins muestra los diez casos en "Test Result".
+
+**Entrega.** `tests/functional/` o `tests/postman/` en el repositorio del servicio, y el `reports/pytest.xml` (o `newman.xml`) de la ejecución buena en `tests/evidence/<versión>/`. En la A4.7 le pondrás su ficha de caso.
+
+**Si te sobra tiempo.** Añade un caso que compruebe el tiempo de respuesta (`r.elapsed.total_seconds() < 0.5` en pytest, o el `responseTime` de Postman) y otro que verifique que `/metrics` responde y contiene `app_requests_total`: es la prueba funcional de la monitorización.
 
 ### A4.5 Calidad de servicio y rendimiento (sesión 24)
 
-Script k6 con umbrales de los SLO (p95 y tasa de errores). Ejecuta rampas de 10, 50 y 100 usuarios contra pre. Captura el panel de Grafana durante cada una, con el rango de tiempo visible. ¿A partir de cuántos usuarios se incumple el SLO? ¿Qué recurso limita (CPU, conexiones, proxy)? Compara el p95 que ve k6 con el que ve el servidor y explica la diferencia.
+**Sesión 24 · 14 de enero · Teoría y práctica · unos 100 min de práctica**
+
+**Objetivo.** Un script k6 con los SLO como umbrales, ejecutado con rampas de 10, 50 y 100 usuarios contra pre, con las capturas de Grafana de cada rampa y una respuesta escrita a partir de cuántos usuarios se incumple el SLO y qué recurso limita.
+
+**Antes de empezar.**
+
+- k6 instalado en tu VM de trabajo o acceso a `jenkins01` (`k6 version`). Lanza desde una VM en la subred front o desde `jenkins01`, no desde el portátil por Wi-Fi.
+- El entorno pre desplegado (o `app01`), con `cpus` y `mem_limit` fijados en compose, y un token de API válido en `API_TOKEN`.
+- El panel de KPI de la A4.2 abierto en Grafana con la fuente de datos de `mon01`.
+- Lo explicado al principio de la sesión: [k6, options, stages, thresholds y checks](#calidad-de-servicio-y-rendimiento-con-k6), [carga, rendimiento y estrés](#carga-rendimiento-y-estres-no-son-lo-mismo) y [leer los resultados junto a Grafana](#leer-los-resultados-junto-a-grafana).
+
+**Pasos.**
+
+1. Copia a `tests/k6/carga.js` el script completo del apartado (escenarios `navegacion` y `escrituras`, umbrales por etiqueta `name`, `abortOnFail` en escrituras) y ajusta los umbrales a los SLO que fijaste en la A4.2 (por defecto p95 < 500 ms y errores < 1 %). Comprueba que el `BASE` y las rutas coinciden con tu API.
+
+2. Crea la carpeta de evidencias y lanza la prueba completa (13 min: rampas de 10, 50 y 100 usuarios encadenadas):
+
+    ```bash
+    mkdir -p tests/evidence/1.4.2
+    API_URL=https://pre.app.lab/api API_TOKEN=... APP_VERSION=1.4.2 \
+    k6 run --out json=tests/evidence/1.4.2/k6-carga.json \
+           --summary-export=tests/evidence/1.4.2/k6-resumen.json \
+           tests/k6/carga.js
+    echo "código de salida: $?"
+    ```
+
+    Mientras corre, ten Grafana abierto con el rango "últimos 15 min" y refresco de 10 s.
+
+3. Al terminar cada escalón (minutos 4, 8 y 12 del script), captura el panel de KPI con el rango de tiempo visible y guarda `grafana-carga-10.png`, `grafana-carga-50.png` y `grafana-carga-100.png` en `tests/evidence/1.4.2/`. Si prefieres no depender de la vista, usa la API de render de Grafana con `from` y `to` fijos.
+
+4. Lee el resumen de k6 y el servidor a la vez. Del resumen:
+
+    ```bash
+    jq '.metrics["http_req_duration{name:items}"].values["p(95)"], .metrics.http_req_failed.values.rate' tests/evidence/1.4.2/k6-resumen.json
+    ```
+
+    En Prometheus, el p95 del servidor en la misma ventana: `max_over_time(app:latency_p95:5m[15m])`. Anota los dos valores por escalón.
+
+5. Con los datos de los tres escalones, escribe `tests/evidence/1.4.2/rendimiento.md` respondiendo a tres preguntas: a partir de cuántos usuarios se incumple el SLO de p95; qué recurso limita, mirando en este orden CPU y throttling del contenedor `app`, conexiones de PostgreSQL y `worker_connections` de nginx en web01; y por qué difieren el p95 que ve k6 y el que ve el servidor (si k6 ve mucho más, el cuello está delante de la API).
+
+6. Comprime el JSON completo, que pesa cientos de MB, antes de confirmarlo:
+
+    ```bash
+    gzip tests/evidence/1.4.2/k6-carga.json
+    ```
+
+**Comprobación.** `k6-resumen.json` con los umbrales evaluados (código de salida 0 si se cumplen, 99 si no); tres capturas con el rango de tiempo visible; `rendimiento.md` con el número de usuarios a partir del cual falla el SLO, el recurso limitante y la diferencia entre p95 cliente y servidor explicada.
+
+**Entrega.** `tests/k6/carga.js` y `tests/evidence/1.4.2/` (resumen, JSON comprimido, tres capturas y `rendimiento.md`) en el repositorio del servicio. En la A4.7 le pondrás sus fichas de caso.
+
+**Si te sobra tiempo.** Activa `--web.enable-remote-write-receiver` en el Prometheus de mon01 (solo desde la subred de gestión) y repite un escalón con `k6 run --out experimental-prometheus-rw` para ver `k6_http_req_duration_p95` al lado de `app:latency_p95:5m` en el mismo panel.
 
 ### A4.6 Estrés y seguridad (sesión 25)
 
-Estrés: rampa hasta que falle (errores > 10 % o timeout); anota el punto de rotura, el modo de fallo (qué componente se rompe y cómo) y el tiempo de recuperación al bajar la carga. Seguridad: ZAP baseline con fichero de reglas y `trivy image` sobre la imagen; lista los hallazgos con su severidad e indica para cada uno dónde se corrige (proxy, imagen base, dependencia, código).
+**Sesión 25 · 19 de enero · Teoría y práctica · unos 105 min de práctica**
 
-### A4.7 Documentación de pruebas (sesión 26)
+**Objetivo.** Una prueba de estrés con punto de rotura, modo de fallo y tiempo de recuperación anotados, y los informes de ZAP baseline y trivy sobre la imagen con la lista de hallazgos y dónde se corrige cada uno.
 
-Rellena la ficha de caso de prueba para las diez pruebas más relevantes de A4.4 a A4.6, con evidencias archivadas en el repositorio (`tests/evidence/<versión>/`). Redacta el informe de pruebas de la versión con veredicto. Añade la etapa de pruebas al pipeline de Jenkins de la 5166 con `junit` y `archiveArtifacts`, y provoca un fallo (un umbral imposible) para demostrar que la puerta cierra.
+**Antes de empezar.**
 
-### A4.8 Seguimiento (sesión 27)
+- Avisa al resto de la clase antes de lanzar el estrés: pre es compartido y esta prueba lo tumba. Acordad turnos o un `pre` por grupo.
+- k6 en la misma VM que en la A4.5, Docker en tu VM de trabajo (para ZAP), trivy instalado (`trivy version`) y acceso al registry con la imagen `registry.lab/app:1.4.2`.
+- Panel de KPI y Loki (`{container="app"}`) abiertos en Grafana.
+- Lo explicado al principio de la sesión: [estrés frente a carga](#carga-rendimiento-y-estres-no-son-lo-mismo) y [ZAP baseline y trivy image](#seguridad-zap-baseline-y-trivy-image).
 
-Diseña el ciclo de revisión (diario/semanal/mensual) para tu servicio, con duración, quién y qué se mira en cada uno. Ejecuta una revisión semanal con los datos de las dos últimas semanas usando la plantilla: registro con hallazgos y acciones. Ajusta al menos un umbral con datos y hazlo mediante merge request en el repositorio alerting. Opcional: el script de exportación de KPI a Git programado en cron.
+**Pasos.**
+
+1. Crea `tests/k6/estres.js` con las rampas del apartado (100, 200, 300, 400 usuarios y 3 min de bajada, umbral de errores solo informativo) y la misma función por defecto que `carga.js`. Lánzalo con resumen:
+
+    ```bash
+    API_URL=https://pre.app.lab/api API_TOKEN=... APP_VERSION=1.4.2 \
+    k6 run --summary-export=tests/evidence/1.4.2/k6-estres.json tests/k6/estres.js
+    ```
+
+2. Durante la subida, anota el minuto y el número de VU en que la tasa de errores supera el 10 % o aparecen timeouts: es el punto de rotura. En ese instante, busca el modo de fallo: ¿la API devuelve 503 limpios o se cuelga? ¿el primer error en Loki es `too many clients` (PostgreSQL), `upstream timed out` (nginx) u `OOMKilled` (memoria)? Apunta la primera línea de error con su hora.
+
+3. Durante los 3 min de bajada, mide el tiempo de recuperación: desde que la carga empieza a bajar hasta que `app:errors:ratio5m` vuelve por debajo del 1 % y el p95 por debajo del SLO. Si algo no se recupera solo (contenedor reiniciándose en bucle, conexiones `idle` que no se liberan), eso también es un resultado: anótalo y arréglalo a mano.
+
+4. Captura el panel de KPI con toda la prueba en el rango (`grafana-estres.png`) y escribe `tests/evidence/1.4.2/estres.md` con punto de rotura, modo de fallo y tiempo de recuperación, cada uno con el dato que lo demuestra.
+
+5. ZAP baseline con fichero de reglas. Crea `tests/zap-rules.conf` con al menos las tres reglas de cabeceras en FAIL del apartado y lanza:
+
+    ```bash
+    mkdir -p tests/evidence/1.4.2/zap && chmod 777 tests/evidence/1.4.2/zap
+    cp tests/zap-rules.conf tests/evidence/1.4.2/zap/
+    docker run --rm -t -v "$PWD/tests/evidence/1.4.2/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+      zap-baseline.py -t https://pre.app.lab -r zap.html -J zap.json -c zap-rules.conf
+    echo "código de salida: $?"
+    ```
+
+    Si devuelve 3 al instante, es el certificado autofirmado o la resolución de nombres dentro del contenedor: añade `-I` o pasa la IP.
+
+6. trivy sobre la imagen, en JSON para la evidencia y en tabla para leerlo:
+
+    ```bash
+    trivy image --severity HIGH,CRITICAL --ignore-unfixed \
+      --format json -o tests/evidence/1.4.2/trivy.json \
+      --exit-code 1 registry.lab/app:1.4.2
+    echo "código de salida: $?"
+    trivy image --severity HIGH,CRITICAL --ignore-unfixed registry.lab/app:1.4.2
+    ```
+
+7. Escribe `tests/evidence/1.4.2/seguridad.md` con una tabla: hallazgo, herramienta, severidad, dónde se corrige (proxy nginx en web01, imagen base, dependencia de `requirements.txt`, código de la API) y qué habría que cambiar. Corrige al menos uno de los de nginx (`add_header X-Content-Type-Options nosniff always;`) y vuelve a pasar ZAP para ver que desaparece.
+
+**Comprobación.** `estres.md` con los tres datos y su evidencia; `grafana-estres.png` con el rango visible; `zap.html` y `zap.json` escritos en la carpeta (si no aparecen, falta el volumen o los permisos); `trivy.json` con el código de salida anotado; `seguridad.md` con todos los hallazgos HIGH y CRITICAL y al menos uno corregido y verificado.
+
+**Entrega.** `tests/k6/estres.js`, `tests/zap-rules.conf` y la carpeta `tests/evidence/1.4.2/` con `k6-estres.json`, `grafana-estres.png`, `estres.md`, `zap/`, `trivy.json` y `seguridad.md`, en el repositorio del servicio.
+
+**Si te sobra tiempo.** Reconstruye la imagen sobre `python:3.12-slim` actualizada, vuelve a pasar trivy y compara el número de hallazgos con el de la base completa: ese par de cifras es el argumento que más convence para elegir base.
+
+### A4.7 Documentación de pruebas y seguimiento (sesión 26)
+
+**Sesión 26 · 21 de enero · Teoría y práctica · unos 100 min de práctica**
+
+Documentar las pruebas y montar el ciclo de revisión comparten sesión: lo primero deja las evidencias en su sitio, lo segundo decide quién las mira y cuándo.
+
+**Objetivo.** Diez fichas de caso con sus evidencias, el informe de pruebas de la versión con veredicto, la puerta de pruebas en Jenkins demostrada con un fallo provocado, y una revisión semanal ejecutada con la plantilla que termina en un merge request de ajuste de umbral.
+
+**Antes de empezar.**
+
+- Las evidencias de la A4.4, la A4.5 y la A4.6 en `tests/evidence/1.4.2/`.
+- El job de Jenkins de la A4.4 y, si ya existe, el `Jenkinsfile` del pipeline de despliegue de 5166 UT6; si no, se sigue en el job aparte.
+- Dos semanas de datos en Prometheus (las pruebas de las sesiones anteriores cuentan como tráfico).
+- Lo explicado al principio de la sesión: [la ficha de caso y el informe de versión](#documentar-las-pruebas), [la puerta de pruebas en Jenkins](#la-puerta-de-pruebas-en-el-pipeline-de-jenkins) y [el ciclo de revisión](#seguimiento-periodico).
+
+**Pasos.**
+
+1. Crea `tests/evidence/1.4.2/casos/` y rellena la ficha de caso (Id y nombre, Versión, Entorno, Fecha y ejecutor, Procedimiento, Resultado esperado, Resultado obtenido, Veredicto, Evidencias) para las diez pruebas más relevantes: por ejemplo seis funcionales (PF-01 a PF-06), dos de rendimiento (PR-01 rampa 50, PR-02 rampa 100), una de estrés (PE-01) y una de seguridad (PS-01 ZAP o PS-02 trivy). En Procedimiento va el comando exacto con sus variables; en Evidencias, nombres de fichero que existan en la carpeta.
+
+2. Escribe `tests/evidence/1.4.2/INFORME.md` con la tabla por bloque del apartado (casos, OK, KO, veredicto) y el veredicto único de la versión al final, firmado. Si trivy o ZAP dejaron un hallazgo en FAIL, la versión es NO APTA aunque el resto pase: el informe lo dice y dice qué hay que corregir.
+
+3. Añade la etapa `Pruebas en pre` del apartado al `Jenkinsfile` de 5166 entre el despliegue en pre y el de prod (o como etapas del job aparte), con `junit 'reports/*.xml'` y `archiveArtifacts artifacts: 'reports/**'` en `post { always }`. Crea la credencial `api-token-pre` en Jenkins. Lanza el job y comprueba que las evidencias quedan archivadas con el número de build.
+
+4. Provoca un fallo para demostrar que la puerta cierra: pon un umbral imposible en `carga.js` (`http_req_duration: ['p(95)<1']`), confirma, lanza el job y comprueba que k6 sale con 99 y la etapa de producción no se ejecuta. Si el build queda en amarillo y sigue, añade `options { skipStagesAfterUnstable() }`. Guarda una captura del build fallido y deshaz el umbral.
+
+5. Escribe `ops/revisiones/README.md` con el diseño del ciclo para tu servicio: para cada revisión (diaria, semanal, mensual), duración, quién la hace y qué mira (paneles, consultas, alarmas). Adapta las listas del apartado a tus indicadores y tus alarmas.
+
+6. Ejecuta la revisión semanal con los datos de las dos últimas semanas usando la plantilla `ops/revisiones/AAAA-Wnn.md`. Las cifras de Estado salen de Prometheus:
+
+    ```bash
+    PROM=http://10.10.0.20:9090
+    q() { curl -sG "$PROM/api/v1/query" --data-urlencode "query=$1" | jq -r '.data.result[0].value[1] // "n/a"'; }
+    q 'app:availability:30d'
+    q 'quantile_over_time(0.95, app:latency_p95:5m[7d])'
+    q 'max_over_time(sum(pg_stat_activity_count)[7d:5m])'
+    q 'sum(changes(ALERTS_FOR_STATE[7d]))'
+    ```
+
+    La tabla de alarmas sale de Alertmanager o de `ALERTS` en Prometheus. Cada hallazgo termina en una acción con responsable y fecha o en un "no procede" razonado.
+
+7. Elige un umbral que los datos digan que está mal (una alarma que salta y se cierra sola varias veces, o un aviso que nunca se acerca) y ajústalo con un merge request en el repositorio alerting. En la descripción del merge request pon las cifras que lo justifican y enlaza el registro de la revisión.
+
+**Comprobación.** Diez fichas cuyas evidencias existen en la carpeta; `INFORME.md` con veredicto; un build de Jenkins con evidencias archivadas y otro fallido que no llegó a prod; `ops/revisiones/README.md` y un registro semanal con acciones; un merge request abierto en alerting con la justificación.
+
+**Entrega.** Todo en el repositorio del servicio (`tests/evidence/1.4.2/`, `Jenkinsfile`, `ops/revisiones/`) y el merge request en el repositorio alerting. Es el grueso del dossier de la práctica evaluable.
+
+**Si te sobra tiempo.** Deja `ops/bin/kpi-semanal.sh` del apartado funcionando desde un job de Jenkins programado los lunes a las 7:00 y comprueba que confirma su primer `ops/revisiones/AAAA-Wnn-kpi.md`.
 
 ## Práctica evaluable
+
+**Sesión 27 · 26 de enero · Práctica evaluable · unos 110 min de práctica**
 
 **Práctica evaluable UT4 (sesión 28, 2 de febrero de 2027).** Entrega el dossier de operación del servicio: fichas de métricas, tabla de indicadores con fórmulas y umbrales, catálogo de alarmas con runbooks, informe de pruebas de la versión con casos y evidencias, y el registro de la revisión periódica. Todo en el repositorio del servicio en Gitea, con un `README` en la raíz que enlace cada parte.
 

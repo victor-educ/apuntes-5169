@@ -1,6 +1,6 @@
 # UT8 · Terminación segura del contenedor
 
-<p class="ut-meta">Módulo 5169 · 10 h · Sesiones 37 a 41 · RA5 CE a, b, c, d</p>
+<p class="ut-meta">Módulo 5169 · 10 h · Sesiones 36 a 40 · RA5 CE a, b, c, d</p>
 
 Esta es la última unidad en el centro. Durante el curso habéis levantado el servicio, lo habéis instrumentado, protegido, probado, copiado y actualizado; ahora toca lo contrario: retirarlo sin dejar rastro. El sujeto de la baja es el entorno **pre** que creasteis con OpenTofu en la UT7 para ensayar actualizaciones. Lo vamos a dar de baja de verdad: VM, red, DNS, reglas de firewall, certificados, credenciales, copias en MinIO, logs en Loki, datos en la base de datos y toda referencia en la monitorización. Después de la sesión 41 quedan el examen y la recuperación de abril, y la formación en empresa, donde os pedirán exactamente esto cuando un cliente deje de serlo.
 
@@ -40,7 +40,21 @@ El jueves 12 de marzo, dos días después de que hayáis "dado de baja" el entor
     - Las reglas de firewall, los aliases y la CA que revocáis vienen de la [UT3 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/) y de la UT3 de esta asignatura.
     - Mientras haces esta unidad, la [UT7 de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut7-monitorizacion/) (10 a 17 de marzo) monta la pila de monitorización "definitiva". Lo que aquí desconfiguráis (targets, reglas, rutas, dashboards) es el ensayo inverso de esa instalación: cada cosa que retiráis es una que allí tendréis que dar de alta.
 
+## Plan de sesiones
+
+Cada sesión de dos horas empieza con una explicación corta y sigue con laboratorio. La columna "Se explica" es lo que cuento yo al principio (con su duración aproximada); la columna "Se practica" es lo que hacéis vosotros con el material de práctica de esta unidad. Las sesiones marcadas solo como práctica no traen teoría nueva.
+
+| Sesión | Fecha | Tipo | Se explica | Se practica |
+|---:|-------|------|------------|-------------|
+| [36](#a81-plan-de-baja-sesion-36) | 25 feb | Teoría y práctica | La baja como cambio: aprobación, ventana, qué se conserva; dónde deja rastro un servicio (25 min). | Inventariar todo lo que el servicio ha dejado en el entorno y redactar la lista de comprobación de baja con verificación por punto. |
+| [37](#a82-liberar-la-infraestructura-sesion-37) | 9 mar | Práctica | Orden correcto de la baja (10 min). | Baja del entorno pre: compose, imágenes, redes, VM con tofu destroy, DNS, reglas, credenciales y proyecto archivado; verificar cada punto. |
+| [38](#a83-copias-y-logs-sesion-38) | 11 mar | Teoría y práctica | Por qué borrar no borra: SSD, copy-on-write, versionado; borrado criptográfico (20 min). | Destruir la clave de restic, borrar versiones en S3, logs rotados y streams de Loki; intentar recuperar con photorec. |
+| [39](#a84-datos-y-monitorizacion-sesion-39) | 16 mar | Teoría y práctica | DELETE, DROP y VACUUM FULL; anonimización; desconfigurar targets, reglas y dashboards (15 min). | Anonimizar y borrar con VACUUM FULL; retirar targets, reglas, rutas, dashboards y Promtail; comprobar que no quedan series ni alarmas. |
+| [40](#practica-evaluable-ut8-sesion-40) | 18 mar | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el acta de baja con la lista de comprobación completa y una evidencia por punto. |
+
 ## La baja es un cambio más
+
+*Se explica en la sesión 36 (unos 12 min). El resto del apartado es material de consulta para la práctica.*
 
 Terminar un contenedor "para siempre" no es `docker stop`. Un servicio deja huella en la infraestructura, en la monitorización, en las copias y en los datos, y cada rastro es un coste o un riesgo: datos personales que siguen existiendo después de que el cliente pidiera su supresión, alarmas HostDown que nadie atiende, una IP reservada que impide reutilizar el rango, un token de Jenkins con permisos sobre un repositorio que ya no existe. Por eso la baja se planifica con una lista de comprobación y se documenta como cualquier otro cambio.
 
@@ -68,6 +82,8 @@ El mecanismo del artículo 32 de la LOPDGDD (bloqueo de datos) es el que da sent
 El acta tiene que decir, para cada categoría de datos, una de tres cosas: se destruye ahora (y cómo), se bloquea hasta una fecha (y dónde), o se transfiere a otro servicio que hereda el tratamiento.
 
 ## Inventario de rastros
+
+*Se explica en la sesión 36 (unos 13 min). El resto del apartado es material de consulta para la práctica.*
 
 Antes de borrar hay que saber qué hay. Un servicio de un año deja rastros en sitios que nadie recuerda, y el que mejor conoce el sistema se fue hace tres meses. Necesitáis un método, no memoria. El mapa siguiente agrupa los rastros en seis familias; fijaos en que la mitad no están en el servicio sino alrededor de él (red, identidad, copias, monitorización), y esas son las que se olvidan.
 
@@ -180,6 +196,8 @@ El resultado de este inventario es una tabla: rastro, dónde, cómo se elimina, 
 
 ## El orden importa
 
+*Se explica en la sesión 37 (unos 10 min). El resto del apartado es material de consulta para la práctica.*
+
 Hay una secuencia correcta y no es "borrar de arriba abajo". Si paráis el servicio antes de silenciar las alarmas, Alertmanager abre incidencias, el receptor webhook crea tickets y el equipo de guardia recibe un aviso a las diez de la noche por un servicio que sabíais que ibais a apagar. Si borráis los volúmenes antes de haber verificado que la copia bloqueada existe y se puede restaurar, ya no hay vuelta atrás. Si destruís la VM antes de exportar las evidencias que están dentro (logs de auditoría, por ejemplo), el acta se queda sin pruebas.
 
 ```mermaid
@@ -233,6 +251,8 @@ Esta es la lista con la que trabajaremos. Cada línea lleva el comando de verifi
 - [ ] Acta firmada y guardada con las incidencias del servicio
 
 ## Liberar los recursos de la infraestructura
+
+*No se explica en clase: es material de consulta para las prácticas y para ampliar.*
 
 Aquí empieza la parte de manos en el teclado: vamos a devolver a la infraestructura todo lo que el entorno pre tenía asignado, capa por capa, desde los contenedores hasta los certificados y las credenciales. Cada recurso tiene un comando para liberarlo y otro para comprobar que ya no está, y ese segundo es el que va al acta. La tabla resume el qué; el cómo y el por qué van debajo, por subapartados.
 
@@ -390,6 +410,8 @@ El repositorio del servicio y el Jenkinsfile no se borran: son el registro de c�
 
 ## Por qué borrar no borra
 
+*Se explica en la sesión 38 (unos 20 min). El resto del apartado es material de consulta para la práctica.*
+
 Este apartado cambia de escala. Hasta ahora hemos quitado cosas de sistemas que obedecen a un comando; ahora hay que garantizar que unos datos no se puedan recuperar, y para eso hace falta entender qué ocurre en el disco cuando borráis un fichero. La idea con la que tenéis que salir es que el borrado fiable solo se consigue si los datos nunca estuvieron en claro, y por eso la lista de opciones empieza por el cifrado y no por sobrescribir.
 
 `rm` desvincula el nombre del fichero de sus bloques y marca los bloques como libres. Los datos siguen ahí hasta que otra escritura los pise, y un `photorec` (herramienta de recuperación de ficheros borrados) los recupera en minutos. Sobre eso se apilan cuatro mecanismos modernos que hacen que ni siquiera sobrescribir garantice nada:
@@ -475,6 +497,8 @@ La verificación tiene dos niveles: una consulta que no devuelve nada, y, sobre 
 
 ## Datos confidenciales en la base de datos interna
 
+*Se explica en la sesión 39 (unos 8 min). El resto del apartado es material de consulta para la práctica.*
+
 En el laboratorio la base de datos de pre muere con db01-pre. Pero el caso habitual en una empresa es que la base de datos se conserva porque otros servicios la usan, y lo que hay que borrar son las tablas y los datos de un servicio concreto. Ahí es donde `DELETE` engaña.
 
 PostgreSQL usa MVCC (control de concurrencia por versiones: cada modificación crea una versión nueva de la fila en vez de tocar la vieja): `DELETE` no borra la fila, marca la tupla como muerta y la deja en la página hasta que `VACUUM` la recicla. `VACUUM` normal libera el espacio para que la propia tabla lo reutilice, pero no lo devuelve al sistema operativo ni sobrescribe nada: los bytes siguen en el fichero de la tabla, legibles con un editor hexadecimal por cualquiera con acceso al directorio de datos o a un backup del mismo. `DROP TABLE` desvincula los ficheros del segmento, con lo que aplica lo del apartado anterior.
@@ -522,6 +546,8 @@ Se para el servicio, se borra el volumen o el disco y se aplica al soporte lo de
 Quedan las **cachés y colas**: Redis guarda en memoria y, si tiene persistencia, en `dump.rdb` y en el AOF (su fichero de registro de escrituras); `FLUSHDB` y borrar los ficheros. RabbitMQ o similar: purgar la cola (`rabbitmqctl purge_queue pedidos-pre`) y borrar el vhost. Un mensaje encolado con datos de un cliente puede sobrevivir años en una cola muerta que nadie consume.
 
 ## Desconfigurar la monitorización y las alarmas
+
+*Se explica en la sesión 39 (unos 7 min). El resto del apartado es material de consulta para la práctica.*
 
 Un servicio dado de baja que sigue en la monitorización genera alarmas eternas, ocupa retención y, lo peor, puede resucitar por error: alguien ve el target en rojo, piensa que se cayó y lo levanta desde un snapshot.
 
@@ -573,6 +599,8 @@ Si la fuente de datos era la compartida (el Prometheus y el Loki de mon01), no s
 
 ## Verificar con photorec sobre un volumen de pruebas
 
+*No se explica en clase: es material de consulta para las prácticas y para ampliar.*
+
 Para que el "irrecuperable" del acta no sea un acto de fe, la actividad A8.3 lo pone a prueba sobre un volumen que controláis del todo. Se crea un fichero imagen, se formatea, se escribe un fichero reconocible, se borra con cada método y se intenta recuperar:
 
 ```bash
@@ -589,6 +617,8 @@ Qué esperar: tras un `rm` en ext4, photorec recupera el dump entero (encuentra 
 `testdisk` es el hermano de photorec para recuperar particiones y tablas de ficheros enteras; sirve para demostrar que una tabla de particiones borrada con `wipefs` sigue siendo reconstruible. Ninguna de las dos herramientas hace nada contra un cifrado con clave destruida, y esa es la conclusión que tiene que aparecer en el informe de la actividad, con las capturas.
 
 ## Acta de baja
+
+*Se explica en la sesión 40 (unos 10 min). El resto del apartado es material de consulta para la práctica.*
 
 El acta es el entregable de la unidad y el documento que cierra la vida del servicio. Se guarda con las incidencias del servicio (en `operacion/`, en el gestor de incidencias, en el sistema documental de la empresa) y es lo que se enseña cuando dentro de dos años alguien pregunta "¿qué pasó con los datos de pre?".
 
@@ -659,27 +689,478 @@ La sección de pendientes con fecha es la que distingue un acta útil de una que
 
 **`VACUUM FULL` falla por falta de espacio.** Necesita el doble del tamaño de la tabla porque escribe la copia entera antes de borrar la original. Con `df -h` se ve. `pg_repack` tiene el mismo requisito. Solución en el laboratorio: borrar primero las tablas grandes con `DROP` y hacer `VACUUM FULL` solo en las que se conservan.
 
-## Actividades
+## Material de práctica
 
-### A8.1 Plan de baja (sesión 37)
+### A8.1 Plan de baja (sesión 36)
 
-Inventaría todo lo que el contenedor de referencia ha dejado en el entorno pre durante el módulo: recursos de cómputo, red, identidad, datos, copias, logs y monitorización. Usa el método del apartado de inventario (grep en los repositorios, consultas a Prometheus, listados por API de Jenkins, Gitea, Proxmox y OPNsense, `index.txt` de la CA) y anota lo que descubras que no esperabas. Redacta la lista de comprobación de baja con el orden de ejecución justificado (qué va antes de qué y por qué), el comando de verificación de cada punto y quién lo ejecuta. Añade la lista de lo que se conserva, con motivo, dónde y hasta cuándo. Entrega: tabla de inventario y lista de comprobación en `operacion/baja/pre/plan.md`.
+**Sesión 36 · 25 de febrero · Teoría y práctica · unos 95 min de práctica**
 
-### A8.2 Liberar la infraestructura (sesión 38)
+**Objetivo.** Tener en `operacion/baja/pre/plan.md` el inventario completo de rastros del entorno pre y la lista de comprobación de baja, con un comando de verificación por punto, antes de tocar nada.
 
-Ejecuta la baja del entorno pre siguiendo tu lista: silencio en Alertmanager, exportación de lo que se conserva, `compose down -v --rmi all`, borrado de imágenes del registry por digest con garbage collect, redes, VM con `tofu destroy` (revisando antes el plan de destrucción y sacando del estado lo compartido), liberación de IP y DNS, reglas y aliases de firewall, revocación de certificados con CRL publicada, credenciales y token de Jenkins, usuarios y tokens de Proxmox y Gitea, job deshabilitado y repositorio archivado. Verifica cada punto con el comando indicado en la tabla y guarda la salida en `operacion/baja/pre/ev/`. Deja constancia de cualquier desviación respecto al plan.
+**Antes de empezar.**
 
-### A8.3 Copias y logs (sesión 39)
+- Acceso por SSH a mon01, app01-pre, gitea01, al nodo Proxmox y a la CA del curso; token de Jenkins (`$TOKEN`), token de Gitea (`$GT`) y clave de API de OPNsense (`$KEY`, `$SECRET`) exportados en la shell.
+- Los repositorios `servicio`, `monitoring`, `alerting`, `operacion` e `infra` clonados en `~/repos/` y actualizados con `git pull`.
+- Se ha explicado [la baja como cambio](#la-baja-es-un-cambio-mas) y [el inventario de rastros](#inventario-de-rastros). Ten a mano el mapa mental de las seis familias y la [lista de comprobación completa](#lista-de-comprobacion-completa), que es tu plantilla.
 
-Lista las claves del repositorio restic de pre, destruye todas sus versiones en MinIO y la contraseña en los hosts que la tenían, y comprueba que `restic snapshots` ya no puede abrir el repositorio. Borra todas las versiones y marcadores de borrado del prefijo `pre/` del bucket con `s3api delete-objects` y comprueba con `list-object-versions` que no queda nada ni hay replicación. Elimina los ficheros de log rotados que quedasen fuera de las VM destruidas (mon01, Mailpit) y envía la petición de borrado a Loki para `{env="pre"}`; comprueba su estado y, cuando se procese, que `logcli` no devuelve nada. Sobre un volumen de pruebas de 256 MB, intenta recuperar un dump con photorec después de `rm`, después de `shred` y sobre un dataset ZFS con snapshot; documenta qué se recupera en cada caso y por qué.
+**Pasos.**
 
-### A8.4 Datos y monitorización (sesión 40)
+1. Crea la carpeta de la baja y el fichero del plan con las secciones vacías:
 
-En la base de datos compartida de dev (que no se da de baja), anonimiza la tabla de usuarios del tenant `pre` con sal de un solo uso, borra las tablas satélite con texto libre y las tablas exclusivas del servicio, ejecuta `VACUUM FULL` y comprueba con `pg_stat_user_tables` y una consulta de control que no queda ningún dato personal. Revisa réplicas, dumps sueltos en `/tmp` y en workspaces de Jenkins, y cachés. Desconfigura targets, reglas, rutas y receptores de Alertmanager, dashboards (exportados a Git antes) y jobs de Promtail; borra las series con la API de administración y comprueba que `count({env="pre"})` no devuelve nada. Expira el silencio y comprueba que no hay alertas. Marca los runbooks como retirados.
+    ```bash
+    mkdir -p ~/repos/operacion/baja/pre/ev
+    cat > ~/repos/operacion/baja/pre/plan.md <<'EOF'
+    # Plan de baja · servicio-pre
+    ## Inventario de rastros
+    | Rastro | Dónde | Cómo se elimina | Cómo se verifica | Quién |
+    |---|---|---|---|---|
+    ## Lista de comprobación (en orden de ejecución)
+    ## Qué se conserva
+    | Elemento | Motivo | Dónde | Hasta | Responsable |
+    |---|---|---|---|---|
+    ## Hallazgos no esperados
+    EOF
+    ```
+
+2. Rastrea las tres cadenas (`pre.lab`, `env=pre`, el rango `10.20.`) en los cinco repositorios y guarda la salida como primera evidencia:
+
+    ```bash
+    for r in servicio monitoring alerting operacion infra; do
+      echo "== $r"; git -C ~/repos/$r grep -n -i -E 'pre\.lab|env="?pre"?|10\.20\.' -- . ':!*.lock'
+    done | tee ~/repos/operacion/baja/pre/ev/00-grep-repos.txt
+    ```
+
+3. Consulta Prometheus: valores de `job` con `env="pre"`, targets activos y reglas que mencionen pre.
+
+    ```bash
+    P=http://10.10.0.20:9090
+    curl -s "$P/api/v1/label/job/values?match[]={env=\"pre\"}" | jq .
+    curl -s "$P/api/v1/targets" | jq '.data.activeTargets[] | select(.labels.env=="pre") | .scrapeUrl'
+    curl -s "$P/api/v1/rules" | jq '.data.groups[].rules[] | select(.query|test("pre")) | .name'
+    ```
+
+4. Lista credenciales y jobs en Jenkins, y tokens, deploy keys, webhooks y paquetes en Gitea:
+
+    ```bash
+    J=http://jenkins01.dev.lab:8080
+    curl -s -u ops:$TOKEN "$J/credentials/store/system/domain/_/api/json?depth=1" | jq '.credentials[] | {id, typeName, description}'
+    curl -s -u ops:$TOKEN "$J/api/json?tree=jobs[name,color]" | jq '.jobs[]|select(.name|test("pre"))'
+    G=http://gitea01.dev.lab:3000/api/v1
+    curl -s -H "Authorization: token $GT" $G/repos/ops/servicio/keys | jq '.[]|{id,title}'
+    curl -s -H "Authorization: token $GT" $G/repos/ops/servicio/hooks | jq '.[]|{id,config}'
+    curl -s -H "Authorization: token $GT" "$G/packages/ops?type=container" | jq '.[]|{name,version}'
+    ```
+
+5. En el nodo Proxmox y en el resolver: VM, snapshots, backups vzdump, tokens de API, IPAM, leases y DNS.
+
+    ```bash
+    qm list | grep pre
+    for id in $(qm list | awk '/pre/{print $1}'); do qm listsnapshot $id; done
+    pvesm list local --vmid 210
+    pveum user token list tofu@pve
+    pvesh get /cluster/sdn/ipams/pve/status --output-format json | jq '.[]|select(.vnet=="pre")'
+    grep -h pre /var/lib/misc/dnsmasq.*.leases 2>/dev/null
+    dig +short app01.pre.lab @10.10.0.1; dig +short -x 10.20.2.10 @10.10.0.1
+    ```
+
+6. En OPNsense, aliases por API; las reglas, con la matriz de `operacion/` en la mano, comparadas contra la interfaz. En la CA, el `index.txt`:
+
+    ```bash
+    curl -s -k -u "$KEY:$SECRET" https://10.10.0.1/api/firewall/alias/searchItem | jq '.rows[]|select(.name|test("pre"))|{uuid,name,content}'
+    grep -E 'pre\.lab' /etc/ca/index.txt
+    ```
+
+7. Rellena la tabla de inventario con una fila por rastro (cómputo, red, identidad, datos, copias y logs, monitorización). Cada fila lleva el comando que lo elimina, el que lo verifica y quién lo ejecuta. Lo que haya aparecido y no esperabas (una regla de `alerts.yml`, un alias en uso, un token que nadie recordaba) va a "Hallazgos no esperados".
+8. Redacta la lista de comprobación en orden de ejecución, partiendo de la [lista completa](#lista-de-comprobacion-completa) y ajustándola a lo que has encontrado. Justifica en una línea por bloque por qué va en ese sitio (silencios antes de parar, extracción antes de destruir, silencios fuera al final).
+9. Rellena "Qué se conserva": dump bloqueado, dashboards, repositorio archivado, y cualquier dato con obligación legal según la tabla del apartado de conservación. Cada fila con motivo, dónde y hasta cuándo.
+10. Haz commit del plan y de la evidencia del grep.
+
+**Comprobación.** El plan tiene las cuatro secciones rellenas; ninguna fila del inventario tiene vacía la columna "Cómo se verifica"; la lista de comprobación empieza por la aprobación y el silencio y termina por la expiración del silencio y el acta; hay al menos un hallazgo no esperado apuntado (si no hay ninguno, repasa el grep de `alerting` y los aliases de OPNsense).
+
+**Entrega.** `operacion/baja/pre/plan.md` y `operacion/baja/pre/ev/00-grep-repos.txt` en un commit del repositorio `operacion`.
+
+**Si te sobra tiempo.** Redacta el correo de solicitud de baja (RFC) al responsable del servicio con fecha, ventana propuesta y lista de lo que se conserva; guárdalo como `ev/01-aprobacion.txt` para que el acta de la sesión 40 ya tenga su primera evidencia.
+
+### A8.2 Liberar la infraestructura (sesión 37)
+
+**Sesión 37 · 9 de marzo · Práctica · unos 110 min de práctica**
+
+**Objetivo.** Al terminar, el entorno pre no tiene contenedores, imágenes, VM, IP, DNS, reglas, certificados válidos ni credenciales, y cada punto tiene su salida guardada en `operacion/baja/pre/ev/`.
+
+**Antes de empezar.**
+
+- El plan de A8.1 aprobado (correo o nota del profesor con fecha, guardado como `ev/01-aprobacion.txt`).
+- El repositorio `infra` con el estado de pre accesible (`infra/envs/pre`), `tofu` instalado y el token de Proxmox que usa el provider exportado.
+- Acceso a app01-pre, gitea01, al nodo Proxmox, a la CA y a OPNsense; variables `$TOKEN`, `$GT`, `$KEY`, `$SECRET` y `$GRAFANA_TOKEN` en la shell.
+- Se ha explicado [el orden de la baja](#el-orden-importa). El detalle de cada capa está en [Liberar los recursos de la infraestructura](#liberar-los-recursos-de-la-infraestructura); esta hoja lo sigue en ese orden.
+
+**Pasos.**
+
+1. Silencia antes de tocar nada y avisa. El silencio dura más que la ventana (aquí, hasta el final de la sesión 39):
+
+    ```bash
+    A=http://10.10.0.20:9093
+    amtool --alertmanager.url=$A silence add env=pre --duration=10d --author="$USER" --comment="Baja servicio-pre, RFC en operacion/baja/pre"
+    amtool --alertmanager.url=$A silence query env=pre | tee ~/repos/operacion/baja/pre/ev/02-silencio.txt
+    ```
+
+2. Extrae lo que se conserva: dump completo cifrado (bloqueo) y dashboards a Git.
+
+    ```bash
+    ssh db01-pre 'pg_dump -U app servicio' | gpg -e -r dpo@lab -o pre-bloqueo.sql.gpg
+    sha256sum pre-bloqueo.sql.gpg | tee ~/repos/operacion/baja/pre/ev/03-dump-bloqueo.txt
+    G=http://10.10.0.20:3000; H="Authorization: Bearer $GRAFANA_TOKEN"
+    mkdir -p ~/repos/operacion/dashboards/pre
+    for uid in $(curl -s -H "$H" "$G/api/search?tag=pre" | jq -r '.[].uid'); do
+      curl -s -H "$H" $G/api/dashboards/uid/$uid | jq '.dashboard' > ~/repos/operacion/dashboards/pre/$uid.json
+    done
+    git -C ~/repos/operacion add dashboards/pre && git -C ~/repos/operacion commit -m "UT8: dashboards de pre archivados antes de la baja"
+    ```
+
+    El fichero `.gpg` se entrega al profesor (hace de DPO) y no se sube al repositorio.
+
+3. Deshabilita el job de pre en Jenkins antes de borrar nada del registry, para que un push no vuelva a construir imágenes:
+
+    ```bash
+    curl -s -o /dev/null -w '%{http_code}\n' -X POST -u ops:$TOKEN http://jenkins01.dev.lab:8080/job/servicio-pre/disable
+    ```
+
+4. Para el servicio y limpia el host en app01-pre:
+
+    ```bash
+    cd /opt/servicio && docker compose -p servicio-pre down -v --rmi all --remove-orphans
+    docker ps -a --filter volume=pgdata-pre          # si un volumen era external, mira quién lo usa y luego:
+    docker volume rm pgdata-pre
+    { docker ps -a --filter label=com.docker.compose.project=servicio-pre
+      docker volume ls -q --filter label=com.docker.compose.project=servicio-pre
+      docker network ls --filter label=com.docker.compose.project=servicio-pre
+      docker images --filter reference='registry.dev.lab/*:pre*'; } | tee ev/04-docker.txt
+    docker system prune -af --volumes
+    ```
+
+5. Borra las imágenes `-pre` del registry por digest y ejecuta el garbage collect en gitea01:
+
+    ```bash
+    R=http://registry.dev.lab:5000
+    for t in $(curl -s $R/v2/ops/api/tags/list | jq -r '.tags[]|select(test("pre"))'); do
+      D=$(curl -sI -H 'Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+           $R/v2/ops/api/manifests/$t | awk -F': ' '/[Dd]ocker-Content-Digest/{print $2}' | tr -d '\r')
+      echo "$t $D"; curl -s -o /dev/null -w '%{http_code}\n' -X DELETE $R/v2/ops/api/manifests/$D   # 202
+    done
+    docker compose -f /opt/registry/compose.yml stop registry
+    docker compose -f /opt/registry/compose.yml run --rm registry garbage-collect --delete-untagged /etc/docker/registry/config.yml
+    docker compose -f /opt/registry/compose.yml start registry
+    curl -s $R/v2/ops/api/tags/list | tee ev/05-registry.txt
+    ```
+
+6. Destruye las VM con OpenTofu, revisando el plan y sacando del estado lo compartido:
+
+    ```bash
+    cd ~/repos/infra/envs/pre
+    tofu plan -destroy -out=destroy.plan | tee ~/repos/operacion/baja/pre/ev/06-tofu-plan.txt
+    # si el plan lista algo que no es de pre (bridge compartido, usuario de API):
+    tofu state rm module.red.proxmox_virtual_environment_network_linux_bridge.vmbr_shared
+    tofu apply destroy.plan
+    tofu state list | tee ~/repos/operacion/baja/pre/ev/07-tofu-state.txt     # vacío
+    ```
+
+    Si el estado no sirve, en el nodo Proxmox: `qm stop 210 --timeout 60 && qm destroy 210 --purge --destroy-unreferenced-disks 1`, y lo mismo para 211 a 213.
+
+7. Backups vzdump y plantillas que nacieron de pre:
+
+    ```bash
+    pvesm list local --vmid 210
+    pvesm free local:backup/vzdump-qemu-210-2027_02_28-02_00_01.vma.zst
+    qm list | awk '$1>=9000'
+    { qm list | grep pre; pvesm list local --vmid 210; } | tee ev/08-proxmox.txt
+    ```
+
+8. Libera IP y DNS. Si la vnet se destruyó con OpenTofu, solo verifica; si era compartida, libera las IP una a una y borra los host overrides de Unbound en OPNsense (Services, Unbound DNS, Overrides):
+
+    ```bash
+    pvesh delete /cluster/sdn/vnets/pre/ips --zone lab --vnet pre --ip 10.20.2.10
+    pvesh set /cluster/sdn
+    { pvesh get /cluster/sdn/ipams/pve/status --output-format json | jq '.[]|select(.ip|startswith("10.20."))'
+      dig +short app01.pre.lab @10.10.0.1; dig +short -x 10.20.2.10 @10.10.0.1; } | tee ev/09-red-dns.txt
+    ```
+
+9. En OPNsense, reglas primero y aliases después (un alias en uso no se borra): quita las reglas de mon01 hacia los exporters de pre y las de NAT hacia web01-pre, luego los aliases `pre_front`, `pre_back`, `pre_data`, y aplica. Actualiza la matriz de reglas en `operacion/` y haz commit. Verifica desde fuera y desde mon01:
+
+    ```bash
+    nmap -Pn 10.20.1.10 -p 80,443,8080 | tee ev/10-firewall.txt
+    ssh mon01 'nc -zv -w2 10.20.2.10 9100' 2>&1 | tee -a ev/10-firewall.txt
+    ```
+
+10. Revoca los certificados en la CA y publica la CRL:
+
+    ```bash
+    cd /etc/ca
+    for c in certs/*.pre.lab.pem; do openssl ca -config ca.cnf -revoke $c -crl_reason cessationOfOperation; done
+    openssl ca -config ca.cnf -gencrl -out crl/ca.crl.pem
+    cp crl/ca.crl.pem /var/www/ca/ca.crl
+    openssl crl -in crl/ca.crl.pem -noout -text | grep -B1 -A3 'cessationOfOperation' | tee ~/repos/operacion/baja/pre/ev/11-crl.txt
+    ```
+
+11. Credenciales y tokens en Proxmox, Gitea y Jenkins (ajusta los identificadores a los que listaste en A8.1):
+
+    ```bash
+    pveum user token remove tofu@pve pre; pveum user delete tofu-pre@pve 2>/dev/null
+    G=http://gitea01.dev.lab:3000/api/v1
+    curl -X DELETE -H "Authorization: token $GT" $G/users/jenkins/tokens/pre-deploy
+    curl -X DELETE -H "Authorization: token $GT" $G/repos/ops/servicio/keys/7
+    curl -X DELETE -H "Authorization: token $GT" $G/repos/ops/servicio/hooks/3
+    curl -X POST -u ops:$TOKEN http://jenkins01.dev.lab:8080/credentials/store/system/domain/_/credential/pre-ssh-app01/doDelete
+    { pveum user token list tofu@pve
+      curl -s -H "Authorization: token $GT" $G/repos/ops/servicio/keys | jq '.[]|{id,title}'
+      curl -s -u ops:$TOKEN "http://jenkins01.dev.lab:8080/credentials/store/system/domain/_/api/json?depth=1" | jq '.credentials[]|select(.id|test("pre"))'; } | tee ev/12-credenciales.txt
+    ```
+
+12. Archiva el repositorio (no lo borres) y comprueba el estado del job:
+
+    ```bash
+    curl -s -X PATCH -H "Authorization: token $GT" -H 'Content-Type: application/json' -d '{"archived": true}' $G/repos/ops/servicio | jq '.archived'
+    curl -s -u ops:$TOKEN "http://jenkins01.dev.lab:8080/api/json?tree=jobs[name,color]" | jq '.jobs[]|select(.name|test("pre"))' | tee ev/13-archivado.txt
+    ```
+
+13. Marca en `plan.md` cada punto hecho con el nombre de su evidencia y apunta en "Incidencias" cualquier desviación (un alias en uso, un recurso compartido en el estado, un 405 del registry). Commit.
+
+**Comprobación.** Todos los listados de `ev/04` a `ev/13` están vacíos o muestran el estado esperado (`202` en los DELETE del registry, `archived: true`, job en color `disabled`); `dig` no devuelve nada en directa ni en inversa; `tofu state list` no lista nada; la CRL contiene todos los `*.pre.lab` con motivo `cessationOfOperation`.
+
+**Entrega.** Commit en `operacion` con `plan.md` actualizado, `ev/02` a `ev/13` y la matriz de reglas corregida; el `pre-bloqueo.sql.gpg` entregado al profesor fuera del repositorio.
+
+**Si te sobra tiempo.** Levanta el respondedor OCSP mínimo del apartado de certificados y guarda la respuesta `Cert Status: revoked` como `ev/11b-ocsp.txt`. Y borra el estado de OpenTofu (`tofu workspace delete pre` o el fichero y sus `.backup`) tras comprobar que no queda nada dentro que necesites.
+
+### A8.3 Copias y logs (sesión 38)
+
+**Sesión 38 · 11 de marzo · Teoría y práctica · unos 100 min de práctica**
+
+**Objetivo.** Que el repositorio restic de pre sea irrecuperable, que el prefijo `pre/` del bucket no tenga versiones, que Loki no devuelva nada para `{env="pre"}` y que tengas un informe de photorec con los tres escenarios.
+
+**Antes de empezar.**
+
+- A8.2 terminada: las VM de pre no existen. Lo que queda está fuera de ellas: MinIO (10.10.0.30), Loki y Mailpit en mon01, y la contraseña de restic en los hosts que la tenían.
+- Cliente `mc` con el alias `s3` configurado hacia MinIO, `aws` CLI, `restic`, `logcli`, `photorec` (paquete `testdisk`) y una máquina con un dataset ZFS de pruebas (vale el nodo Proxmox con `local-zfs` o una VM con ZFS).
+- Se ha explicado [por qué borrar no borra](#por-que-borrar-no-borra). El detalle de los comandos está en [Opciones de más a menos fiable](#opciones-de-mas-a-menos-fiable), [Logs externos](#logs-externos) y [Verificar con photorec](#verificar-con-photorec-sobre-un-volumen-de-pruebas).
+
+**Pasos.**
+
+1. Borrado criptográfico del repositorio restic. Primero lista las claves (los IDs van al acta), luego destruye todas sus versiones y la contraseña:
+
+    ```bash
+    export RESTIC_REPOSITORY=s3:http://10.10.0.30:9000/backups/pre
+    export RESTIC_PASSWORD_FILE=/etc/restic/pass-pre
+    restic key list | tee ~/repos/operacion/baja/pre/ev/14-restic-keys.txt
+    mc ls --versions s3/backups/pre/keys/
+    mc rm --recursive --force --versions s3/backups/pre/keys/
+    mc ls --versions s3/backups/pre/keys/                       # vacío
+    restic snapshots 2>&1 | tee ~/repos/operacion/baja/pre/ev/15-restic-nokey.txt   # Fatal: wrong password or no key found
+    shred -u /etc/restic/pass-pre                               # en cada host que la tenía
+    rm -rf ~/.cache/restic
+    ```
+
+2. Versiones y marcadores del prefijo `pre/` en el bucket, replicación y ciclo de vida:
+
+    ```bash
+    E="--endpoint-url http://10.10.0.30:9000"
+    aws $E s3api list-object-versions --bucket backups --prefix pre/ \
+      --query '{Objects: [Versions[].{Key:Key,VersionId:VersionId}, DeleteMarkers[].{Key:Key,VersionId:VersionId}][]}' \
+      --output json > versiones.json
+    jq '.Objects|length' versiones.json                          # si pasa de 1000, trocea el fichero
+    aws $E s3api delete-objects --bucket backups --delete file://versiones.json
+    aws $E s3api list-object-versions --bucket backups --prefix pre/ | tee ~/repos/operacion/baja/pre/ev/16-s3-versions.json
+    mc replicate ls s3/backups | tee -a ~/repos/operacion/baja/pre/ev/16-s3-versions.json
+    mc ilm ls s3/backups
+    ```
+
+    Si el bucket tiene Object Lock en modo compliance, el `delete-objects` fallará para esos objetos: apunta la fecha de retención en "Pendientes con fecha" del plan; la clave ya destruida los convierte en ruido mientras tanto.
+
+3. Comprueba que el compactor de Loki en mon01 admite peticiones de borrado (`retention_enabled: true`, `deletion_mode: filter-and-delete` en `/etc/loki/config.yml`; si no, corrígelo y reinicia Loki). Envía la petición y comprueba el estado:
+
+    ```bash
+    L=http://10.10.0.20:3100
+    curl -s -X POST -G "$L/loki/api/v1/delete" \
+      --data-urlencode 'query={env="pre"}' --data-urlencode 'start=1700000000' --data-urlencode "end=$(date +%s)"
+    curl -s "$L/loki/api/v1/delete" | jq . | tee ~/repos/operacion/baja/pre/ev/17-loki-delete.json   # status: received
+    ```
+
+    El compactor la procesa después del periodo de cancelación (24 h por defecto). Apúntalo en el plan como pendiente: la verificación de `logcli` se hace al empezar la sesión 39.
+
+4. Añade la `retention_stream` de 24 h para `{env="pre"}` en la configuración de Loki dentro del repositorio `monitoring`, commit y despliegue, para que un log rezagado desaparezca solo.
+
+5. Logs fuera de las VM destruidas, en mon01: la bandeja de Mailpit con el texto de las alertas de pre, y el journal si algo de pre escribía ahí:
+
+    ```bash
+    ssh mon01 'curl -s -X DELETE http://localhost:8025/api/v1/messages; sudo journalctl --vacuum-time=1s'
+    ssh mon01 'curl -s http://localhost:8025/api/v1/messages | jq .total' | tee ~/repos/operacion/baja/pre/ev/18-mailpit.txt   # 0
+    ```
+
+6. Prueba de recuperación, escenario 1 (`rm` en ext4). Prepara el volumen de pruebas y un fichero reconocible:
+
+    ```bash
+    mkdir -p ~/photorec && cd ~/photorec
+    dd if=/dev/zero of=prueba.img bs=1M count=256 && mkfs.ext4 -q prueba.img
+    mkdir -p /mnt/prueba && sudo mount -o loop prueba.img /mnt/prueba
+    for i in $(seq 1 500); do echo "INSERT INTO usuarios VALUES ($i, 'usuario$i@pre.lab', '6000000$i');"; done | sudo tee /mnt/prueba/dump.sql >/dev/null
+    sudo rm /mnt/prueba/dump.sql && sudo umount /mnt/prueba
+    photorec /d rec-rm /cmd prueba.img search
+    grep -rl 'INSERT INTO usuarios' rec-rm/ | head | tee ev-photorec-rm.txt
+    ```
+
+7. Escenario 2 (`shred` en ext4): repite el paso 6 pero sustituye `sudo rm` por `sudo shred -u -n 3 /mnt/prueba/dump.sql`, recupera en `rec-shred/` y guarda el resultado del `grep` en `ev-photorec-shred.txt`.
+
+8. Escenario 3 (ZFS con snapshot): en la máquina con ZFS, crea un dataset, copia `dump.sql` dentro, haz un snapshot, ejecuta `shred -u` y busca en el snapshot:
+
+    ```bash
+    sudo zfs create rpool/prueba
+    sudo cp dump.sql /rpool/prueba/ && sudo zfs snapshot rpool/prueba@antes
+    sudo shred -u -n 3 /rpool/prueba/dump.sql
+    sudo zfs diff rpool/prueba@antes
+    grep -c 'INSERT INTO usuarios' /rpool/prueba/.zfs/snapshot/antes/dump.sql | tee ev-photorec-zfs.txt
+    sudo zfs destroy -r rpool/prueba
+    ```
+
+9. Redacta `operacion/baja/pre/informe-photorec.md` con una tabla (escenario, método de borrado, qué recuperó photorec, por qué) y la conclusión: qué método garantiza la irrecuperabilidad en un soporte que no controlas. Copia los tres `ev-photorec-*.txt` a `ev/19-photorec/`.
+
+**Comprobación.** `restic snapshots` falla con "wrong password or no key found" aunque la contraseña sea la correcta; `list-object-versions` del prefijo `pre/` devuelve un JSON sin `Versions` ni `DeleteMarkers`; la petición de Loki aparece en estado `received` (o `processed` si ya pasó el ciclo); en el escenario 1 el `grep` encuentra el dump entero, en el 2 no encuentra nada y en el 3 el snapshot conserva las 500 líneas.
+
+**Entrega.** Commit en `operacion` con `ev/14` a `ev/19` e `informe-photorec.md`; commit en `monitoring` con la `retention_stream`.
+
+**Si te sobra tiempo.** Repite el escenario 1 sobre un volumen LUKS (`cryptsetup luksFormat prueba.img`, abrir, formatear, escribir, cerrar, `cryptsetup luksErase`) y pasa photorec sobre `prueba.img` en bruto: debe devolver cero ficheros. Añádelo al informe como cuarto escenario.
+
+### A8.4 Datos y monitorización (sesión 39)
+
+**Sesión 39 · 16 de marzo · Teoría y práctica · unos 105 min de práctica**
+
+**Objetivo.** La base de datos compartida de dev no conserva ningún dato personal del tenant `pre`, y Prometheus, Alertmanager, Grafana y Promtail no tienen ninguna referencia a pre: cero targets, reglas, series, dashboards, silencios y alertas.
+
+**Antes de empezar.**
+
+- Acceso a db01 de dev con el usuario `app` (o uno con permisos sobre las tablas del servicio), a mon01 y a jenkins01.
+- Prometheus arrancado con `--web.enable-lifecycle` y `--web.enable-admin-api` (mira `systemctl cat prometheus` o el compose de mon01; si falta, añádelo y reinicia antes de empezar).
+- Los repositorios `alerting`, `monitoring` y `operacion` actualizados. Los dashboards de pre ya están en Git desde A8.2.
+- Se ha explicado [qué hace DELETE y VACUUM FULL](#datos-confidenciales-en-la-base-de-datos-interna), [la anonimización](#anonimizar-cuando-hay-que-conservar-estadisticas) y [la desconfiguración de la monitorización](#desconfigurar-la-monitorizacion-y-las-alarmas).
+
+**Pasos.**
+
+1. Cierra el pendiente de la sesión anterior: la petición de borrado de Loki debe estar en `processed`.
+
+    ```bash
+    L=http://10.10.0.20:3100
+    curl -s "$L/loki/api/v1/delete" | jq '.[]|{status,query}'
+    logcli --addr=$L query '{env="pre"}' --since=8760h --limit=1 | tee ~/repos/operacion/baja/pre/ev/20-loki-vacio.txt
+    logcli --addr=$L series '{env="pre"}' | tee -a ~/repos/operacion/baja/pre/ev/20-loki-vacio.txt
+    ```
+
+2. En db01 de dev, mide antes de tocar nada y guarda la salida:
+
+    ```sql
+    SELECT relname, n_live_tup, n_dead_tup, pg_size_pretty(pg_total_relation_size(relid)) AS tam
+    FROM pg_stat_user_tables WHERE relname LIKE 'pre_%' OR relname IN ('usuarios','comentarios');
+    SELECT count(*) FROM usuarios WHERE tenant='pre';
+    ```
+
+3. Anonimiza la tabla de usuarios del tenant `pre` con sal de un solo uso y borra las tablas satélite con texto libre, en una sola transacción:
+
+    ```sql
+    BEGIN;
+    CREATE TEMP TABLE sal AS SELECT gen_random_uuid()::text AS s;
+    UPDATE usuarios u SET
+      email    = encode(sha256(convert_to(u.email || (SELECT s FROM sal), 'UTF8')), 'hex') || '@anon.invalid',
+      nombre   = 'Usuario ' || u.id,
+      telefono = NULL,
+      direccion = NULL,
+      ip_alta  = NULL,
+      fecha_nac = date_trunc('year', u.fecha_nac)
+    WHERE u.tenant = 'pre';
+    DELETE FROM comentarios WHERE usuario_id IN (SELECT id FROM usuarios WHERE tenant = 'pre');
+    COMMIT;
+    ```
+
+4. Borra las tablas exclusivas del servicio y reescribe las que se conservan:
+
+    ```sql
+    DROP TABLE pre_sesiones, pre_pedidos CASCADE;
+    VACUUM FULL usuarios, comentarios;
+    ```
+
+    Si `VACUUM FULL` falla por espacio, es lo que cuenta el apartado de errores: necesita el doble del tamaño de la tabla; comprueba con `df -h` y haz primero los `DROP`.
+
+5. Consulta de control y estadísticas después; la salida va al acta:
+
+    ```bash
+    psql -U app -d servicio -c "SELECT count(*) AS restos FROM usuarios WHERE tenant='pre' AND (email NOT LIKE '%@anon.invalid' OR telefono IS NOT NULL OR direccion IS NOT NULL OR ip_alta IS NOT NULL);" \
+         -c "SELECT relname, n_live_tup, n_dead_tup FROM pg_stat_user_tables WHERE relname IN ('usuarios','comentarios') OR relname LIKE 'pre_%';" \
+      | tee ~/repos/operacion/baja/pre/ev/21-db-control.txt
+    ```
+
+6. Revisa dónde más pueden vivir esos datos: réplica en streaming (`SELECT * FROM pg_stat_replication;` y su base backup inicial), dumps sueltos y cachés:
+
+    ```bash
+    ssh db01 'sudo find /tmp /var/tmp /home -name "*.sql*" -o -name "*.dump" 2>/dev/null'
+    ssh jenkins01 'sudo find /var/lib/jenkins/workspace -name "*.sql*" 2>/dev/null'
+    ssh db01 'ls /var/lib/postgresql/archive 2>/dev/null | tail -3'      # WAL archivado: apunta la retención
+    redis-cli -h 10.20.2.11 --scan --pattern 'pre:*' | head 2>/dev/null   # si sobrevive un Redis compartido
+    ```
+
+    Lo que encuentres se borra (`shred -u` en los dumps) y se anota; el WAL archivado con fecha de expiración va a "Pendientes con fecha".
+
+7. Prometheus: quita los targets de pre en el repositorio `monitoring` (`prometheus.yml` o el fichero de `file_sd`), commit, despliega, valida y recarga; luego borra las series:
+
+    ```bash
+    P=http://10.10.0.20:9090
+    promtool check config /etc/prometheus/prometheus.yml
+    curl -X POST $P/-/reload
+    curl -s $P/api/v1/targets | jq '[.data.activeTargets[]|select(.labels.env=="pre")]|length'      # 0
+    curl -X POST -G $P/api/v1/admin/tsdb/delete_series --data-urlencode 'match[]={env="pre"}'
+    curl -X POST $P/api/v1/admin/tsdb/clean_tombstones
+    curl -s -G $P/api/v1/query --data-urlencode 'query=count({env="pre"})' | jq '.data.result' | tee ~/repos/operacion/baja/pre/ev/22-prometheus.txt   # []
+    ```
+
+8. Reglas: retira de `alerting/alerts.yml` y de las recording rules todo lo que filtre por `env="pre"`; commit y despliegue por el pipeline. El silencio sigue activo, así que la recarga no dispara nada.
+
+    ```bash
+    curl -s $P/api/v1/rules | jq '.data.groups[].rules[]|select(.query|test("pre"))' | tee ~/repos/operacion/baja/pre/ev/23-reglas.txt   # vacío
+    ```
+
+9. Alertmanager: quita rutas con `env: pre`, receptores exclusivos y plantillas que los usen en `alertmanager.yml` del repositorio `alerting`; valida y recarga:
+
+    ```bash
+    amtool check-config alertmanager.yml
+    curl -X POST http://10.10.0.20:9093/-/reload
+    ```
+
+10. Grafana y Promtail: borra los dashboards de pre (ya exportados) y la datasource exclusiva si la había; quita el job `env: pre` de `promtail.yml` en `monitoring` y commit.
+
+    ```bash
+    G=http://10.10.0.20:3000; H="Authorization: Bearer $GRAFANA_TOKEN"
+    for uid in $(curl -s -H "$H" "$G/api/search?tag=pre" | jq -r '.[].uid'); do curl -s -X DELETE -H "$H" $G/api/dashboards/uid/$uid; done
+    curl -s -X DELETE -H "$H" $G/api/datasources/uid/loki-pre      # solo si era exclusiva de pre
+    curl -s -H "$H" "$G/api/search?tag=pre" | tee ~/repos/operacion/baja/pre/ev/24-grafana.txt   # []
+    ```
+
+11. Comprueba que no hay alertas pendientes y solo entonces expira el silencio:
+
+    ```bash
+    A=http://10.10.0.20:9093
+    amtool --alertmanager.url=$A alert query env=pre                       # vacío antes de expirar
+    amtool --alertmanager.url=$A silence query env=pre                     # apunta el ID
+    amtool --alertmanager.url=$A silence expire <id>
+    sleep 120; amtool --alertmanager.url=$A alert query env=pre | tee ~/repos/operacion/baja/pre/ev/25-alertas.txt   # vacío
+    ```
+
+12. En `operacion/`, marca la ficha de cada alarma de pre y su runbook como retirados con fecha y enlace al acta; no los borres. Commit.
+
+**Comprobación.** La consulta de control devuelve `restos = 0`; `n_dead_tup` de `usuarios` y `comentarios` es 0 y las tablas `pre_*` no aparecen; `count({env="pre"})` devuelve `[]`; targets, reglas y dashboards de pre a cero; `amtool alert query env=pre` vacío dos minutos después de expirar el silencio.
+
+**Entrega.** Commit en `operacion` con `ev/20` a `ev/25` y los runbooks marcados; commits en `alerting` (reglas y rutas) y `monitoring` (targets y Promtail).
+
+**Si te sobra tiempo.** Abre con `hexdump -C` el fichero de la tabla `usuarios` antes y después del `VACUUM FULL` (`SELECT pg_relation_filepath('usuarios');`) y busca un correo del tenant `pre`: es la demostración de que `DELETE` deja los bytes y `VACUUM FULL` desvincula el fichero, y una captura buena para el acta.
 
 ## Práctica evaluable
 
-### Práctica evaluable UT8 (sesión 41)
+### Práctica evaluable UT8 (sesión 40)
+
+**Sesión 40 · 18 de marzo · Práctica evaluable · unos 110 min de práctica**
 
 Entrega el **acta de baja** del entorno pre siguiendo la plantilla del apartado correspondiente, con la lista de comprobación completa y una evidencia por punto (salida de comando o captura, en `operacion/baja/pre/ev/`), incluida la prueba de que las copias no son restaurables (restic sin clave y listado de versiones vacío), el informe de recuperación con photorec sobre el volumen de pruebas, la consulta de control sobre la base de datos anonimizada y la demostración de que la monitorización no conserva referencias (targets, reglas, series, silencios y alertas a cero). El acta incluye la aprobación, lo conservado con fecha de destrucción, las incidencias durante la baja y los pendientes con fecha y responsable.
 

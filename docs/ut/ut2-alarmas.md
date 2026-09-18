@@ -33,9 +33,26 @@ Un jueves a las tres de la tarde la API del curso empieza a devolver errores 500
 **Cómo está organizada la unidad.** "De la métrica a la alarma" dibuja la cadena completa y fija dos ideas: se alerta por lo que sufre el usuario, no por su causa, y una alarma que nadie atiende es ruido. Siguen los dos apartados de consultas, "Umbrales sobre contadores" con PromQL y "Cadenas en logs y eventos" con LogQL, porque sin la condición no hay nada que disparar. "Agregación y correlación" guarda esas consultas como métricas nuevas, y va antes de "Reglas de alerta" porque las reglas se escriben sobre ellas, no sobre consultas crudas. "Alertmanager" es el tramo más largo: agrupar, enrutar y silenciar es donde se gana o se pierde la batalla contra la fatiga. Cierra "Categorizar, notificar y tratar", que saca las alarmas hacia Gitea y da el procedimiento para comprobar que todo funciona.
 
 !!! info "Lo que necesitas de la otra asignatura"
-    Esta unidad se hace sobre el entorno provisional de la UT1: `app01` y `mon01` son las dos VM del bridge del aula (vmbr0) que creaste en [5166 UT1, sesión 3, desde la plantilla cloud-init](https://victor-educ.github.io/apuntes-5166/ut/ut1-virtualizacion/), y las incidencias van al Gitea de 5166. Mientras trabajas aquí (22 oct a 17 nov), en 5166 se está construyendo la VPC ([UT2, del 21 oct al 11 nov](https://victor-educ.github.io/apuntes-5166/ut/ut2-vpc/)) y todavía no hay firewall: Alertmanager, Mailpit y el receptor webhook quedan abiertos en la red del aula, y por eso los tokens van en ficheros fuera del repositorio desde el primer día. Cuando 5166 termine VPC y firewall, en la UT3 de esta asignatura moveremos estas VM a la VPC dev, detrás de OPNsense, sin rehacer nada de lo que configures ahora.
+    Esta unidad se hace sobre el entorno provisional de la UT1: `app01` y `mon01` son las dos VM del bridge del aula (vmbr0) que creaste en [5166 UT1, sesión 3, desde la plantilla cloud-init](https://victor-educ.github.io/apuntes-5166/ut/ut1-virtualizacion/), y las incidencias van al Gitea de 5166. Mientras trabajas aquí (27 oct a 19 nov), en 5166 se está construyendo la VPC ([UT2, del 28 oct al 13 nov](https://victor-educ.github.io/apuntes-5166/ut/ut2-vpc/)) y todavía no hay firewall: Alertmanager, Mailpit y el receptor webhook quedan abiertos en la red del aula, y por eso los tokens van en ficheros fuera del repositorio desde el primer día. Cuando 5166 termine VPC y firewall, en la UT3 de esta asignatura moveremos estas VM a la VPC dev, detrás de OPNsense, sin rehacer nada de lo que configures ahora.
+
+## Plan de sesiones
+
+Cada sesión de dos horas empieza con una explicación corta y sigue con laboratorio. La columna "Se explica" es lo que cuento yo al principio (con su duración aproximada); la columna "Se practica" es lo que hacéis vosotros con el material de práctica de esta unidad. Las sesiones marcadas solo como práctica no traen teoría nueva.
+
+| Sesión | Fecha | Tipo | Se explica | Se practica |
+|---:|-------|------|------------|-------------|
+| [8](#a21-umbrales-sobre-contadores-sesion-8) | 27 oct | Teoría y práctica | De la métrica a la alarma; alertar por síntomas; rate, increase y ventanas en PromQL (25 min). | Definir cinco umbrales desde la documentación del servicio y comprobar las consultas con tráfico real. |
+| [9](#a22-cadenas-en-logs-y-eventos-sesion-9) | 29 oct | Teoría y práctica | LogQL: selectores, filtros, parsers y métricas sobre logs (20 min). | Consultas LogQL para los mensajes de error conocidos y reglas para oom y unhealthy; probar con logcli. |
+| [10](#a23-recording-rules-sesion-10) | 3 nov | Teoría y práctica | Agregar y correlar: por qué precalcular y cómo se nombran (15 min). | rules.yml con cuatro métricas grabadas y un panel que las use. |
+| [11](#a24-reglas-de-alerta-sesion-11) | 5 nov | Teoría y práctica | for, etiquetas, anotaciones y estados de una alerta (15 min). | Convertir los umbrales en reglas con etiquetas y runbook; observar pending y firing. |
+| [12](#a25-alertmanager-sesion-12) | 10 nov | Teoría y práctica | Árbol de rutas, agrupación, inhibición, silencios y receptores (25 min). | Agrupación, tres rutas, una inhibición y un silencio; correo con Mailpit y Telegram; dos alarmas del mismo grupo en una sola notificación. |
+| [13](#a26-integracion-con-incidencias-sesion-13) | 12 nov | Teoría y práctica | El webhook de Alertmanager y su JSON (10 min). | Receptor en Flask o n8n que crea y cierra issues en Gitea; probar activación y recuperación. |
+| [14](#a27-verificacion-completa-sesion-14) | 17 nov | Práctica | Repaso del procedimiento de verificación (5 min). | Verificar cada alarma: provocarla, medir tiempos, canales, issue creada y cerrada; rellenar la tabla. |
+| [15](#practica-evaluable-ut2-sesion-15) | 19 nov | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el repositorio alerting, el informe de verificación y la tabla de categorización. |
 
 ## De la métrica a la alarma
+
+*Se explica en la sesión 8 (unos 10 min). El resto del apartado es material de consulta para la práctica.*
 
 Antes de escribir una sola consulta conviene ver qué piezas hay entre un número que sube en Prometheus y un mensaje en el móvil, porque cada pieza vive en un fichero distinto. Este apartado dibuja esa cadena y fija qué merece ser alarma.
 
@@ -84,6 +101,8 @@ sum by (alertname) (count_over_time(ALERTS{alertstate="firing"}[7d]) * 15) / 360
 Las incidencias de Gitea que crearemos en esta unidad son precisamente lo que permite calcular los tres últimos, porque Alertmanager sólo guarda las alertas activas y olvida el pasado. Cuando una alarma sale mal en estos números se hace una de tres cosas: subir el umbral, alargar el `for`, o bajarla de `critical` a `warning` y quitarla del canal de guardia.
 
 ## Umbrales sobre contadores
+
+*Se explica en la sesión 8 (unos 15 min). El resto del apartado es material de consulta para la práctica.*
 
 ![Prometheus](../img/prometheus-logo.svg){ .logo-inline } Vas a convertir los contadores que ya recoge Prometheus (peticiones, errores, memoria, reinicios, conexiones) en condiciones numéricas con un umbral justificado. Hay tres funciones de PromQL que se usan mal a menudo y un problema de etiquetas en casi todas las divisiones; sin eso, las alertas devuelven "no data" o disparan cuando no toca.
 
@@ -139,6 +158,8 @@ Los valores de partida vienen de la documentación; los definitivos se ajustan c
 Prometheus 3 añade `keep_firing_for`, que mantiene la alerta en `firing` un tiempo después de que la condición deje de cumplirse. Sirve para el caso contrario al de `for`: una alarma que oscila (flapping) alrededor del umbral y genera una pareja de notificaciones (disparo, resolución) cada pocos minutos. Con `keep_firing_for: 10m` se queda encendida hasta que lleve diez minutos limpia.
 
 ## Cadenas en logs y eventos
+
+*Se explica en la sesión 9 (unos 20 min). El resto del apartado es material de consulta para la práctica.*
 
 ![Loki](../img/loki-logo.png){ .logo-inline } Hay fallos que no se ven en ninguna métrica porque la aplicación no los cuenta: una excepción concreta, un `timeout` hablando con la base de datos, un evento `oom` (sin memoria) del demonio Docker. Para esos se vigila el texto, y en nuestra pila el texto está en Loki y se consulta con LogQL.
 
@@ -247,6 +268,8 @@ Se valida con `lokitool rules lint loki-alerts.yml` (`lokitool` es la utilidad d
 
 ## Agregación y correlación: recording rules
 
+*Se explica en la sesión 10 (unos 15 min). El resto del apartado es material de consulta para la práctica.*
+
 Las consultas del apartado anterior funcionan, pero son largas, se repiten en cada panel y en cada alerta, y cada uno las calcula por su cuenta. Este apartado enseña a guardarlas una sola vez como métricas nuevas con nombre propio. Al terminar tendrás un `rules.yml` con los indicadores del contenedor de referencia listos para las reglas de alerta.
 
 Una recording rule evalúa una expresión PromQL cada cierto tiempo y guarda el resultado como una serie nueva, con su propio nombre, en la base de datos de Prometheus. A partir de ese momento es una métrica más: se consulta, se grafica y se alerta sobre ella igual que sobre `up`.
@@ -305,6 +328,8 @@ Todas las reglas de un grupo se evalúan en secuencia, cada `interval`, así que
 Las alertas usan las métricas grabadas, no las consultas crudas. Es la norma del repositorio de alerting y se revisa en la práctica.
 
 ## Reglas de alerta
+
+*Se explica en la sesión 11 (unos 15 min). El resto del apartado es material de consulta para la práctica.*
 
 Aquí se juntan umbrales, indicadores grabados y `for` en un fichero `alerts.yml` que Prometheus evalúa solo. Lo que este apartado añade es lo que decide todo lo que viene después: las etiquetas que Alertmanager usará para enrutar y las anotaciones que leerá la persona avisada.
 
@@ -387,6 +412,8 @@ stateDiagram-v2
 Los tres primeros estados los ves en Prometheus, en la pestaña *Alerts*: `inactive` (verde), `pending` (amarillo, con el tiempo que lleva) y `firing` (rojo). Prometheus manda la alerta a Alertmanager en cuanto entra en `firing` y la reenvía en cada evaluación mientras siga así; cuando deja de cumplirse, manda una última vez con `endsAt` fijado, y eso es lo que Alertmanager interpreta como `resolved`. Si Prometheus muere sin despedirse, Alertmanager considera resuelta la alerta cuando pasa `resolve_timeout` (5 min por defecto) sin recibirla.
 
 ## Alertmanager
+
+*Se explica en la sesión 12 (unos 25 min). El resto del apartado es material de consulta para la práctica.*
 
 Prometheus evalúa; Alertmanager decide. Recibe alertas de uno o varios Prometheus (y del ruler de Loki, y de Grafana si se configura) y hace cinco cosas con ellas: deduplica (dos Prometheus en alta disponibilidad mandan la misma alerta y sale una), agrupa, enruta, inhibe y silencia. Luego notifica por los receptores configurados y repite mientras la alerta siga activa. Configuración en `alertmanager.yml`, validación con `amtool check-config alertmanager.yml` (`amtool` es a Alertmanager lo que `promtool` a Prometheus), recarga con `POST /-/reload`.
 
@@ -562,6 +589,8 @@ Con eso puedes probar plantillas de correo y comprobar `send_resolved` sin moles
 
 ## Categorizar, notificar y tratar
 
+*Se explica en la sesión 13 (unos 10 min). El resto del apartado es material de consulta para la práctica.*
+
 Cada alarma que sale de Alertmanager se clasifica para decidir quién la atiende, con qué prioridad y dónde queda registrada. La clasificación no se hace a mano: viene en las etiquetas que pusimos en la regla y en los campos que añade Alertmanager.
 
 | Parámetro | Valores | De dónde sale |
@@ -729,7 +758,7 @@ Los tiempos del paso 3 y del 7 son los que luego comparas con lo que el servicio
 
 **La inhibición no inhibe.** Falta `equal` o los valores de la etiqueta no coinciden literalmente (`instance="app01:9100"` en la fuente y `instance="app01:8080"` en el objetivo son distintos). Usa una etiqueta común como `host` puesta por `relabel_configs`, o inhibe por `env`.
 
-## Actividades
+## Material de práctica
 
 ### A2.1 Umbrales sobre contadores (sesión 8)
 
@@ -762,6 +791,8 @@ Para cada una de las alarmas configuradas (mínimo seis, al menos una de Loki y 
 ## Práctica evaluable
 
 ### Práctica evaluable UT2 (sesión 15)
+
+**Sesión 15 · 19 de noviembre · Práctica evaluable · unos 110 min de práctica**
 
 Entrega el repositorio `alerting` en Gitea con `rules.yml`, `alerts.yml`, `loki-alerts.yml`, `alertmanager.yml` (sin secretos: tokens en ficheros ignorados), el receptor webhook con su Compose, y un `README` que explique cómo desplegarlo en mon01 y cómo probarlo. Junto al repositorio, el informe de verificación de A2.7 y una tabla de categorización de todas las alarmas recibidas durante la práctica agrupadas por origen, criticidad y servicio, con fecha de creación y de cierre de cada una (la sacas de las issues de Gitea).
 

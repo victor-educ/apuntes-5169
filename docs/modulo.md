@@ -1,6 +1,6 @@
 # Presentación y evaluación
 
-<p class="ut-meta">Módulo 5169 · Mantenimiento del sistema de contenedores desplegado · 112 h · Clases martes y jueves, 2 h por sesión</p>
+<p class="ut-meta">Módulo 5169 · Mantenimiento del sistema de contenedores desplegado · 110 h · Clases martes y jueves, 2 h por sesión</p>
 
 ## De qué va la asignatura
 
@@ -77,7 +77,7 @@ Cinco resultados de aprendizaje. Los resumo con mis palabras y digo en qué unid
 | Examen 2ª evaluación (23 mar 2027) | UT7 y UT8, prueba práctica en el laboratorio | 60 % de la 2ª evaluación |
 | Formación en empresa | UT5 y UT6 con ficha de evidencias firmada por el tutor | Según el plan de FE del centro |
 
-Los exámenes son las sesiones 29 (28 de enero de 2027) y 42 (23 de marzo de 2027), integradas en el calendario de cada evaluación. Cada práctica evaluable lleva su tabla de criterios y pesos al final de la unidad. Una entrega fuera de plazo sin causa justificada se corrige sobre el 50 %.
+Los exámenes son las sesiones 28 (28 de enero de 2027) y 41 (23 de marzo de 2027), integradas en el calendario de cada evaluación. Cada práctica evaluable lleva su tabla de criterios y pesos al final de la unidad. Una entrega fuera de plazo sin causa justificada se corrige sobre el 50 %.
 
 !!! warning "Lo que no se admite"
     Informes sin evidencias (capturas o salidas de comandos con fecha), repositorios con secretos en el historial, datos reales de la empresa sin anonimizar en las fichas de evidencias, y "copias de seguridad" que nunca se han restaurado. En todos los casos la práctica vuelve al alumno sin nota hasta que lo corrija.
@@ -102,6 +102,6 @@ Estos apuntes los he escrito yo apoyándome en Claude, el asistente de IA de Ant
 
 ## Metodología
 
-Cada sesión de dos horas tiene una parte corta de explicación y una parte larga de laboratorio sobre el contenedor de referencia. Como el servicio es el mismo durante todo el curso, lo que se configura en una unidad sigue funcionando en la siguiente: las alarmas de la UT2 usan las métricas de la UT1, las pruebas de la UT4 verifican la actualización de la UT7 y la UT8 desmonta todo lo anterior. Por eso conviene no dejar nada a medias.
+Cada sesión de dos horas tiene una parte corta de explicación (entre 10 y 30 minutos, según la sesión) y una parte larga de laboratorio sobre el contenedor de referencia. El [calendario](calendario.md) y el plan de sesiones de cada unidad dicen, sesión a sesión, qué se explica y qué se practica, y de qué tipo es cada sesión: teoría y práctica, solo práctica, práctica evaluable o examen. Los apartados de contenido de cada unidad son lo que explico en clase y sirven de consulta; la sección de material de práctica tiene una hoja por sesión con objetivo, requisitos previos, pasos, comprobación y entrega. Como el servicio es el mismo durante todo el curso, lo que se configura en una unidad sigue funcionando en la siguiente: las alarmas de la UT2 usan las métricas de la UT1, las pruebas de la UT4 verifican la actualización de la UT7 y la UT8 desmonta todo lo anterior. Por eso conviene no dejar nada a medias.
 
 Todo lo que se hace se documenta en el momento. Al final de cada unidad esa documentación es la práctica evaluable.
