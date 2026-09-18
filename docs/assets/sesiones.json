@@ -133,7 +133,7 @@
    "practica": "Cerrar el informe: flujo de datos, configuración, pruebas y resultado del corte de red.",
    "que": "Cerrar el informe: flujo de datos, configuración, pruebas y resultado del corte de red.",
    "entregable": "Informe UT1 (RA1 a)",
-   "url": "../ut/ut1-observabilidad/#practica-evaluable",
+   "url": "../ut/ut1-observabilidad/#sesion-7-practica-evaluable",
    "evaluable": true
   },
   {
@@ -237,7 +237,7 @@
    "practica": "Cerrar el repositorio alerting, el informe de verificación y la tabla de categorización.",
    "que": "Cerrar el repositorio alerting, el informe de verificación y la tabla de categorización.",
    "entregable": "Repositorio alerting + informe (RA1 b, c, d, e)",
-   "url": "../ut/ut2-alarmas/#practica-evaluable-ut2-sesion-15",
+   "url": "../ut/ut2-alarmas/#sesion-15-practica-evaluable",
    "evaluable": true
   },
   {
@@ -289,7 +289,7 @@
    "practica": "Cerrar la matriz de puertos antes y después, reglas, configuración TLS, evidencias y el documento de política.",
    "que": "Cerrar la matriz de puertos antes y después, reglas, configuración TLS, evidencias y el documento de política.",
    "entregable": "Informe UT3 (RA1 f, g)",
-   "url": "../ut/ut3-seguridad-monitorizacion/#practica-evaluable-ut3-sesion-19",
+   "url": "../ut/ut3-seguridad-monitorizacion/#sesion-19-practica-evaluable",
    "evaluable": true
   },
   {
@@ -393,7 +393,7 @@
    "practica": "Cerrar el dossier de operación: fichas, indicadores, catálogo, informe de pruebas y registro de revisión.",
    "que": "Cerrar el dossier de operación: fichas, indicadores, catálogo, informe de pruebas y registro de revisión.",
    "entregable": "Dossier de operación (RA2 a–f)",
-   "url": "../ut/ut4-kpi-pruebas/#practica-evaluable",
+   "url": "../ut/ut4-kpi-pruebas/#sesion-27-practica-evaluable",
    "evaluable": true
   },
   {
@@ -497,7 +497,7 @@
    "practica": "Cerrar inventario y política, informe de vulnerabilidades, evidencia de actualización, reporte de fallo e incidencias.",
    "que": "Cerrar inventario y política, informe de vulnerabilidades, evidencia de actualización, reporte de fallo e incidencias.",
    "entregable": "Informe UT7 (RA4 d–i)",
-   "url": "../ut/ut7-actualizacion-vulnerabilidades/#practica-evaluable-ut7-sesion-35",
+   "url": "../ut/ut7-actualizacion-vulnerabilidades/#sesion-35-practica-evaluable",
    "evaluable": true
   },
   {
@@ -562,7 +562,7 @@
    "practica": "Cerrar el acta de baja con la lista de comprobación completa y una evidencia por punto.",
    "que": "Cerrar el acta de baja con la lista de comprobación completa y una evidencia por punto.",
    "entregable": "Acta de baja (RA5 a–d)",
-   "url": "../ut/ut8-terminacion-segura/#practica-evaluable-ut8-sesion-40",
+   "url": "../ut/ut8-terminacion-segura/#sesion-40-practica-evaluable",
    "evaluable": true
   },
   {

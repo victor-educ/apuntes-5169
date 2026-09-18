@@ -1,6 +1,6 @@
 # Bibliografía y enlaces
 
-Cada unidad tiene su sección "Para ampliar" con enlaces concretos. Aquí está lo transversal. La documentación de Proxmox, OpenTofu, Ansible, Jenkins y las plataformas de nube está en la [bibliografía de la asignatura de despliegue](https://victor-educ.github.io/apuntes-5166/recursos/).
+Los enlaces concretos de cada unidad están en la página [Para ampliar](ampliacion.md), junto con los apartados que van más allá de lo que se hace en clase. Aquí está lo transversal. La documentación de Proxmox, OpenTofu, Ansible, Jenkins y las plataformas de nube está en la [bibliografía de la asignatura de despliegue](https://victor-educ.github.io/apuntes-5166/recursos/).
 
 ## Documentación oficial
 

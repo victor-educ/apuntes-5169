@@ -67,6 +67,7 @@ extra:
     Chuleta de comandos: material/console
     Glosario: material/book-alphabet
     Bibliografía y enlaces: material/link-variant
+    Para ampliar: material/book-plus
     Despliegue (5166): material/package-variant-closed
 
 markdown_extensions:
@@ -77,7 +78,7 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
-      toc_depth: 3
+      toc_depth: 4
   - pymdownx.details
   - pymdownx.highlight:
       anchor_linenums: true
@@ -133,5 +134,6 @@ nav:
       - Laboratorio: laboratorio.md
       - Chuleta de comandos: chuleta.md
       - Glosario: glosario.md
+      - Para ampliar: ampliacion.md
       - Bibliografía y enlaces: recursos.md
   - Despliegue (5166): https://victor-educ.github.io/apuntes-5166/
