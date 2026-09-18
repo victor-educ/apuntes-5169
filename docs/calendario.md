@@ -1,14 +1,14 @@
 # Calendario de sesiones
 
-<p class="ut-meta">Curso 2026-27 · Martes y jueves · 2 h por sesión · 41 sesiones (82 h) · Presentación el 1 de octubre de 2026 · Formación en empresa del 19 de abril al 9 de junio de 2027</p>
+<p class="ut-meta">Curso 2026-27 · Martes y jueves · 1 h 50 min por sesión · 41 sesiones (82 h) · Presentación el 1 de octubre de 2026 · Formación en empresa del 19 de abril al 9 de junio de 2027</p>
 
 Las fechas están calculadas sobre el calendario escolar de Castelló 2026-27. El curso empieza el jueves 1 de octubre de 2026, y esa primera sesión es la de presentación de la asignatura. El periodo de clase en el centro llega hasta el 16 de abril de 2027, justo antes de la formación en empresa: las 41 sesiones ocupan hasta el 6 de abril y los tres últimos días, el 8, el 13 y el 15, quedan de margen para recuperar entregas y repasar. No son lectivos el 8, 9 y 12 de octubre, el 8 de diciembre, del 22 de diciembre al 7 de enero, del 1 al 5 de marzo (Magdalena), el 19 de marzo y la semana de Pascua (del 25 de marzo al 2 de abril). Si un día cae festivo por sorpresa, todo se corre una sesión.
 
-Cada sesión dura dos horas y casi todas tienen la misma forma: una explicación corta al principio (entre 10 y 30 minutos, indicada en la columna de teoría) y el resto de laboratorio. Las sesiones marcadas como práctica no tienen explicación nueva. Las sesiones en **negrita** son evaluables.
+Cada sesión dura 110 minutos y casi todas tienen la misma forma: una explicación corta al principio (entre 10 y 30 minutos, indicada en la columna de teoría) y el resto de laboratorio. Las sesiones marcadas como práctica no tienen explicación nueva. Las sesiones en **negrita** son evaluables.
 
 ## Vista de calendario
 
-Cada día de clase lleva el color de su unidad. Pasa el ratón por encima para ver qué se explica y qué se practica en esa sesión y qué se entrega; haz clic para ir a esa sesión en los apuntes. Los días marcados con estrella son sesiones evaluables. Con el teclado, el tabulador recorre las sesiones y muestra el mismo detalle.
+Cada día de clase lleva el color de su unidad. Al pasar el ratón por encima se ve qué se explica y qué se practica en esa sesión y qué se entrega; con un clic se va a esa sesión en los apuntes. Los días marcados con estrella son sesiones evaluables. Con el teclado, el tabulador recorre las sesiones y muestra el mismo detalle.
 
 <div id="calendario-interactivo" data-src="../assets/sesiones.json" markdown="0"></div>
 
@@ -19,7 +19,7 @@ Cada día de clase lleva el color de su unidad. Pasa el ratón por encima para v
 | Nº | Fecha | UT | Sesión | Tipo | Se explica | Se practica |
 |---:|-------|----|--------|------|------------|-------------|
 | 1 | 1 oct | UT1 | Presentación y el contenedor de referencia | Teoría y práctica | Presentación de la asignatura, evaluación y cómo se coordina con Despliegue (25 min). Los cuatro flujos que salen de un contenedor: métricas, logs, eventos (20 min). | Desplegar el servicio del curso con compose (en el puesto si aún no existe app01), y observar con docker stats, logs y events mientras se genera tráfico y se para la BD. |
-| 2 | 6 oct | UT1 | Métricas de recursos | Teoría y práctica | cgroups v2 y cómo cAdvisor lee de ellos; etiquetas y cardinalidad (20 min). | Desplegar cAdvisor junto al servicio, scrape desde mon01, gráfica de CPU y memoria por contenedor en Grafana. |
+| 2 | 6 oct | UT1 | Métricas de recursos | Teoría y práctica | cgroups v2 y cómo cAdvisor lee de ellos; etiquetas y cardinalidad (20 min). | Desplegar cAdvisor junto al servicio en el puesto, scrape desde la pila mínima de monitorización y gráfica de CPU y memoria por contenedor en Grafana. |
 | 3 | 13 oct | UT1 | Instrumentar la aplicación | Teoría y práctica | Tipos de métrica (counter, gauge, histogram, summary) y cómo se instrumenta con la librería cliente (20 min). | Endpoint /metrics en la API con counter e histogram, postgres_exporter en la BD, comprobar ambos en Prometheus. |
 | 4 | 15 oct | UT1 | Logs estructurados | Teoría y práctica | Drivers de logs de Docker, logs en JSON con request_id, cómo funciona Promtail y qué indexa Loki (25 min). | Configurar logs JSON, limitar json-file en daemon.json, desplegar Loki y Promtail, comprobar en Grafana Explore. |
 | 5 | 20 oct | UT1 | Eventos | Teoría y práctica | Los eventos del demonio Docker y cómo se recogen (10 min). | Recoger eventos en Loki; provocar die, oom y unhealthy y localizarlos. |

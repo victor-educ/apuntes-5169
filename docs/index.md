@@ -6,13 +6,13 @@ Aquí están los apuntes de toda la asignatura, unidad por unidad, con las activ
 
 ## De qué va la asignatura
 
-En [Despliegue de plataformas de contenedores](https://victor-educ.github.io/apuntes-5166/) montáis la plataforma: hipervisor, red, cortafuegos, código de infraestructura, pipeline y monitorización básica. Esta asignatura empieza donde acaba aquella: el servicio ya está en producción y hay que mantenerlo vivo, seguro y bajo control durante meses. Vigilarlo, saber cuándo algo va mal antes de que lo digan los usuarios, probarlo, actualizarlo sin romper nada, tener copias que de verdad se puedan restaurar y, cuando llegue el momento, retirarlo sin dejar rastro.
+En [Despliegue de plataformas de contenedores](https://victor-educ.github.io/apuntes-5166/) se monta la plataforma: hipervisor, red, cortafuegos, código de infraestructura, pipeline y monitorización básica. Esta asignatura empieza donde acaba aquella: el servicio ya está en producción y hay que mantenerlo vivo, seguro y bajo control durante meses. Vigilarlo, saber cuándo algo va mal antes de que lo digan los usuarios, probarlo, actualizarlo sin romper nada, tener copias que de verdad se puedan restaurar y, cuando llegue el momento, retirarlo sin dejar rastro.
 
-Las dos asignaturas se cursan a la vez (esta los martes y jueves, la de despliegue los miércoles y viernes) y comparten laboratorio: la VPC dev de Proxmox, el servicio del curso en app01 y la pila de monitorización en mon01. Lo que aquí llamamos "contenedor de referencia" es ese servicio.
+Las dos asignaturas se cursan a la vez (esta los martes y jueves, la de despliegue los miércoles y viernes) y comparten laboratorio: la VPC dev de Proxmox, el servicio del curso en app01 y la pila de monitorización en mon01. Lo que aquí se llama "contenedor de referencia" es ese servicio.
 
 Estos son los conceptos que vertebran el curso:
 
-- **Observabilidad.** Los tres flujos que sale de un contenedor (métricas, logs y eventos), cómo se sacan fuera con cAdvisor, exporters, Promtail y Loki, y cómo se comprueba que llegan íntegros.
+- **Observabilidad.** Los cuatro flujos que salen de un contenedor (métricas de recursos, métricas de aplicación, logs y eventos), cómo se sacan fuera con cAdvisor, exporters, Promtail y Loki, y cómo se comprueba que llegan íntegros.
 - **Alarmas.** De la métrica al umbral, del umbral a la regla, de la regla a Alertmanager y de ahí a una incidencia con dueño. Recording rules, agrupación, inhibición, silencios y verificación de cada alarma.
 - **Seguridad de la monitorización.** Cada exporter es un puerto más. Auditar qué escucha, cerrar lo que sobra, cifrar y autenticar el tráfico de métricas y logs.
 - **Indicadores y pruebas.** Fichas de métricas, SLI y SLO, catálogo de alarmas con runbooks, y pruebas funcionales, de carga, de estrés y de seguridad con k6, newman y ZAP.
@@ -50,7 +50,7 @@ flowchart LR
 
     ---
 
-    Los apuntes de las ocho unidades. Cada una empieza con una introducción (qué tienes que saber hacer al terminar, los conceptos y herramientas que aparecen, el plan de sesiones) y sigue con las sesiones en orden: en cada una, la teoría que se explica ese día y, a continuación, su hoja de práctica. La práctica evaluable cierra la unidad con su rúbrica.
+    Los apuntes de las ocho unidades. Cada una empieza con una introducción (qué hay que saber hacer al terminar, los conceptos y herramientas que aparecen, el plan de sesiones) y sigue con las sesiones en orden: en cada una, la teoría que se explica ese día y, a continuación, su hoja de práctica. La práctica evaluable cierra la unidad con su rúbrica.
 
 -   :material-calendar-month: **[Calendario de sesiones](calendario.md)**
 
@@ -86,7 +86,7 @@ flowchart LR
 
     ---
 
-    Los apartados de cada unidad que van más allá de lo que se hace en clase y los enlaces para seguir por tu cuenta, ordenados por unidad.
+    Los apartados de cada unidad que van más allá de lo que se hace en clase y los enlaces para seguir por cuenta propia, ordenados por unidad.
 
 -   :material-link-variant: **[Bibliografía y enlaces](recursos.md)**
 
@@ -98,7 +98,7 @@ flowchart LR
 
     ---
 
-    La asignatura hermana. Ahí está cómo se construyó el laboratorio sobre el que trabajamos aquí: Proxmox, la VPC, el cortafuegos, OpenTofu, Jenkins y Prometheus.
+    La asignatura hermana. Ahí está cómo se construyó el laboratorio sobre el que se trabaja aquí: Proxmox, la VPC, el cortafuegos, OpenTofu, Jenkins y Prometheus.
 
 </div>
 
@@ -109,25 +109,25 @@ flowchart LR
 | [UT1](ut/ut1-observabilidad.md) | Observabilidad de contenedores: métricas, logs y eventos | 14 | Centro | RA1 a |
 | [UT2](ut/ut2-alarmas.md) | Umbrales, agregación y gestión de alarmas | 16 | Centro | RA1 b–e |
 | [UT3](ut/ut3-seguridad-monitorizacion.md) | Seguridad de las comunicaciones de monitorización | 8 | Centro | RA1 f, g |
-| [UT4](ut/ut4-kpi-pruebas.md) | Indicadores, KPI y pruebas del servicio | 18 | Centro | RA2 a–f |
+| [UT4](ut/ut4-kpi-pruebas.md) | Indicadores, KPI y pruebas del servicio | 16 | Centro | RA2 a–f |
 | [UT5](ut/ut5-logs-accesos-rendimiento.md) | Explotación de logs, accesos y rendimiento | 14 | Empresa | RA3 a–d |
 | [UT6](ut/ut6-copias-seguridad.md) | Copias de seguridad y restauración | 14 | Empresa | RA4 a, b, c |
-| [UT7](ut/ut7-actualizacion-vulnerabilidades.md) | Actualización y gestión de vulnerabilidades | 16 | Centro | RA4 d–i |
+| [UT7](ut/ut7-actualizacion-vulnerabilidades.md) | Actualización y gestión de vulnerabilidades | 14 | Centro | RA4 d–i |
 | [UT8](ut/ut8-terminacion-segura.md) | Terminación segura del contenedor | 10 | Centro | RA5 a–d |
 
-Las unidades del centro van seguidas de octubre a marzo: la UT8 cierra el 23 de marzo. Los exámenes de evaluación van después de la UT4 (primera evaluación, 2 de febrero de 2027) y después de la UT8 (segunda evaluación, 6 de abril de 2027). Los tres últimos días de clase, el 8, el 13 y el 15 de abril, quedan de margen para recuperar entregas y repasar antes de la formación en empresa.
+Las unidades del centro van seguidas de octubre a marzo: la UT8 cierra el 23 de marzo. Los exámenes de evaluación van después de la UT4 (primera evaluación, 2 de febrero de 2027) y después de la UT8 (segunda evaluación, 6 de abril de 2027); las dos sesiones de examen son las 4 h que faltan para las 110 del módulo. Los tres últimos días de clase, el 8, el 13 y el 15 de abril, quedan de margen para recuperar entregas y repasar antes de la formación en empresa.
 
 ## Cómo usar estos apuntes
 
-- Lee la sesión antes de venir a clase. Cada unidad está ordenada por sesiones, con la teoría de ese día seguida de su hoja de práctica. En clase la explicación es corta y el laboratorio largo.
-- Los comandos están pensados para copiarlos en el laboratorio. Si algo no funciona igual en tu versión, mira primero la sección "Errores frecuentes" de la unidad.
+- Conviene leer la sesión antes de clase. Cada unidad está ordenada por sesiones, con la teoría de ese día seguida de su hoja de práctica. En clase la explicación es corta y el laboratorio largo.
+- Los comandos están pensados para copiarlos en el laboratorio. Si algo no funciona igual en la versión instalada, el primer sitio donde mirar es la sección "Errores frecuentes" de la unidad.
 - Las hojas de práctica numeradas (A1.1, A1.2...) se hacen en la sesión que se indica. Lo que va más allá de lo que se hace en clase está apartado en [Para ampliar](ampliacion.md), para no cargar las unidades. La práctica evaluable cierra la unidad y se entrega por Aules.
-- Documenta sobre la marcha: una captura con fecha, la salida de un comando, el fichero de configuración. Al final de la unidad eso es la práctica.
+- Conviene documentar sobre la marcha: una captura con fecha, la salida de un comando, el fichero de configuración. Al final de la unidad eso es la práctica.
 
 ## Antes de empezar
 
-Se da por hecho lo mismo que en la asignatura de despliegue: terminal de Linux, redes básicas, Docker y Git. Para seguir esta asignatura desde el primer día tienes que tener el laboratorio de aquella operativo hasta la UT7 (Prometheus y Grafana en mon01), porque la UT1 de aquí empieza conectando el servicio a esa pila. Si vas por detrás, la página de [laboratorio](laboratorio.md) dice qué es lo mínimo que necesitas.
+Se da por hecho lo mismo que en la asignatura de despliegue: terminal de Linux, redes básicas, Docker y Git. No hace falta tener el laboratorio montado para empezar, porque no existe todavía: la asignatura arranca el 1 de octubre con Docker en el puesto del alumno, con el servicio del curso (nginx, API y PostgreSQL en un solo compose) y una pila mínima de monitorización en localhost. El laboratorio va llegando por fases desde la asignatura de despliegue: app01 y mon01 el 14 de octubre, la VPC dev en noviembre y el cortafuegos en diciembre, y cada unidad indica sobre qué se trabaja ese día. La página de [laboratorio](laboratorio.md) detalla qué hay disponible en cada momento.
 
 ## Sobre estos apuntes
 
-Los he escrito yo, Víctor, para la asignatura, apoyándome en Claude (el asistente de IA de Anthropic) para redactar, ampliar y revisar el material a partir de mis propios apuntes y de la planificación del curso. Todo lo que hay aquí lo he revisado yo y lo voy corrigiendo durante el curso; si algo está mal, la responsabilidad es mía, no de la herramienta. Si encuentras un error, dímelo en clase o abre un issue en el [repositorio](https://github.com/victor-educ/apuntes-5169). El texto se publica con licencia [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.es); las imágenes de terceros llevan su atribución al pie. La versión publicada aparece en el pie de cada página.
+Este material lo ha escrito Víctor Sellés para la asignatura con el apoyo de Claude; la nota completa sobre cómo se ha elaborado está en la [página de presentación](modulo.md). Los errores se pueden comunicar en clase o abrir como issue en el [repositorio](https://github.com/victor-educ/apuntes-5169). El texto se publica con licencia [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.es); las imágenes de terceros llevan su atribución al pie. La versión publicada aparece en el pie de cada página.

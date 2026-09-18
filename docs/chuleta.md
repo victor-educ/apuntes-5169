@@ -79,11 +79,11 @@ curl -s http://mon01:9093/api/v2/alerts | jq '.[] | {alertname: .labels.alertnam
 ss -tlnup
 docker ps --format '{{.Names}} {{.Ports}}'
 nmap -sS -p- -T4 app01
-nmap -sV -p 9100,8080,9187,9102 app01
+nmap -sV -p 9100,8081,9187,9102 app01
 tcpdump -i eth0 -n port 3100
 nft list ruleset
-nft add rule inet fw input ip saddr 10.10.0.20 tcp dport { 9100, 8080, 9187, 9102 } accept
-nft add rule inet fw input tcp dport { 9100, 8080, 9187, 9102 } drop
+nft add rule inet fw input ip saddr 10.10.0.20 tcp dport { 9100, 8081, 9187, 9102 } accept
+nft add rule inet fw input tcp dport { 9100, 8081, 9187, 9102 } drop
 # TLS
 openssl s_client -connect app01:9100 -servername app01 </dev/null 2>/dev/null | openssl x509 -noout -subject -dates
 curl -sk --cacert ca.crt -u prometheus:secreto https://app01:9100/metrics | head
@@ -102,7 +102,7 @@ k6 run --vus 50 --duration 5m test.js
 k6 run --out json=result.json test.js
 k6 run --out experimental-prometheus-rw test.js     # con K6_PROMETHEUS_RW_SERVER_URL
 # Seguridad
-docker run --rm -t -v $PWD:/zap/wrk zaproxy/zap-stable zap-baseline.py -t https://app.lab -r zap.html
+docker run --rm -t -v $PWD:/zap/wrk zaproxy/zap-stable zap-baseline.py -t https://api.dev.lab -r zap.html
 trivy image --severity HIGH,CRITICAL --ignore-unfixed registry.lab:5000/app:1.4.2
 ```
 
@@ -173,7 +173,7 @@ docker volume ls; docker network ls; docker image prune -a
 curl -X DELETE https://registry.lab:5000/v2/app/manifests/<digest>
 docker exec registry registry garbage-collect /etc/docker/registry/config.yml
 tofu destroy -var-file=pre.tfvars
-qm destroy 201 --purge
+qm destroy 220 --purge          # app01 de pre
 restic key list && restic key remove <id>          # borrado criptográfico: sin clave no hay copia
 aws --endpoint-url http://10.10.0.30:9000 s3api list-object-versions --bucket backups
 aws --endpoint-url http://10.10.0.30:9000 s3api delete-objects --bucket backups --delete file://versiones.json

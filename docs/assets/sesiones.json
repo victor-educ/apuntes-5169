@@ -65,8 +65,8 @@
    "titulo": "Métricas de recursos",
    "tipo": "Teoría y práctica",
    "teoria": "cgroups v2 y cómo cAdvisor lee de ellos; etiquetas y cardinalidad (20 min).",
-   "practica": "Desplegar cAdvisor junto al servicio, scrape desde mon01, gráfica de CPU y memoria por contenedor en Grafana.",
-   "que": "Desplegar cAdvisor junto al servicio, scrape desde mon01, gráfica de CPU y memoria por contenedor en Grafana.",
+   "practica": "Desplegar cAdvisor junto al servicio en el puesto, scrape desde la pila mínima de monitorización y gráfica de CPU y memoria por contenedor en Grafana.",
+   "que": "Desplegar cAdvisor junto al servicio en el puesto, scrape desde la pila mínima de monitorización y gráfica de CPU y memoria por contenedor en Grafana.",
    "entregable": "",
    "url": "../ut/ut1-observabilidad/#a12-metricas-de-recursos-sesion-2",
    "evaluable": false

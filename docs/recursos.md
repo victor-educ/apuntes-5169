@@ -53,7 +53,7 @@ Los enlaces concretos de cada unidad están en la página [Para ampliar](ampliac
 
 ## Normativa
 
-- Real decreto del curso de especialización: búscalo en el [BOE](https://www.boe.es/). El resumen de RA y CE está en la [página de presentación](modulo.md).
+- Real decreto del curso de especialización: se busca en el [BOE](https://www.boe.es/). El resumen de RA y CE está en la [página de presentación](modulo.md).
 - [RGPD](https://eur-lex.europa.eu/eli/reg/2016/679/oj?locale=es) y [LOPDGDD](https://www.boe.es/buscar/act.php?id=BOE-A-2018-16673) para plazos de conservación y borrado de datos personales (UT6 y UT8).
 
 ## Créditos de las imágenes

@@ -1,14 +1,14 @@
 # UT5 · Explotación de logs, accesos y rendimiento
 
-<p class="ut-meta">Módulo 5169 · 14 h · Formación en empresa (19 abr a 9 jun 2027) · RA3 CE a, b, c, d</p>
+<p class="ut-meta">14 h · Formación en empresa (19 abr a 9 jun 2027) · RA3 CE a, b, c, d</p>
 
-Hasta aquí todo lo habéis hecho sobre el laboratorio: la pila de observabilidad de mon01 (UT1), las alarmas (UT2), la monitorización de seguridad (UT3) y los KPI y las pruebas de carga (UT4). Esta unidad y la siguiente (UT6, copias de seguridad) se cursan en la empresa, entre el 19 de abril y el 9 de junio de 2027, sobre un sistema real que os asigne el tutor. No hay sesiones numeradas ni laboratorio compartido: hay cuatro actividades (A5.1 a A5.4), una actividad de cierre y una ficha de evidencias que firma el tutor de empresa. Este documento es la guía de referencia para hacer ese trabajo con criterio, y al mismo tiempo la lista de lo que tenéis que traer de vuelta. Cuando volváis, la UT7 (actualización y vulnerabilidades) y la UT8 (terminación segura) cierran el módulo.
+Hasta aquí todo el trabajo se ha hecho sobre el laboratorio: la pila de observabilidad de mon01 (UT1), las alarmas (UT2), la monitorización de seguridad (UT3) y los KPI y las pruebas de carga (UT4). Esta unidad y la siguiente (UT6, copias de seguridad) se cursan en la empresa, entre el 19 de abril y el 9 de junio de 2027, sobre un sistema real que asigne el tutor. No hay sesiones numeradas ni laboratorio compartido: hay cuatro actividades (A5.1 a A5.4), una actividad de cierre y una ficha de evidencias que firma el tutor de empresa. Este documento es la guía de referencia para hacer ese trabajo con criterio, y al mismo tiempo la lista de lo que hay que traer de vuelta. La UT7 (actualización y vulnerabilidades) y la UT8 (terminación segura) se dieron en el centro antes de salir, en febrero y marzo, así que lo que se ve aquí se apoya en ellas y no al revés.
 
-Una regla desde el principio: todo dato de la empresa que aparezca en las evidencias se anonimiza. Nombres de host, IPs públicas, nombres de usuario, dominios, rutas con nombre de cliente. Sustituidlos por equivalentes (`web01`, `203.0.113.45`, `usuario_a`, `empresa.example`) antes de pegar nada en el informe. Las redes 192.0.2.0/24, 198.51.100.0/24 y 203.0.113.0/24 están reservadas por la RFC 5737 justo para esto, para documentación, y el dominio `example` por la RFC 2606. Si dudáis de si algo se puede incluir, preguntad al tutor antes de incluirlo, no después.
+Una regla desde el principio: todo dato de la empresa que aparezca en las evidencias se anonimiza. Nombres de host, IPs públicas, nombres de usuario, dominios, rutas con nombre de cliente. Se sustituyen por equivalentes (`web01`, `203.0.113.45`, `usuario_a`, `empresa.example`) antes de pegar nada en el informe. Las redes 192.0.2.0/24, 198.51.100.0/24 y 203.0.113.0/24 están reservadas por la RFC 5737 justo para esto, para documentación, y el dominio `example` por la RFC 2606. Ante la duda de si algo se puede incluir, se pregunta al tutor antes de incluirlo, no después.
 
 ## Introducción
 
-Esta unidad no tiene sesiones: se hace en la empresa, sobre un sistema real, en cuatro bloques que siguen los criterios de evaluación. Cada bloque trae primero la teoría que hace falta y después la hoja de actividad que la aplica; leed la Introducción entera antes del primer día con el tutor.
+Esta unidad no tiene sesiones: se hace en la empresa, sobre un sistema real, en cuatro bloques que siguen los criterios de evaluación. Cada bloque trae primero la teoría que hace falta y después la hoja de actividad que la aplica; conviene leer la Introducción entera antes del primer día con el tutor.
 
 ### Qué tienes que saber hacer al terminar
 
@@ -19,9 +19,9 @@ Esta unidad no tiene sesiones: se hace en la empresa, sobre un sistema real, en 
 
 ### Los conceptos de la unidad
 
-Un caso que ya os ha pasado en el laboratorio: el jueves a las tres de la tarde la API de `app01` empieza a devolver algún 502. Nadie mira nada porque "funciona casi siempre". El lunes se descubre que el contenedor lleva cuatro días reiniciándose cada veinte minutos por falta de memoria, que una IP de fuera probó ochenta usuarios distintos por SSH y que el disco está al 94 % porque nadie configuró la rotación de logs. Nada era grave el jueves; el lunes son tres incidencias a la vez. Lo que queremos conseguir cabe en una frase: sentaros diez minutos cada mañana delante de un sistema real, ver lo que va mal antes de que se note, y contarlo de forma que otra persona pueda actuar.
+Un caso típico, y de los que se dan en el laboratorio: el jueves a las tres de la tarde la API de `app01` empieza a devolver algún 502. Nadie mira nada porque "funciona casi siempre". El lunes se descubre que el contenedor lleva cuatro días reiniciándose cada veinte minutos por falta de memoria, que una IP de fuera probó ochenta usuarios distintos por SSH y que el disco está al 94 % porque nadie configuró la rotación de logs. Nada era grave el jueves; el lunes son tres incidencias a la vez. El objetivo de la unidad cabe en una frase: dedicar diez minutos cada mañana a un sistema real, ver lo que va mal antes de que se note, y contarlo de forma que otra persona pueda actuar.
 
-| Herramienta o concepto | Qué es, en una frase | Para qué la usamos en esta unidad |
+| Herramienta o concepto | Qué es, en una frase | Para qué se usa en esta unidad |
 |---|---|---|
 | journald y `journalctl` | El registro central de systemd con lo que escriben los servicios y el kernel, y el comando para leerlo | Buscar errores por prioridad y servicio, y vigilar el disco que ocupa |
 | `docker logs` | El comando que muestra lo que un contenedor ha escrito por pantalla | Revisar los errores de las últimas 24 h contenedor por contenedor |
@@ -29,29 +29,30 @@ Un caso que ya os ha pasado en el laboratorio: el jueves a las tres de la tarde 
 | logrotate | Un programa que cada noche comprime y borra logs antiguos para que el disco no se llene | Comprobar que los logs de nginx y de la aplicación tienen retención |
 | fail2ban | Un vigilante que lee los logs, cuenta los fallos de cada IP y la bloquea un rato en el firewall | Cortar la fuerza bruta contra SSH, nginx y la aplicación |
 | CrowdSec | Lo mismo que fail2ban, con una lista de IPs maliciosas compartida entre quienes lo usan | Alternativa con varios hosts o cuando se bloquea en OPNsense |
-| nftables | El firewall del kernel de Linux, el mismo de UT3 | Ver con vuestros ojos que la IP bloqueada lo está de verdad |
+| nftables | El firewall del kernel de Linux, el mismo de UT3 | Comprobar sobre el firewall que la IP bloqueada lo está de verdad |
 | cgroups y OOM killer | El mecanismo del kernel que limita la memoria de un contenedor, y el proceso que mata al que se pasa | Entender por qué un contenedor muere con código 137 |
 | Core dumps (gdb, py-spy, jmap) | Una copia de la memoria de un proceso al morir, y las herramientas que la leen según el lenguaje | Saber en qué función ha reventado un servicio en vez de adivinarlo |
 | Prometheus, node_exporter, cAdvisor y `sar` | La pila de métricas de mon01 (recolector y agentes de host y contenedores), y el grabador a fichero que la sustituye si no hay servidor | Tomar la línea base de CPU, memoria, disco y red y compararla con un día de carga |
 | Método USE | Tres preguntas por recurso (uso, saturación, errores) para no dejarse nada | Recorrer CPU, memoria, disco y red con el mismo guion |
 
-Cómo está organizada la unidad: la Introducción reúne los conceptos y las reglas para trabajar en la empresa, que marcan qué podéis tocar y qué no. Después vienen cuatro bloques, uno por criterio de evaluación y en el orden de la rutina diaria; cada bloque trae primero la teoría que necesitáis y después su hoja de actividad. En el bloque 1 montáis la revisión diaria de logs y abrís una incidencia; en el 2 clasificáis los accesos y comprobáis un bloqueo real; en el 3 analizáis un reinicio hasta su corrección; en el 4 tomáis una línea base de rendimiento y la comparáis con un periodo de carga, y para eso hay que empezar a grabar datos el primer día aunque sea lo último que analicéis. Al final, la práctica evaluable recoge el procedimiento de cierre y la ficha que firma el tutor.
+Cómo está organizada la unidad: la Introducción reúne los conceptos y las reglas para trabajar en la empresa, que marcan qué se puede tocar y qué no. Después vienen cuatro bloques, uno por criterio de evaluación y en el orden de la rutina diaria; cada bloque trae primero la teoría necesaria y después su hoja de actividad. El bloque 1 monta la revisión diaria de logs y abre una incidencia; el 2 clasifica los accesos y comprueba un bloqueo real; el 3 analiza un reinicio hasta su corrección; el 4 toma una línea base de rendimiento y la compara con un periodo de carga, y para eso hay que empezar a grabar datos el primer día aunque el análisis sea lo último. Al final, la práctica evaluable recoge el procedimiento de cierre y la ficha que firma el tutor.
 
-!!! otra "Lo que necesitas de la otra asignatura"
-    Mientras hacéis esta unidad estáis también en la empresa con la UT4 de 5166, Nube pública
-    ([https://victor-educ.github.io/apuntes-5166/ut/ut4-nube-publica/](https://victor-educ.github.io/apuntes-5166/ut/ut4-nube-publica/)).
-    Son las mismas semanas y, casi seguro, los mismos sistemas: la nube de la empresa donde en 5166 desplegáis es
-    donde aquí revisáis logs, accesos y rendimiento, así que acordad con el tutor un único sistema para las dos
-    asignaturas y reutilizad las evidencias que sirvan para ambas (una captura de Grafana anonimizada vale en las dos).
-    De 5166 os hacen falta además dos cosas anteriores: el firewall nftables de la UT3, para entender dónde mete
+!!! otra "Lo que hace falta de la otra asignatura"
+    Esta unidad coincide en el tiempo con la UT4 de 5166, Nube pública
+    ([https://victor-educ.github.io/apuntes-5166/ut/ut4-nube-publica/](https://victor-educ.github.io/apuntes-5166/ut/ut4-nube-publica/)),
+    que también se cursa en la empresa.
+    Son las mismas semanas y, casi seguro, los mismos sistemas: la nube de la empresa donde se despliega en 5166 es
+    donde aquí se revisan logs, accesos y rendimiento, de modo que conviene acordar con el tutor un único sistema para las dos
+    asignaturas y reutilizar las evidencias que sirvan para ambas (una captura de Grafana anonimizada vale en las dos).
+    De 5166 hacen falta además dos cosas anteriores: el firewall nftables de la UT3, para entender dónde mete
     fail2ban su tabla, y la pila de monitorización de la UT7 (marzo), que es la versión definitiva del mon01 sobre
     el que se construyen los paneles de línea base.
 
 ### Cómo trabajar en la empresa
 
-Cada empresa tiene sus herramientas. Unas tendrán Loki y Grafana como en mon01, otras tendrán Elastic y Kibana, Graylog, Datadog, o simplemente ficheros en `/var/log` y un `grep`. Lo que evaluamos no es la herramienta, es el método: qué buscáis, cómo lo justificáis y qué hacéis con lo que encontráis. Por eso cada apartado de esta unidad da primero el método y después los comandos para el caso más habitual (Linux con Docker, journald y nginx), con su equivalente en Loki cuando existe. Si en la empresa hay otra cosa, adaptad el comando y anotad en la evidencia cuál habéis usado.
+Cada empresa tiene sus herramientas. Unas tendrán Loki y Grafana como en mon01, otras tendrán Elastic y Kibana, Graylog, Datadog, o simplemente ficheros en `/var/log` y un `grep`. Lo que se evalúa no es la herramienta, es el método: qué se busca, cómo se justifica y qué se hace con lo que se encuentra. Por eso cada apartado de esta unidad da primero el método y después los comandos para el caso más habitual (Linux con Docker, journald y nginx), con su equivalente en Loki cuando existe. Si en la empresa hay otra cosa, se adapta el comando y se anota en la evidencia cuál se ha usado.
 
-Lo segundo que hay que tener claro es el alcance. Vais a tocar sistemas en producción o cerca de producción. Todo lo que sea lectura (leer logs, consultar métricas, listar IPs bloqueadas) lo podéis hacer con la autorización general del tutor. Todo lo que cambie algo (activar una jail, cambiar un límite de memoria, reiniciar un servicio) se acuerda antes con el tutor, se hace en el horario que él diga y se apunta. Una evidencia que diga "reinicié el contenedor para comprobar" sin que el tutor lo supiera es una evidencia que no vale, aunque el resultado sea correcto.
+Lo segundo que hay que tener claro es el alcance. El trabajo se hace sobre sistemas en producción o cerca de producción. Todo lo que sea lectura (leer logs, consultar métricas, listar IPs bloqueadas) queda cubierto por la autorización general del tutor. Todo lo que cambie algo (activar una jail, cambiar un límite de memoria, reiniciar un servicio) se acuerda antes con el tutor, se hace en el horario que él diga y se apunta. Una evidencia que diga "reinicié el contenedor para comprobar" sin que el tutor lo supiera es una evidencia que no vale, aunque el resultado sea correcto.
 
 ```mermaid
 flowchart LR
@@ -83,11 +84,11 @@ flowchart LR
 
 <p class="pie" markdown>La rutina diaria son diez minutos y cuatro miradas. Lo que la hace útil es hacerla siempre, no hacerla bien un día.</p>
 
-Ese esquema es lo que al final de la estancia tenéis que entregar convertido en un procedimiento de dos páginas con vuestros comandos. Guardad desde el primer día lo que ejecutáis: un fichero de texto con fecha, comando y una línea de resultado os ahorrará la mitad del trabajo del cierre.
+Ese esquema es lo que al final de la estancia se entrega convertido en un procedimiento de dos páginas con los comandos reales del sistema. Conviene guardar desde el primer día lo que se ejecuta: un fichero de texto con fecha, comando y una línea de resultado ahorra la mitad del trabajo del cierre.
 
 ### Plan de trabajo
 
-Las cuatro actividades se hacen sobre sistemas reales de la empresa, en el orden que el tutor considere, dentro del periodo del 19 de abril al 9 de junio de 2027. Cada una produce una evidencia concreta que se adjunta a la ficha. Anonimizad todo.
+Las cuatro actividades se hacen sobre sistemas reales de la empresa, en el orden que el tutor considere, dentro del periodo del 19 de abril al 9 de junio de 2027. Cada una produce una evidencia concreta que se adjunta a la ficha. Todo se anonimiza.
 
 | Bloque | CE | Qué se hace | Evidencia |
 |---|---|---|---|
@@ -101,11 +102,11 @@ Las cuatro actividades se hacen sobre sistemas reales de la empresa, en el orden
 
 <p class="ut-meta">En la empresa · con el tutor</p>
 
-Al terminar este bloque tenéis una rutina de revisión diaria de los logs de un servicio de la empresa y sabéis convertir un hallazgo en una incidencia que otra persona pueda atender. Para la hoja A5.1 necesitáis Qué buscar, Comandos para la revisión diaria y Cómo se redacta una incidencia útil; la retención es el paso 5 de la hoja y el script diario, la ampliación para quien acabe antes.
+Este bloque termina con una rutina de revisión diaria de los logs de un servicio de la empresa y con el criterio para convertir un hallazgo en una incidencia que otra persona pueda atender. La hoja A5.1 se apoya en Qué buscar, Comandos para la revisión diaria y Cómo se redacta una incidencia útil; la retención es el paso 5 de la hoja y el script diario, la ampliación para quien acabe antes.
 
 ### Revisar los archivos de registro (CE 3a)
 
-Los logs se leen de forma periódica y sistemática, no solo cuando algo falla. La diferencia entre un administrador que "mira los logs cuando pasa algo" y uno que los revisa cada mañana es que el segundo detecta el problema una semana antes, cuando todavía es una línea rara y no una caída. En UT1 montasteis Loki para tener los logs centralizados; en la empresa el sitio donde están los logs os lo dirán, y puede ser cualquiera de estos: ficheros en `/var/log`, el journal de systemd (el registro central donde systemd guarda lo que escriben los servicios), `docker logs` o `docker compose logs`, o una plataforma central.
+Los logs se leen de forma periódica y sistemática, no solo cuando algo falla. La diferencia entre un administrador que "mira los logs cuando pasa algo" y uno que los revisa cada mañana es que el segundo detecta el problema una semana antes, cuando todavía es una línea rara y no una caída. En UT1 se montó Loki para tener los logs centralizados; en la empresa el sitio donde están los logs lo indica el tutor, y puede ser cualquiera de estos: ficheros en `/var/log`, el journal de systemd (el registro central donde systemd guarda lo que escriben los servicios), `docker logs` o `docker compose logs`, o una plataforma central.
 
 #### Qué buscar
 
@@ -116,7 +117,7 @@ Los logs se leen de forma periódica y sistemática, no solo cuando algo falla. 
 
 #### Comandos para la revisión diaria
 
-Con Docker, la ventana de tiempo es el parámetro que más se olvida. `docker logs app` sin más os vuelca todo lo que el contenedor ha escrito desde que existe, y en un contenedor con semanas de vida eso son cientos de miles de líneas.
+Con Docker, la ventana de tiempo es el parámetro que más se olvida. `docker logs app` sin más vuelca todo lo que el contenedor ha escrito desde que existe, y en un contenedor con semanas de vida eso son cientos de miles de líneas.
 
 ```bash
 # Errores de las últimas 24 h en un contenedor
@@ -137,7 +138,7 @@ awk -v d="$(date -d '-1 day' +%d/%b/%Y)" '$4 ~ d && $9 ~ /^5/' /var/log/nginx/ac
 
 `journalctl -p` acepta el nombre o el número de prioridad syslog (0 emerg a 7 debug); `-p err` equivale a `-p 0..3`. Docker escribe stdout y stderr por separado y `docker logs` los devuelve en los dos descriptores, de ahí el `2>&1` antes del `grep`.
 
-En Loki, las mismas búsquedas con LogQL, su lenguaje de consulta: el selector entre llaves elige el flujo de logs y lo que va detrás lo filtra o lo cuenta. La ventaja no es la sintaxis, es que la consulta se guarda en un panel de Grafana y no depende de que os acordéis del comando.
+En Loki, las mismas búsquedas con LogQL, su lenguaje de consulta: el selector entre llaves elige el flujo de logs y lo que va detrás lo filtra o lo cuenta. La ventaja no es la sintaxis, es que la consulta se guarda en un panel de Grafana y no depende de recordar el comando.
 
 ```text
 {job="docker", container="app"} |~ "ERROR|FATAL|Exception"
@@ -151,11 +152,11 @@ sum(count_over_time({job="docker", container="app"}[1h]))
 count_over_time({job="nginx"} | pattern `<ip> - - [<_>] "<method> <uri> <_>" <status> <_>` | status >= 500 [1h])
 ```
 
-En Grafana 12 estas consultas van a un dashboard "Revisión diaria" con cuatro paneles (errores por nivel, volumen por hora, 5xx, accesos fallidos) y una variable `$container`. Es el panel que abrís cada mañana, y una captura suya con fecha vale como evidencia de la revisión. Guardad también las consultas en la pestaña Explore con la estrella de favoritos (query library en Grafana 12), así el siguiente que llegue las hereda.
+En Grafana 12 estas consultas van a un dashboard "Revisión diaria" con cuatro paneles (errores por nivel, volumen por hora, 5xx, accesos fallidos) y una variable `$container`. Es el panel que se abre cada mañana, y una captura suya con fecha vale como evidencia de la revisión. Conviene guardar además las consultas en la pestaña Explore con la estrella de favoritos (query library en Grafana 12), para que el siguiente que llegue las herede.
 
 #### Un script diario que resuma errores
 
-Cuando no hay plataforma central, o como complemento a ella, un script en cron (el planificador de tareas de Linux) que resuma los errores por tipo y lo envíe por correo o a un canal de chat es lo que mantiene la rutina viva los días que no os acordáis. Este es un ejemplo mínimo que podéis llevar a la empresa y adaptar; lo importante es que agrupa, no que vuelque.
+Cuando no hay plataforma central, o como complemento a ella, un script en cron (el planificador de tareas de Linux) que resuma los errores por tipo y lo envíe por correo o a un canal de chat es lo que mantiene la rutina viva los días en que nadie se acuerda de hacerla. Este es un ejemplo mínimo, pensado para llevarlo a la empresa y adaptarlo; lo importante es que agrupa, no que vuelque.
 
 ```bash
 #!/usr/bin/env bash
@@ -235,7 +236,7 @@ logrotate se encarga de los ficheros clásicos (`/var/log/nginx/*.log`, `/var/lo
 
 #### Cómo se redacta una incidencia útil
 
-Todo fallo encontrado se reporta. Reportar no es mandar un mensaje diciendo "he visto errores en app"; es abrir una incidencia con lo que alguien necesita para decidir si es urgente y por dónde empezar. Los ingredientes son siempre los mismos y os conviene tener la plantilla a mano en la herramienta que use la empresa (Jira, GitLab issues, un Gitea como el del laboratorio, o un correo estructurado).
+Todo fallo encontrado se reporta. Reportar no es mandar un mensaje diciendo "he visto errores en app"; es abrir una incidencia con lo que alguien necesita para decidir si es urgente y por dónde empezar. Los ingredientes son siempre los mismos y conviene tener la plantilla a mano en la herramienta que use la empresa (Jira, GitLab issues, un Gitea como el del laboratorio, o un correo estructurado).
 
 ```text
 Título: [servicio] resumen de una línea del síntoma
@@ -252,21 +253,21 @@ Hipótesis (opcional, marcada como tal): el pool se agota porque las consultas
 Gravedad propuesta: media (recurrente, sin pérdida de servicio visible)
 ```
 
-El mensaje exacto es lo más valioso: es lo que se busca en Google, en la documentación y en el histórico de incidencias. Copiadlo literal, no lo parafraseéis. La frecuencia y la ventana temporal son lo segundo, porque convierten "hay errores" en "hay errores a las dos de la mañana", que ya es media investigación hecha. La hipótesis va aparte y marcada, para que nadie la confunda con un hecho.
+El mensaje exacto es lo más valioso: es lo que se busca en Google, en la documentación y en el histórico de incidencias. Se copia literal, sin parafrasear. La frecuencia y la ventana temporal son lo segundo, porque convierten "hay errores" en "hay errores a las dos de la mañana", que ya es media investigación hecha. La hipótesis va aparte y marcada, para que nadie la confunda con un hecho.
 
 ### A5.1 Revisión de logs (CE 3a)
 
-<span class="et et-obj">Objetivo</span> Al terminar tenéis un registro de cinco días laborables de revisión diaria de los logs de un servicio y una incidencia abierta con la plantilla de la unidad.
+<span class="et et-obj">Objetivo</span> Al terminar tienes un registro de cinco días laborables de revisión diaria de los logs de un servicio y una incidencia abierta con la plantilla de la unidad.
 
 <span class="et et-pre">Antes de empezar</span>
 
 - Autorización del tutor: qué servicio se revisa, dónde están sus logs (fichero, journal, `docker logs` o plataforma central) y con qué usuario se leen. Solo lectura; no hace falta más.
-- Un fichero `a5.1-logs.md` en vuestra carpeta de trabajo, con la tabla del paso 1 vacía.
+- Un fichero `a5.1-logs.md` en tu carpeta de trabajo, con la tabla del paso 1 vacía.
 - Leídos [Qué buscar](#que-buscar), [Comandos para la revisión diaria](#comandos-para-la-revision-diaria) y [Cómo se redacta una incidencia útil](#como-se-redacta-una-incidencia-util).
 
 <span class="et et-pas">Pasos</span>
 
-1. El primer día, mirad cinco líneas del log para conocer el formato (texto plano, JSON, nivel en mayúsculas o minúsculas) y adaptad los comandos. Con contenedores:
+1. El primer día, mira cinco líneas del log para conocer el formato (texto plano, JSON, nivel en mayúsculas o minúsculas) y adapta los comandos. Con contenedores:
 
     ```bash
     docker logs --since 24h --tail 5 app 2>&1
@@ -283,7 +284,7 @@ El mensaje exacto es lo más valioso: es lo que se busca en Google, en la docume
 
     En Loki, la consulta equivalente es `{job="docker", container="app"} |~ "ERROR|FATAL|Exception"` y el volumen por hora `sum(count_over_time({job="docker", container="app"}[1h]))`.
 
-2. Cada día, a la misma hora, ejecutad la revisión y rellenad una fila de la tabla. La columna de errores agrupa por tipo, no lista líneas sueltas:
+2. Cada día, a la misma hora, ejecuta la revisión y rellena una fila de la tabla. La columna de errores agrupa por tipo, no lista líneas sueltas:
 
     ```text
     | Fecha | Servicio | Intervalo revisado | Comando o consulta | Errores (tipo y recuento) | Incidencia |
@@ -291,23 +292,23 @@ El mensaje exacto es lo más valioso: es lo que se busca en Google, en la docume
     | 2027-05-04 | api (app01) | últimas 24 h | docker logs --since 24h ... | QueuePool limit x143, timeout db x12 | INC-2027-041 |
     ```
 
-3. Comparad el volumen de hoy con el de ayer (`wc -l` sobre el fichero, o el panel de volumen por hora). Anotad si se dobla o si hay silencio: los dos son hallazgos.
+3. Compara el volumen de hoy con el de ayer (`wc -l` sobre el fichero, o el panel de volumen por hora). Anota si se dobla o si hay silencio: los dos son hallazgos.
 
-4. Elegid uno de los hallazgos y abridlo como incidencia con la plantilla del apartado teórico, en la herramienta de la empresa si el tutor lo autoriza, o en un fichero con ese formato si no procede abrirla ahí. Mensaje literal, frecuencia con ventana horaria, impacto observado y fragmento de diez líneas anonimizado; la hipótesis, aparte y marcada como tal.
+4. Elige uno de los hallazgos y ábrelo como incidencia con la plantilla del apartado teórico, en la herramienta de la empresa si el tutor lo autoriza, o en un fichero con ese formato si no procede abrirla ahí. Mensaje literal, frecuencia con ventana horaria, impacto observado y fragmento de diez líneas anonimizado; la hipótesis, aparte y marcada como tal.
 
-5. Si el sistema no tiene retención configurada (`journalctl --disk-usage`, `du -sh /var/lib/docker/containers/*/*-json.log`), anotadlo en el registro como hallazgo y proponédselo al tutor; no cambiéis nada sin su visto bueno.
+5. Si el sistema no tiene retención configurada (`journalctl --disk-usage`, `du -sh /var/lib/docker/containers/*/*-json.log`), anótalo en el registro como hallazgo y propónselo al tutor; no cambies nada sin su visto bueno.
 
 <span class="et et-com">Comprobación</span> La tabla tiene cinco filas con fecha, cada fila cita el comando exacto que se ejecutó, y la incidencia contiene un mensaje de log copiado literal con su recuento y su ventana temporal. Ningún host, IP pública ni usuario real aparece en el fichero.
 
-<span class="et et-ent">Entrega</span> `a5.1-logs.md` en la carpeta `ut5/` del repositorio de Gitea del módulo, con el registro de los cinco días y la incidencia anonimizada. Pedid al tutor que firme la fila A5.1 de la ficha.
+<span class="et et-ent">Entrega</span> `a5.1-logs.md` en la carpeta `ut5/` del repositorio de Gitea del módulo, con el registro de los cinco días y la incidencia anonimizada. Pide al tutor que firme la fila A5.1 de la ficha.
 
-<span class="et et-ext">Si te sobra tiempo</span> Adaptad el script `resumen-logs.sh` del apartado teórico a los contenedores de la empresa y proponed al tutor programarlo en cron; adjuntad la salida de una ejecución manual como evidencia extra.
+<span class="et et-ext">Si te sobra tiempo</span> Adapta el script `resumen-logs.sh` del apartado teórico a los contenedores de la empresa y propón al tutor programarlo en cron; adjunta la salida de una ejecución manual como evidencia extra.
 
 ## Bloque 2 · Accesos y fuerza bruta (CE 3b)
 
 <p class="ut-meta">En la empresa · con el tutor</p>
 
-El objetivo es leer 24 h de accesos de un sistema, decir con argumentos si lo que hay es ruido de fondo, fuerza bruta o spraying, y comprobar con vuestros ojos que el bloqueo funciona. Para A5.2 hacen falta la tabla de Dónde se registran, los patrones de Qué se busca y el apartado de la herramienta que use la empresa, fail2ban a fondo o CrowdSec como alternativa; la regla de Loki queda para el tiempo que sobre.
+El objetivo es leer 24 h de accesos de un sistema, decir con argumentos si lo que hay es ruido de fondo, fuerza bruta o spraying, y comprobar sobre el firewall que el bloqueo funciona. Para A5.2 hacen falta la tabla de Dónde se registran, los patrones de Qué se busca y el apartado de la herramienta que use la empresa, fail2ban a fondo o CrowdSec como alternativa; la regla de Loki queda para el tiempo que sobre.
 
 ### Monitorizar los accesos (CE 3b)
 
@@ -322,7 +323,7 @@ Un sistema expuesto a Internet recibe intentos de acceso desde el minuto uno. Un
 | Proxy inverso (nginx) | `/var/log/nginx/access.log` y `error.log` | Intentos a rutas de administración, 401/403, escáneres |
 | Aplicación | su log (stdout del contenedor) | Login fallido, usuario bloqueado, cambio de contraseña, tokens rechazados |
 | Panel del hipervisor | Proxmox: `/var/log/pve/tasks/`, `journalctl -u pvedaemon`, `-u pveproxy` | Accesos al panel web, acciones sobre VM |
-| VPN | WireGuard no registra handshakes por defecto; OpenVPN en su log; OPNsense en Sistema > Registro | Conexiones, orígenes, fallos de autenticación |
+| VPN (red privada virtual) | WireGuard no registra handshakes por defecto; OpenVPN en su log; OPNsense en Sistema > Registro | Conexiones, orígenes, fallos de autenticación |
 | Firewall | OPNsense, `nft monitor`, `journalctl -k` con reglas `log` | Conexiones rechazadas, escaneos de puertos |
 
 En Debian 13 sin rsyslog instalado (rsyslog es el servicio clásico que reparte los mensajes del sistema en ficheros de `/var/log`), `auth.log` no existe y todo está en el journal; `journalctl _COMM=sshd --since today` es el equivalente. Si la empresa centraliza en Loki con Alloy o Promtail, el job suele llamarse `auth` o `syslog` y ahí van todas las búsquedas de abajo con `|=`.
@@ -377,7 +378,7 @@ Otras dos señales que no son fuerza bruta pero se revisan en el mismo pase: acc
 
 #### Detección en Loki y alerta
 
-La regla que se apuntó en el original, ampliada. En Loki 3.x las reglas de alerta van en el ruler, el componente que evalúa consultas cada cierto tiempo igual que hace Prometheus con sus reglas (`ruler.yaml` o un fichero en el directorio de reglas), con la misma sintaxis que Prometheus, y disparan a Alertmanager como las de UT2.
+En Loki 3.x las reglas de alerta van en el ruler, el componente que evalúa consultas cada cierto tiempo igual que hace Prometheus con sus reglas (`ruler.yaml` o un fichero en el directorio de reglas), con la misma sintaxis que Prometheus, y disparan a Alertmanager como las de UT2.
 
 ```yaml
 groups:
@@ -409,7 +410,7 @@ La segunda es la de spraying: extrae usuario e IP con `regexp`, agrupa por los t
 
 ![Logo de fail2ban](../img/fail2ban-logo.png){ .logo-inline }
 
-fail2ban lee ficheros de log (o el journal), aplica expresiones regulares (filtros) y, cuando una IP supera `maxretry` fallos dentro de `findtime`, ejecuta una acción de bloqueo durante `bantime`. Cada combinación de filtro más acción es una jail. La configuración de fábrica está en `/etc/fail2ban/jail.conf` y no se toca; lo vuestro va en `/etc/fail2ban/jail.local` o en ficheros bajo `/etc/fail2ban/jail.d/`, que se cargan encima. El `jail.local` de abajo es uno completo para un host con SSH y nginx; las tres líneas que más problemas evitan o causan son `ignoreip`, `backend` y `bantime.increment`, y son las que hay que entender antes de copiarlo.
+fail2ban lee ficheros de log (o el journal), aplica expresiones regulares (filtros) y, cuando una IP supera `maxretry` fallos dentro de `findtime`, ejecuta una acción de bloqueo durante `bantime`. Cada combinación de filtro más acción es una jail. La configuración de fábrica está en `/etc/fail2ban/jail.conf` y no se toca; la configuración propia va en `/etc/fail2ban/jail.local` o en ficheros bajo `/etc/fail2ban/jail.d/`, que se cargan encima. El `jail.local` de abajo es uno completo para un host con SSH y nginx; las tres líneas que más problemas evitan o causan son `ignoreip`, `backend` y `bantime.increment`, y son las que hay que entender antes de copiarlo.
 
 ```ini
 # /etc/fail2ban/jail.local
@@ -448,9 +449,9 @@ findtime = 1d
 maxretry = 3
 ```
 
-Puntos a entender de esa configuración. `ignoreip` es obligatorio pensarlo antes de activar nada: si os bloqueáis a vosotros mismos o a la sonda de monitorización, tenéis un problema autoinfligido que en una empresa se nota. Ahí van la red de gestión, la IP pública de la oficina y la del bastión desde el que se administra. `bantime.increment` es la forma moderna de castigar reincidentes: una IP que vuelve tras el primer baneo de 1 h recibe 2 h, luego 4 h, y así hasta `bantime.maxtime`; fail2ban guarda el historial en su base de datos SQLite (`/var/lib/fail2ban/fail2ban.sqlite3`), así que sobrevive a reinicios. La jail `recidive` es el mecanismo antiguo para lo mismo (lee el propio log de fail2ban y banea en todos los puertos a quien ha sido baneado tres veces en un día); se pueden usar las dos. El modo `aggressive` del filtro sshd incluye también los intentos que se quedan en preauth y los de usuario inválido.
+Puntos a entender de esa configuración. `ignoreip` es obligatorio pensarlo antes de activar nada: un bloqueo sobre la propia IP de administración o sobre la sonda de monitorización es un problema autoinfligido que en una empresa se nota. Ahí van la red de gestión, la IP pública de la oficina y la del bastión desde el que se administra. `bantime.increment` es la forma moderna de castigar reincidentes: una IP que vuelve tras el primer baneo de 1 h recibe 2 h, luego 4 h, y así hasta `bantime.maxtime`; fail2ban guarda el historial en su base de datos SQLite (`/var/lib/fail2ban/fail2ban.sqlite3`), así que sobrevive a reinicios. La jail `recidive` es el mecanismo antiguo para lo mismo (lee el propio log de fail2ban y banea en todos los puertos a quien ha sido baneado tres veces en un día); se pueden usar las dos. El modo `aggressive` del filtro sshd incluye también los intentos que se quedan en preauth y los de usuario inválido.
 
-Un filtro propio para la aplicación. Si la API del curso escribe `WARN auth: login failed for user=victor ip=203.0.113.45` cuando alguien falla la contraseña, el filtro es una regex con el marcador `<HOST>` (o `<ADDR>` en versiones recientes) en el sitio de la IP:
+Un filtro propio para la aplicación. Si la API del curso escribe `WARN auth: login failed for user=opstor ip=203.0.113.45` cuando alguien falla la contraseña, el filtro es una regex con el marcador `<HOST>` (o `<ADDR>` en versiones recientes) en el sitio de la IP:
 
 ```ini
 # /etc/fail2ban/filter.d/app-login.conf
@@ -492,20 +493,20 @@ fail2ban-client reload                       # recarga sin perder baneos
 fail2ban-client banned                       # todas las IPs baneadas por jail
 ```
 
-El bloqueo lo aplica la acción. Con `banaction = nftables-multiport`, fail2ban crea una tabla `inet f2b-table` (el nombre exacto depende de la versión) con un set por jail y una regla que descarta el tráfico de las IPs del set en los puertos de la jail. Se comprueba directamente con nftables (el firewall del kernel que ya manejasteis en UT3), que es donde de verdad se ve si el bloqueo existe:
+El bloqueo lo aplica la acción. Con `banaction = nftables-multiport`, fail2ban crea una tabla `inet f2b-table` (el nombre exacto depende de la versión) con un set por jail y una regla que descarta el tráfico de las IPs del set en los puertos de la jail. Se comprueba directamente con nftables (el firewall del kernel, el mismo de UT3), que es donde de verdad se ve si el bloqueo existe:
 
 ```bash
 nft list table inet f2b-table
 nft list set inet f2b-table addr-set-sshd
 ```
 
-Si en el host ya hay un firewall nftables propio (como el de 5166 UT3, [https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/)), fail2ban añade su tabla aparte y las dos conviven; el orden de evaluación entre tablas depende de la prioridad de las cadenas, y la de fail2ban usa `priority -1` para ir antes que `filter` (0). Con Docker de por medio, el tráfico a puertos publicados por contenedores pasa por la cadena `DOCKER-USER` de iptables antes que por `INPUT`; fail2ban tiene la acción `iptables-multiport` con `chain = DOCKER-USER` para ese caso, o se banea en `forward` con una acción nftables personalizada. Es uno de los motivos por los que en el laboratorio el bloqueo lo hacemos en el proxy o en OPNsense y no en app01.
+Si en el host ya hay un firewall nftables propio (como el de 5166 UT3, [https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/)), fail2ban añade su tabla aparte y las dos conviven; el orden de evaluación entre tablas depende de la prioridad de las cadenas, y la de fail2ban usa `priority -1` para ir antes que `filter` (0). Con Docker de por medio, el tráfico a puertos publicados por contenedores pasa por la cadena `DOCKER-USER` de iptables antes que por `INPUT`; fail2ban tiene la acción `iptables-multiport` con `chain = DOCKER-USER` para ese caso, o se banea en `forward` con una acción nftables personalizada. Es uno de los motivos por los que en el laboratorio del curso el bloqueo se hace en el proxy o en OPNsense y no en app01.
 
 Comprobar un bloqueo de verdad, que es lo que pide la actividad A5.2: desde una máquina que no esté en `ignoreip` (una VM de pruebas, el móvil con datos), fallar la contraseña SSH seis veces, ver la IP en `fail2ban-client status sshd`, ver la regla en nftables, comprobar que la conexión ahora da `Connection refused` o se queda en timeout, y desbanear. Capturas de esos cuatro pasos son la evidencia. Documentación oficial: [https://github.com/fail2ban/fail2ban/wiki](https://github.com/fail2ban/fail2ban/wiki) y las páginas de manual `jail.conf(5)`.
 
 #### CrowdSec como alternativa
 
-CrowdSec hace lo mismo que fail2ban con dos diferencias de diseño. La primera es que separa la detección (el agente, que lee logs con "parsers" y "scenarios" en YAML descargados desde su hub) del bloqueo (los "bouncers": un componente para nftables, otro para nginx, otro para OPNsense, otro para Traefik, que consultan la API local del agente y aplican las decisiones). Así el agente puede estar en un host y el bouncer en el firewall. La segunda es que es colaborativo: cada instalación que reporta ataques a la red de CrowdSec recibe a cambio una lista de IPs maliciosas vistas por la comunidad, de modo que bloqueáis a un atacante antes de que os toque a vosotros. Esa lista es opcional y en algunas empresas no gusta enviar datos fuera; se puede desactivar (`crowdsec` en modo sin API central) y sigue funcionando como fail2ban.
+CrowdSec hace lo mismo que fail2ban con dos diferencias de diseño. La primera es que separa la detección (el agente, que lee logs con "parsers" y "scenarios" en YAML descargados desde su hub) del bloqueo (los "bouncers": un componente para nftables, otro para nginx, otro para OPNsense, otro para Traefik, que consultan la API local del agente y aplican las decisiones). Así el agente puede estar en un host y el bouncer en el firewall. La segunda es que es colaborativo: cada instalación que reporta ataques a la red de CrowdSec recibe a cambio una lista de IPs maliciosas vistas por la comunidad, de modo que un atacante queda bloqueado antes de llegar al sistema propio. Esa lista es opcional y en algunas empresas no gusta enviar datos fuera; se puede desactivar (`crowdsec` en modo sin API central) y sigue funcionando como fail2ban.
 
 ```bash
 cscli metrics                  # qué logs lee y qué escenarios disparan
@@ -517,7 +518,7 @@ cscli hub list                 # colecciones instaladas (nginx, sshd, linux)
 cscli bouncers list            # bouncers registrados y cuándo consultaron
 ```
 
-Cuándo elegir cuál: fail2ban si el sistema es uno o dos hosts, ya hay experiencia con él y se quiere control fino con regex propias; CrowdSec si hay varios hosts, se quiere bloquear en un punto central (OPNsense tiene plugin oficial) o se valora la lista comunitaria. En el laboratorio del curso, con OPNsense delante de la VPC, CrowdSec con el bouncer en OPNsense es la arquitectura más limpia; en la empresa, lo que haya. Documentación: [https://docs.crowdsec.net/](https://docs.crowdsec.net/).
+La elección va por tamaño. Con uno o dos hosts, fail2ban basta: es más sencillo de operar y permite escribir filtros propios con expresiones regulares a medida. Con varios hosts, o cuando interesa bloquear en un solo punto, CrowdSec, porque separa el agente del bouncer y OPNsense tiene plugin oficial; la lista comunitaria es un argumento añadido a su favor donde se acepte enviar datos fuera. En la empresa, lo que haya. Documentación: [https://docs.crowdsec.net/](https://docs.crowdsec.net/).
 
 ### A5.2 Accesos y fuerza bruta (CE 3b)
 
@@ -531,9 +532,9 @@ Cuándo elegir cuál: fail2ban si el sistema es uno o dos hosts, ya hay experien
 
 <span class="et et-pas">Pasos</span>
 
-1. Localizad el log de accesos del sistema elegido (SSH, proxy inverso o aplicación) según la tabla del apartado teórico. En Debian sin rsyslog, `journalctl _COMM=sshd --since -24h`.
+1. Localiza el log de accesos del sistema elegido (SSH, proxy inverso o aplicación) según la tabla del apartado teórico. En Debian sin rsyslog, `journalctl _COMM=sshd --since -24h`.
 
-2. Contad los intentos fallidos por IP y los usuarios distintos por IP:
+2. Cuenta los intentos fallidos por IP y los usuarios distintos por IP:
 
     ```bash
     # Fuerza bruta: intentos fallidos por IP
@@ -553,9 +554,9 @@ Cuándo elegir cuál: fail2ban si el sistema es uno o dos hosts, ya hay experien
     awk '$9 ~ /^(401|403|404)$/ {print $1}' /var/log/nginx/access.log | sort | uniq -c | sort -rn | head
     ```
 
-3. Clasificad lo que veis en una de cuatro categorías y explicad por qué: ruido de fondo (muchas IPs, pocos intentos cada una), fuerza bruta (una IP, muchos intentos contra pocos usuarios), spraying (una IP, muchos usuarios, ritmo lento) o nada. Guardad un extracto de diez a veinte líneas, anonimizado, que muestre el patrón.
+3. Clasifica lo que ves en una de cuatro categorías y explica por qué: ruido de fondo (muchas IPs, pocos intentos cada una), fuerza bruta (una IP, muchos intentos contra pocos usuarios), spraying (una IP, muchos usuarios, ritmo lento) o nada. Guarda un extracto de diez a veinte líneas, anonimizado, que muestre el patrón.
 
-4. Revisad la configuración del bloqueo y anotad los valores que importan. Con fail2ban:
+4. Revisa la configuración del bloqueo y anota los valores que importan. Con fail2ban:
 
     ```bash
     fail2ban-client status                 # jails activas
@@ -565,7 +566,7 @@ Cuándo elegir cuál: fail2ban si el sistema es uno o dos hosts, ya hay experien
     grep -E "ignoreip|bantime|findtime|maxretry|backend" /etc/fail2ban/jail.local
     ```
 
-    Con CrowdSec: `cscli metrics`, `cscli decisions list`, `cscli bouncers list`. Comprobad que `ignoreip` (o la lista blanca equivalente) incluye la red de gestión, la oficina y la sonda de monitorización. Si hay una aplicación propia con log de logins fallidos y no tiene filtro, proponed uno y probadlo sin activarlo: `fail2ban-regex /ruta/app.log /etc/fail2ban/filter.d/app-login.conf --print-all-missed | tail -20`.
+    Con CrowdSec: `cscli metrics`, `cscli decisions list`, `cscli bouncers list`. Comprueba que `ignoreip` (o la lista blanca equivalente) incluye la red de gestión, la oficina y la sonda de monitorización. Si hay una aplicación propia con log de logins fallidos y no tiene filtro, propón uno y pruébalo sin activarlo: `fail2ban-regex /ruta/app.log /etc/fail2ban/filter.d/app-login.conf --print-all-missed | tail -20`.
 
 5. Prueba de bloqueo, en el momento acordado con el tutor y desde una IP que no esté en `ignoreip`:
 
@@ -586,7 +587,7 @@ Cuándo elegir cuál: fail2ban si el sistema es uno o dos hosts, ya hay experien
 
 <span class="et et-ent">Entrega</span> `a5.2-accesos.md` en `ut5/` del repositorio, con el extracto clasificado, la configuración anonimizada y la prueba del bloqueo (salida de `fail2ban-client status`, `cscli decisions list` o equivalente, y la regla del firewall). Firma del tutor en la fila A5.2.
 
-<span class="et et-ext">Si te sobra tiempo</span> Si la empresa tiene Loki, escribid la regla `PasswordSprayingSSH` del apartado [Detección en Loki y alerta](#deteccion-en-loki-y-alerta) adaptada a su job y comprobad en Explore que la consulta devuelve algo con el log real.
+<span class="et et-ext">Si te sobra tiempo</span> Si la empresa tiene Loki, escribe la regla `PasswordSprayingSSH` del apartado [Detección en Loki y alerta](#deteccion-en-loki-y-alerta) adaptada a su job y comprueba en Explore que la consulta devuelve algo con el log real.
 
 ## Bloque 3 · Fallos y reinicios (CE 3c)
 
@@ -733,7 +734,7 @@ services:
 
 El directorio `/var/crash` tiene que existir dentro del contenedor en la misma ruta que indica `core_pattern`, porque el kernel escribe la ruta interpretada desde el espacio de nombres de montaje del proceso que murió. Y hay que vigilar el tamaño: un dump de una JVM con 4 GB de heap ocupa 4 GB.
 
-Análisis según el runtime, con una herramienta por lenguaje: gdb es el depurador clásico de binarios nativos (C, C++, Go, Rust) y es el que lee el dump; py-spy inspecciona un proceso Python vivo sin pararlo; jcmd, jmap y jstack son las utilidades de la JVM para volcar memoria e hilos. En el bloque, fijaos en que gdb se ejecuta dentro de la misma imagen que murió y en que Java no necesita el dump del kernel porque genera el suyo.
+Análisis según el runtime, con una herramienta por lenguaje: gdb es el depurador clásico de binarios nativos (C, C++, Go, Rust) y es el que lee el dump; py-spy inspecciona un proceso Python vivo sin pararlo; jcmd, jmap y jstack son las utilidades de la JVM para volcar memoria e hilos. Conviene fijarse en dos detalles del bloque: gdb se ejecuta dentro de la misma imagen que murió, y Java no necesita el dump del kernel porque genera el suyo.
 
 ```bash
 # C/C++/Go/Rust: gdb básico sobre el dump, con el mismo binario y bibliotecas
@@ -759,11 +760,11 @@ docker exec app jstack 1 > /var/crash/threads.txt
 # JAVA_TOOL_OPTIONS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/var/crash"
 ```
 
-Para gdb el detalle importante es que el binario y las bibliotecas tienen que ser exactamente los del contenedor que murió; por eso se abre gdb dentro de la misma imagen (y versión). Sin símbolos de depuración la traza da direcciones y nombres de función, que suele bastar para saber en qué biblioteca ha reventado. Los `.hprof` de Java se analizan con Eclipse MAT o VisualVM en vuestro portátil, no en el servidor. El PID `1` en los `docker exec` es el proceso principal del contenedor; si la aplicación arranca a través de un script, buscad el PID real con `docker top app`.
+Para gdb el detalle importante es que el binario y las bibliotecas tienen que ser exactamente los del contenedor que murió; por eso se abre gdb dentro de la misma imagen (y versión). Sin símbolos de depuración la traza da direcciones y nombres de función, que suele bastar para saber en qué biblioteca ha reventado. Los `.hprof` de Java se analizan con Eclipse MAT o VisualVM en un equipo de trabajo, no en el servidor. El PID `1` en los `docker exec` es el proceso principal del contenedor; si la aplicación arranca a través de un script, el PID real se busca con `docker top app`.
 
 #### Registros de error de la aplicación
 
-Aparte de stdout, muchos runtimes dejan su propio informe de fallo: la JVM escribe `hs_err_pid<N>.log` en el directorio de trabajo cuando muere por un error fatal (con la traza, los hilos y el estado de memoria; es lo primero que se busca en un 134 de Java); Node deja la traza en stderr y con `--report-on-fatalerror` genera un JSON de diagnóstico; PostgreSQL escribe en `/var/log/postgresql/postgresql-17-main.log` (o stdout en el contenedor oficial) y ahí está el `FATAL: too many connections` o el `server process was terminated by signal 9` que explica un 137 del contenedor de la aplicación media hora después. Para un front en el navegador, los errores están en el cliente y no en el servidor: sin un servicio tipo Sentry o GlitchTip (plataformas que reciben los errores del navegador y del servidor y los agrupan) que los recoja, solo se ven en la consola del usuario, y la evidencia es la captura que os manden.
+Aparte de stdout, muchos runtimes dejan su propio informe de fallo: la JVM escribe `hs_err_pid<N>.log` en el directorio de trabajo cuando muere por un error fatal (con la traza, los hilos y el estado de memoria; es lo primero que se busca en un 134 de Java); Node deja la traza en stderr y con `--report-on-fatalerror` genera un JSON de diagnóstico; PostgreSQL escribe en `/var/log/postgresql/postgresql-17-main.log` (o stdout en el contenedor oficial) y ahí está el `FATAL: too many connections` o el `server process was terminated by signal 9` que explica un 137 del contenedor de la aplicación media hora después. Para un front en el navegador, los errores están en el cliente y no en el servidor: sin un servicio tipo Sentry o GlitchTip (plataformas que reciben los errores del navegador y del servidor y los agrupan) que los recoja, solo se ven en la consola del usuario, y la evidencia es la captura que este envíe.
 
 #### El método y la plantilla de informe
 
@@ -792,13 +793,13 @@ El informe de A5.3 es una página y sigue esta estructura:
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Autorización del tutor para leer `docker inspect`, `docker events`, el journal del kernel y los directorios de dumps. Si no ha habido ningún fallo en el periodo, acordad con él un entorno de pruebas (nunca producción) donde reproducir uno, y quién aprueba la corrección si la hay.
+- Autorización del tutor para leer `docker inspect`, `docker events`, el journal del kernel y los directorios de dumps. Si no ha habido ningún fallo en el periodo, acuerda con él un entorno de pruebas (nunca producción) donde reproducir uno, y quién aprueba la corrección si la hay.
 - Acceso a las métricas del momento del fallo (Grafana o `sar`).
 - Leídos [Códigos de salida](#codigos-de-salida), [OOM: el kernel y los cgroups](#oom-el-kernel-y-los-cgroups), [Core dumps en contenedores](#core-dumps-en-contenedores) y [El método y la plantilla de informe](#el-metodo-y-la-plantilla-de-informe).
 
 <span class="et et-pas">Pasos</span>
 
-1. Identificad el fallo. Con contenedores:
+1. Identifica el fallo. Con contenedores:
 
     ```bash
     docker inspect app --format '{{.RestartCount}} {{.State.ExitCode}} {{.State.OOMKilled}} {{.State.FinishedAt}} {{.State.Error}}'
@@ -806,9 +807,9 @@ El informe de A5.3 es una página y sigue esta estructura:
     docker compose ps -a
     ```
 
-    Anotad código de salida, `OOMKilled`, `RestartCount`, imagen y versión. Si el código es mayor de 128, restad 128 y `kill -l N` da la señal.
+    Anota código de salida, `OOMKilled`, `RestartCount`, imagen y versión. Si el código es mayor de 128, resta 128 y `kill -l N` da la señal.
 
-2. Si no ha ocurrido ninguno, reproducid uno en el entorno de pruebas acordado. Dos formas sencillas:
+2. Si no ha ocurrido ninguno, reproduce uno en el entorno de pruebas acordado. Dos formas sencillas:
 
     ```yaml
     # OOM: un contenedor que reserva memoria por encima de su límite
@@ -824,25 +825,25 @@ El informe de A5.3 es una página y sigue esta estructura:
     kill -SEGV $(docker inspect app --format '{{.State.Pid}}')
     ```
 
-3. Recoged el contexto: el log de los cinco minutos previos (`docker logs --since "2027-05-04T02:36:00" --until "2027-05-04T02:41:00" app`), el mensaje del kernel si hubo OOM (`journalctl -k --since -24h | grep -iE "oom-kill|out of memory"`, `cat /sys/fs/cgroup/system.slice/docker-$CG.scope/memory.events`), y una captura de Grafana o una tabla de `sar` con memoria, CPU y conexiones en esos diez minutos.
+3. Recoge el contexto: el log de los cinco minutos previos (`docker logs --since "2027-05-04T02:36:00" --until "2027-05-04T02:41:00" app`), el mensaje del kernel si hubo OOM (`journalctl -k --since -24h | grep -iE "oom-kill|out of memory"`, `cat /sys/fs/cgroup/system.slice/docker-$CG.scope/memory.events`), y una captura de Grafana o una tabla de `sar` con memoria, CPU y conexiones en esos diez minutos.
 
-4. Analizad el dump o el registro de error según el runtime: `coredumpctl list` e `info` en el host; gdb dentro de la misma imagen para binarios nativos (`bt`, `thread apply all bt`); `py-spy dump --pid` para Python colgado; `hs_err_pid*.log`, `jmap` o `jstack` para Java. Si no había dump, habilitadlo para la próxima (`ulimits: core: -1`, `/var/crash` montado, `core_pattern` de fichero) y decidlo en el informe.
+4. Analiza el dump o el registro de error según el runtime: `coredumpctl list` e `info` en el host; gdb dentro de la misma imagen para binarios nativos (`bt`, `thread apply all bt`); `py-spy dump --pid` para Python colgado; `hs_err_pid*.log`, `jmap` o `jstack` para Java. Si no había dump, habilítalo para la próxima (`ulimits: core: -1`, `/var/crash` montado, `core_pattern` de fichero) y dilo en el informe.
 
-5. Formulad una hipótesis principal y las alternativas que descartáis con el motivo. Reproducid en pruebas, corregid el origen (no el síntoma) con la aprobación del tutor, anotando fichero y valor antes y después.
+5. Formula una hipótesis principal y las alternativas que descartas, con el motivo. Reproduce en pruebas, corrige el origen (no el síntoma) con la aprobación del tutor, anotando fichero y valor antes y después.
 
-6. Verificad durante los días que queden de estancia: `RestartCount` estable, `oom_kill` sin subir, o el panel sin nuevas caídas. Indicad cuántos días.
+6. Verifica durante los días que queden de estancia: `RestartCount` estable, `oom_kill` sin subir, o el panel sin nuevas caídas. Indica cuántos días.
 
 <span class="et et-com">Comprobación</span> El informe cabe en una página, sigue los nueve puntos en orden, incluye el mensaje del kernel o del runtime literal y termina con una verificación medible y con las acciones pendientes.
 
 <span class="et et-ent">Entrega</span> `a5.3-fallos.md` en `ut5/` del repositorio. Firma del tutor en la fila A5.3.
 
-<span class="et et-ext">Si te sobra tiempo</span> Añadid al panel de revisión diaria un gráfico con `container_memory_working_set_bytes` y `container_spec_memory_limit_bytes` superpuestos para el contenedor analizado, y una alerta sobre `container_oom_events_total`.
+<span class="et et-ext">Si te sobra tiempo</span> Añade al panel de revisión diaria un gráfico con `container_memory_working_set_bytes` y `container_spec_memory_limit_bytes` superpuestos para el contenedor analizado, y una alerta sobre `container_oom_events_total`.
 
 ## Bloque 4 · Rendimiento (CE 3d)
 
 <p class="ut-meta">En la empresa · con el tutor</p>
 
-Este bloque termina con una línea base de una semana comparada con un periodo de carga y una propuesta con su coste. Empezad a grabar datos el primer día de estancia, porque la semana no se recupera hacia atrás. A5.4 usa Cómo se toma y se guarda la línea base, la tabla de USE por recurso y Señales de problema y acciones; El steal en máquinas virtuales es el detalle que importa cuando el sistema es una VM.
+Este bloque termina con una línea base de una semana comparada con un periodo de carga y una propuesta con su coste. La grabación de datos empieza el primer día de estancia, porque la semana no se recupera hacia atrás. A5.4 usa Cómo se toma y se guarda la línea base, la tabla de USE por recurso y Señales de problema y acciones; El steal en máquinas virtuales es el detalle que importa cuando el sistema es una VM.
 
 ### Rendimiento del equipo (CE 3d)
 
@@ -861,7 +862,7 @@ La toma más útil es la de Prometheus, porque ya está: si `node_exporter` y cA
 quantile_over_time(0.95, (100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))))[7d:5m])
 ```
 
-Si no hay Prometheus, la línea base se toma con `sar` (paquete `sysstat`), que graba cada 10 minutos en `/var/log/sysstat/` y guarda un mes por defecto: `sar -u -f /var/log/sysstat/sa04` da la CPU de todo el día 4, `sar -r` la memoria, `sar -d` el disco, `sar -n DEV` la red. Activadlo la primera semana en la empresa si no está (`ENABLED="true"` en `/etc/default/sysstat`), porque la semana de datos es el requisito de A5.4 y no se puede recuperar hacia atrás.
+Si no hay Prometheus, la línea base se toma con `sar` (paquete `sysstat`), que graba cada 10 minutos en `/var/log/sysstat/` y guarda un mes por defecto: `sar -u -f /var/log/sysstat/sa04` da la CPU de todo el día 4, `sar -r` la memoria, `sar -d` el disco, `sar -n DEV` la red. Conviene activarlo la primera semana en la empresa si no está (`ENABLED="true"` en `/etc/default/sysstat`), porque la semana de datos es el requisito de A5.4 y no se puede recuperar hacia atrás.
 
 Se guarda como tabla, con lo mínimo que hace falta para comparar después: por recurso, valor medio, p95 (el valor que el 95 % de las muestras no supera, para que un pico aislado no distorsione) y máximo, en horario laboral y fuera de él, más las tres o cuatro horas concretas que definen la forma (pico de la mañana, batch nocturno). Y se guarda con fecha y con la versión de la aplicación desplegada en ese momento, porque una línea base tomada con la versión 1.4 no sirve para juzgar la 1.6 si el despliegue cambió el consumo.
 
@@ -876,7 +877,7 @@ Se guarda como tabla, con lo mínimo que hace falta para comparar después: por 
 
 #### USE por recurso: comandos y métricas
 
-El método USE (Utilization, Saturation, Errors, de Brendan Gregg) es la lista de comprobación: para cada recurso, cuánto se usa, cuánta cola hay esperando por él, y cuántos errores da. La tabla del original, ampliada con las tres preguntas y con la métrica de Prometheus equivalente para que en la empresa podáis usar lo uno o lo otro.
+El método USE (Utilization, Saturation, Errors, de Brendan Gregg) es la lista de comprobación: para cada recurso, cuánto se usa, cuánta cola hay esperando por él, y cuántos errores da. La tabla recoge las tres preguntas por recurso y la métrica de Prometheus equivalente, para poder usar en la empresa lo uno o lo otro.
 
 | Recurso | Comando | Métrica Prometheus | Utilización | Saturación | Errores / señal de problema |
 |---|---|---|---|---|---|
@@ -890,11 +891,11 @@ Dos comandos que merecen explicación aparte. `vmstat 1 5` da cinco muestras de 
 
 #### El steal en máquinas virtuales
 
-`%st` en `top` o `mpstat` es el tiempo en que la VM quería ejecutar y el hipervisor le dio la CPU a otra. Es la única columna que apunta fuera de la máquina que estáis mirando. Un `steal` por encima del 5 al 10 % sostenido significa que el host de Proxmox (o el de la nube) está sobresuscrito: hay más vCPU asignadas de las que el host puede atender a la vez. Desde dentro de la VM la aplicación va lenta sin que ninguna métrica interna lo explique (CPU al 40 %, latencia el doble). En Prometheus es `rate(node_cpu_seconds_total{mode="steal"}[5m])`, y una alerta razonable es steal > 10 % durante 15 minutos. La acción no es de la VM: es hablar con quien administra el hipervisor (en la empresa, el equipo de sistemas; en el laboratorio, mirar en el nodo de Proxmox qué otra VM se está comiendo los núcleos, como en 5166 UT1, [https://victor-educ.github.io/apuntes-5166/ut/ut1-virtualizacion/](https://victor-educ.github.io/apuntes-5166/ut/ut1-virtualizacion/)).
+`%st` en `top` o `mpstat` es el tiempo en que la VM quería ejecutar y el hipervisor le dio la CPU a otra. Es la única columna que apunta fuera de la máquina que se está mirando. Un `steal` por encima del 5 al 10 % sostenido significa que el host de Proxmox (o el de la nube) está sobresuscrito: hay más vCPU asignadas de las que el host puede atender a la vez. Desde dentro de la VM la aplicación va lenta sin que ninguna métrica interna lo explique (CPU al 40 %, latencia el doble). En Prometheus es `rate(node_cpu_seconds_total{mode="steal"}[5m])`, y una alerta razonable es steal > 10 % durante 15 minutos. La acción no es de la VM: es hablar con quien administra el hipervisor (en la empresa, el equipo de sistemas; en el laboratorio, mirar en el nodo de Proxmox qué otra VM se está comiendo los núcleos, como en 5166 UT1, [https://victor-educ.github.io/apuntes-5166/ut/ut1-virtualizacion/](https://victor-educ.github.io/apuntes-5166/ut/ut1-virtualizacion/)).
 
 #### Señales de problema y acciones
 
-La comparación con la línea base termina en una propuesta. Las propuestas tipo, para que no os quedéis en "la CPU está alta":
+La comparación con la línea base termina en una propuesta. Las propuestas tipo, para no quedarse en "la CPU está alta":
 
 - CPU del contenedor limitada por CFS, el planificador del kernel que frena al contenedor cuando agota su cuota `cpus:` (`throttled_periods` creciente con uso por debajo del 100 % del host): subir `cpus:` en el Compose o quitar el límite si el host tiene margen. Caso muy frecuente con límites puestos "por si acaso" a 0.5 CPU.
 - Memoria del contenedor con rampa hasta el límite y OOM: fuga; pedir corrección a desarrollo y, mientras, reinicio programado en la ventana de menor carga, con `restart` y monitorización del contador de OOM. Si no es rampa sino escalón, subir el límite y justificarlo con el nuevo consumo.
@@ -912,15 +913,15 @@ Se documenta con una tabla antes/después (línea base, periodo de carga, difere
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Autorización del tutor para consultar Prometheus y Grafana o, si no los hay, para activar `sysstat` en el equipo (`ENABLED="true"` en `/etc/default/sysstat`), que es un cambio y por tanto se acuerda. Empezad el primer día de estancia: la semana de datos no se recupera hacia atrás.
+- Autorización del tutor para consultar Prometheus y Grafana o, si no los hay, para activar `sysstat` en el equipo (`ENABLED="true"` en `/etc/default/sysstat`), que es un cambio y por tanto se acuerda. Empieza el primer día de estancia: la semana de datos no se recupera hacia atrás.
 - Acordar con el tutor cuál será el periodo de carga: cierre de mes, campaña, prueba de carga como las de UT4 o el día de más tráfico de la semana siguiente.
 - Leídos [Cómo se toma y se guarda la línea base](#como-se-toma-y-se-guarda-la-linea-base), [USE por recurso: comandos y métricas](#use-por-recurso-comandos-y-metricas) y [Señales de problema y acciones](#senales-de-problema-y-acciones).
 
 <span class="et et-pas">Pasos</span>
 
-1. Aseguraos de que se están grabando datos. Con Prometheus, `node_exporter` y cAdvisor en UP; sin él, `sar` cada 10 minutos en `/var/log/sysstat/`. Anotad la versión de la aplicación desplegada ese día.
+1. Asegúrate de que se están grabando datos. Con Prometheus, `node_exporter` y cAdvisor en UP; sin él, `sar` cada 10 minutos en `/var/log/sysstat/`. Anota la versión de la aplicación desplegada ese día.
 
-2. Tras la semana, sacad para cada recurso media, p95 y máximo en horario laboral y fuera de él, más la hora del pico. Con Prometheus:
+2. Tras la semana, saca para cada recurso media, p95 y máximo en horario laboral y fuera de él, más la hora del pico. Con Prometheus:
 
     ```text
     100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])))
@@ -932,19 +933,19 @@ Se documenta con una tabla antes/después (línea base, periodo de carga, difere
 
     Con `sar`: `sar -u -f /var/log/sysstat/sa04` (CPU), `sar -r` (memoria), `sar -d` (disco), `sar -n DEV` (red), un día por fichero.
 
-3. Rellenad la tabla con el formato del apartado teórico (recurso, métrica, media laboral, p95 laboral, máximo, media nocturna, hora del pico), con fecha y versión de la aplicación.
+3. Rellena la tabla con el formato del apartado teórico (recurso, métrica, media laboral, p95 laboral, máximo, media nocturna, hora del pico), con fecha y versión de la aplicación.
 
-4. En el periodo de carga, tomad las mismas medidas y aplicad USE a cada recurso con los comandos de la tabla del apartado: `vmstat 1 5` (columnas `r`, `si`/`so`, `wa`), `iostat -xz 1` (`%util`, `await`, `aqu-sz`), `ss -s` e `ip -s link`, `docker stats --no-stream`, y `%st` en `top` si es una VM.
+4. En el periodo de carga, toma las mismas medidas y aplica USE a cada recurso con los comandos de la tabla del apartado: `vmstat 1 5` (columnas `r`, `si`/`so`, `wa`), `iostat -xz 1` (`%util`, `await`, `aqu-sz`), `ss -s` e `ip -s link`, `docker stats --no-stream`, y `%st` en `top` si es una VM.
 
-5. Construid la comparación: tabla antes/después (línea base, carga, diferencia, umbral) o captura del panel con la serie de hace una semana superpuesta (`offset 1w` o time shift).
+5. Construye la comparación: tabla antes/después (línea base, carga, diferencia, umbral) o captura del panel con la serie de hace una semana superpuesta (`offset 1w` o time shift).
 
-6. Redactad la propuesta usando la lista de [Señales de problema y acciones](#senales-de-problema-y-acciones): qué se cambia, qué cuesta (gratis, recursos, dinero, tiempo de desarrollo) y qué métrica esperáis que cambie y cuánto.
+6. Redacta la propuesta usando la lista de [Señales de problema y acciones](#senales-de-problema-y-acciones): qué se cambia, qué cuesta (gratis, recursos, dinero, tiempo de desarrollo) y qué métrica esperas que cambie y cuánto.
 
 <span class="et et-com">Comprobación</span> La línea base cubre cinco días laborables representativos (sin festivos ni vacaciones de medio equipo) y lleva fecha y versión; cada recurso tiene sus tres preguntas USE respondidas; la propuesta nombra una métrica concreta y un valor esperado.
 
 <span class="et et-ent">Entrega</span> `a5.4-rendimiento.md` en `ut5/` del repositorio, con la tabla o la captura y la propuesta. Firma del tutor en la fila A5.4.
 
-<span class="et et-ext">Si te sobra tiempo</span> Proponed al tutor una alerta sobre la desviación respecto a la línea base (por ejemplo, CPU por encima del doble del valor de hace una semana durante 30 minutos) en lugar de un umbral fijo.
+<span class="et et-ext">Si te sobra tiempo</span> Propón al tutor una alerta sobre la desviación respecto a la línea base (por ejemplo, CPU por encima del doble del valor de hace una semana durante 30 minutos) en lugar de un umbral fijo.
 
 ## Práctica evaluable
 
@@ -978,17 +979,17 @@ Las observaciones del tutor de empresa en la ficha se tienen en cuenta en cada a
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Las cuatro actividades hechas y el fichero con fecha, comando y resultado que habéis ido guardando desde el primer día.
+- Las cuatro actividades hechas y el fichero con fecha, comando y resultado que has ido guardando desde el primer día.
 - Visto bueno del tutor sobre qué comandos y rutas pueden aparecer (anonimizados) en el procedimiento.
 - El diagrama de rutina de [Cómo trabajar en la empresa](#como-trabajar-en-la-empresa) como esqueleto.
 
 <span class="et et-pas">Pasos</span>
 
-1. Para cada caja del diagrama (cuatro diarias, cuatro semanales) escribid una fila: qué se mira, herramienta, comando o consulta literal, tiempo estimado, qué se considera normal, qué dispara una incidencia.
-2. Añadid al principio los accesos necesarios (usuario, hosts, paneles) y al final la plantilla de incidencia y a quién se escala.
-3. Pedid a un compañero o al tutor que lo siga una mañana sin vuestra ayuda y anotad lo que no entendió; corregidlo.
+1. Para cada caja del diagrama (cuatro diarias, cuatro semanales) escribe una fila: qué se mira, herramienta, comando o consulta literal, tiempo estimado, qué se considera normal, qué dispara una incidencia.
+2. Añade al principio los accesos necesarios (usuario, hosts, paneles) y al final la plantilla de incidencia y a quién se escala.
+3. Pide a un compañero o al tutor que lo siga una mañana sin tu ayuda y anota lo que no entendió; corrígelo.
 
-<span class="et et-com">Comprobación</span> Dos páginas, todos los comandos son los que habéis usado de verdad, y otra persona ha podido ejecutar la rutina diaria con él.
+<span class="et et-com">Comprobación</span> Dos páginas, todos los comandos son los que has usado de verdad, y otra persona ha podido ejecutar la rutina diaria con él.
 
 <span class="et et-ent">Entrega</span> `rutina.md` en `ut5/` del repositorio. Firma del tutor en la fila Cierre.
 
@@ -1006,10 +1007,10 @@ La ficha la rellena el tutor de empresa conforme se van entregando las evidencia
 
 ## Errores frecuentes en el laboratorio
 
-Aunque esta unidad se hace en la empresa, estos son los tropiezos que se repiten y que os conviene conocer antes de llegar.
+Aunque esta unidad se hace en la empresa, estos son los tropiezos que se repiten y que conviene conocer antes de llegar.
 
 - `docker logs` sin `--since` tarda minutos y llena el terminal. Siempre con ventana de tiempo, y con `--tail 200` para un vistazo rápido.
-- `grep ERROR` no encuentra nada porque la aplicación escribe en JSON con `"level":"error"` en minúsculas. Mirad primero cinco líneas del log para ver el formato y usad `grep -i` o `jq`: `docker logs --since 1h app | jq -r 'select(.level=="error") | .msg'`.
+- `grep ERROR` no encuentra nada porque la aplicación escribe en JSON con `"level":"error"` en minúsculas. Conviene mirar primero cinco líneas del log para ver el formato y usar `grep -i` o `jq`: `docker logs --since 1h app | jq -r 'select(.level=="error") | .msg'`.
 - fail2ban activo pero `status sshd` da cero fallos: el backend lee un `auth.log` que no existe porque el sistema no tiene rsyslog. `backend = systemd` en `jail.local` y reiniciar fail2ban. Se comprueba con `fail2ban-client get sshd logpath` o mirando `/var/log/fail2ban.log`.
 - Baneada la IP de la propia oficina o de la sonda de Blackbox de mon01. `ignoreip` antes de `enabled = true`, y si ya ha pasado, `fail2ban-client set sshd unbanip`.
 - fail2ban banea en `INPUT` pero el puerto publicado por Docker sigue accesible: el tráfico a contenedores pasa por `DOCKER-USER`/`forward`, no por `input`. Bloquear en el proxy, en OPNsense, o usar la acción con `chain = DOCKER-USER`.
@@ -1017,7 +1018,7 @@ Aunque esta unidad se hace en la empresa, estos son los tropiezos que se repiten
 - `OOMKilled=false` con código 137: no era memoria, era un `docker stop` sin tiempo de gracia suficiente. La aplicación no maneja `SIGTERM` y Docker la mata a los 10 s; arreglar la aplicación o subir `stop_grace_period`.
 - No hay core dump aunque `ulimit -c` es ilimitado en el contenedor: el `core_pattern` del host apunta a un directorio que no existe dentro del contenedor, o a `systemd-coredump` que no encuentra el binario. Montar `/var/crash` en la misma ruta y usar un patrón de fichero.
 - `RestartCount` a cero después de un `compose up -d` que recreó el contenedor. Los reinicios anteriores están en `docker events` o en el journal de dockerd (`journalctl -u docker | grep -i oom`), no en `inspect`.
-- Línea base tomada un festivo o en la semana de vacaciones de medio equipo. La línea base es una semana representativa; si no lo es, anotadlo y tomad otra.
+- Línea base tomada un festivo o en la semana de vacaciones de medio equipo. La línea base es una semana representativa; si no lo es, se anota y se toma otra.
 - `iostat` muestra `%util` al 100 % en un volumen virtual y se concluye que el disco está saturado, cuando en dispositivos con colas paralelas (NVMe, almacenamiento en red) `%util` deja de ser fiable a partir de cierto punto. En esos casos manda `await`.
 - La captura de Grafana en la evidencia lleva el nombre real de la empresa en el título del dashboard o en la etiqueta `instance`. Revisar cada captura antes de adjuntarla; recortar o pixelar lo que haga falta.
 

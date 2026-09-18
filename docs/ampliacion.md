@@ -1,17 +1,21 @@
 # Para ampliar
 
-Esta página recoge, unidad por unidad, dos cosas que no caben en las sesiones: los apartados que van más allá de lo que se hace en clase (no se explican ni los necesita ninguna hoja de práctica, pero son lo que os vais a encontrar en una empresa) y los enlaces para seguir por vuestra cuenta. Las unidades quedan así con lo que se da en cada sesión, y esto está aquí para cuando queráis ir más lejos o cuando algo de la formación en empresa os suene y queráis situarlo.
+Esta página recoge, unidad por unidad, dos cosas que no caben en las sesiones: los apartados que van más allá de lo que se hace en clase (no se explican ni los necesita ninguna hoja de práctica, pero son lo que aparece en el día a día de una empresa) y los enlaces para seguir por cuenta propia. Las unidades quedan así con lo que se da en cada sesión, y esto está aquí para ir más lejos y para situar lo que suene durante la formación en empresa.
 
 ## UT1 · Observabilidad de contenedores: métricas, logs y eventos
 
-Enlaces para ampliar de la [UT1](ut/ut1-observabilidad.md): la documentación de referencia de cgroups, cAdvisor, Prometheus, las librerías cliente, Promtail, Loki, remote_write y chrony. En esta unidad todos los apartados de teoría se explican en clase o los necesita alguna hoja de práctica, así que no hay apartados movidos.
+Enlaces para ampliar de la [UT1](ut/ut1-observabilidad.md): la documentación de referencia de cgroups, cAdvisor, Prometheus, las librerías cliente, Promtail, Loki, remote_write y chrony. Se recoge además el reparto interno de Loki en componentes, que en clase se resume en una línea porque el laboratorio lo ejecuta todo dentro de un mismo proceso.
+
+### El reparto interno de Loki en componentes
+
+Loki no es un solo programa: por dentro tiene componentes con papeles distintos y, en producción, cada uno corre en su propio proceso para poder escalarlos por separado. El *distributor* recibe los `push` de Promtail, valida las etiquetas y reparte cada stream. El *ingester* acumula las líneas en memoria y las escribe como chunks cuando se llenan o cuando vence el plazo. El *querier* resuelve las consultas leyendo lo reciente del ingester y lo antiguo del almacén. El *compactor* aplica la retención y compacta el índice, que va en formato TSDB, el mismo que usa Prometheus. En el laboratorio, y en muchas empresas pequeñas, se arranca con `-target=all` (el modo monolítico): los mismos componentes dentro de un único proceso y con el disco local como almacén. El salto de un modo al otro no cambia ni las consultas ni las etiquetas; solo cambia dónde corre cada pieza y qué se puede escalar sin tocar el resto.
 
 ### Enlaces
 
 - [cgroups v2, man 7 cgroups](https://man7.org/linux/man-pages/man7/cgroups.7.html): referencia del kernel con todos los ficheros de `memory.*`, `cpu.*` e `io.*` que lee cAdvisor.
 - [Documentación de cgroup v2 del kernel](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html): explica `memory.stat` campo a campo, incluido `inactive_file` y por qué el working set se calcula así.
 - [Prometheus metrics for cAdvisor](https://github.com/google/cadvisor/blob/master/docs/storage/prometheus.md): lista completa de métricas `container_*` con su tipo y qué flag las activa.
-- [Metric and label naming](https://prometheus.io/docs/practices/naming/) e [Instrumentation](https://prometheus.io/docs/practices/instrumentation/): las convenciones que hemos seguido y cuándo usar cada tipo de métrica.
+- [Metric and label naming](https://prometheus.io/docs/practices/naming/) e [Instrumentation](https://prometheus.io/docs/practices/instrumentation/): las convenciones que siguen estos apuntes y cuándo usar cada tipo de métrica.
 - [prometheus_client para Python](https://prometheus.github.io/client_python/) y [prom-client para Node](https://github.com/siimon/prom-client): documentación oficial de las dos librerías, con el modo multiproceso y las métricas por defecto.
 - [postgres_exporter](https://github.com/prometheus-community/postgres_exporter): variables de entorno, colectores disponibles y el formato de las consultas personalizadas.
 - [Configure logging drivers, Docker docs](https://docs.docker.com/engine/logging/configure/): todos los drivers, sus opciones y el dual logging.
@@ -24,16 +28,35 @@ Enlaces para ampliar de la [UT1](ut/ut1-observabilidad.md): la documentación de
 
 Apartados y enlaces de la unidad de alarmas que van más allá de lo que se hace en clase; vienen de [UT2](ut/ut2-alarmas.md).
 
-#### Grafana Alerting como alternativa
+### Grafana Alerting como alternativa
 
-![Grafana](img/grafana-logo.svg){ .logo-inline } Grafana 12 trae su propio motor de alertas: reglas que se definen desde la interfaz sobre cualquier fuente de datos (Prometheus, Loki, PostgreSQL, InfluxDB), con periodo de evaluación y pendiente equivalentes a `interval` y `for`, puntos de contacto que son los receptores, y políticas de notificación que son el árbol de rutas. Por debajo lleva embebido un Alertmanager, y puede configurarse para enviar a uno externo (el nuestro en mon01) en lugar de al suyo.
+![Grafana](img/grafana-logo.svg){ .logo-inline } Grafana 12 trae su propio motor de alertas: reglas que se definen desde la interfaz sobre cualquier fuente de datos (Prometheus, Loki, PostgreSQL, InfluxDB), con periodo de evaluación y pendiente equivalentes a `interval` y `for`, puntos de contacto que son los receptores, y políticas de notificación que son el árbol de rutas. Por debajo lleva embebido un Alertmanager, y puede configurarse para enviar a uno externo (el de mon01) en lugar de al suyo.
 
 <figure markdown="span">
   ![Dashboard de Grafana con paneles de series temporales](img/grafana-dashboard.png){ width="640" }
   <figcaption>Un dashboard de Grafana. Las reglas de Grafana Alerting se crean desde el mismo panel que muestra la serie. Fuente: Joel Kennedy, dominio público, vía Wikimedia Commons.</figcaption>
 </figure>
 
-Cuándo sí: cuando la fuente de datos no tiene ruler propio (una base de datos SQL, un Elasticsearch), cuando el equipo que define las alertas trabaja sólo en Grafana y no toca ficheros YAML, o cuando quieres una alerta puntual sobre un panel sin pasar por el repositorio. Cuándo no: cuando las reglas deben vivir en Git con revisión y `promtool test` (Grafana permite provisionarlas desde ficheros, pero el flujo es más incómodo), cuando ya tienes el ruler de Loki y Prometheus mandando al mismo Alertmanager (tener reglas en dos motores es tener dos sitios donde buscar), y cuando la disponibilidad de las alertas no puede depender de la base de datos de Grafana. En el laboratorio la norma es: reglas en ficheros, Prometheus y Loki como motores, Grafana para mirar.
+Cuándo sí: cuando la fuente de datos no tiene ruler propio (una base de datos SQL, un Elasticsearch), cuando el equipo que define las alertas trabaja sólo en Grafana y no toca ficheros YAML, o cuando hace falta una alerta puntual sobre un panel sin pasar por el repositorio. Cuándo no: cuando las reglas deben vivir en Git con revisión y `promtool test` (Grafana permite provisionarlas desde ficheros, pero el flujo es más incómodo), cuando ya está el ruler de Loki y Prometheus mandando al mismo Alertmanager (tener reglas en dos motores es tener dos sitios donde buscar), y cuando la disponibilidad de las alertas no puede depender de la base de datos de Grafana. En el laboratorio la norma es: reglas en ficheros, Prometheus y Loki como motores, Grafana para mirar.
+
+### Cómo se mide la fatiga de alertas
+
+La fatiga de alertas se mide con números que Prometheus y Alertmanager ya dan. Prometheus expone la serie `ALERTS{alertname, alertstate, ...}` con valor 1 mientras una alerta está en `pending` o `firing`, así que se pueden contar las horas que ha estado activa cada una en la última semana:
+
+```promql
+sum by (alertname) (count_over_time(ALERTS{alertstate="firing"}[7d]) * 15) / 3600
+```
+
+El 15 es el intervalo de evaluación en segundos y se ajusta al de cada instalación. Alertmanager expone `alertmanager_notifications_total{integration}` y `alertmanager_alerts_received_total`, con los que salen las notificaciones por día y por canal. Los indicadores que se usan en la práctica son estos cuatro:
+
+| Indicador | Cómo se calcula | Valor razonable |
+|---|---|---|
+| Notificaciones por semana y persona de guardia | `increase(alertmanager_notifications_total[7d])` entre el número de personas | Menos de 10 fuera de horario |
+| Porcentaje de alarmas accionables | Revisión manual semanal: de las incidencias creadas, cuántas llevaron a un cambio | Por encima del 80 % |
+| Alarmas que se resuelven solas antes de que nadie mire | Incidencias cerradas por `resolved` sin comentario humano | Por debajo del 20 % |
+| Tiempo hasta reconocer | Diferencia entre `startsAt` y el primer comentario en la incidencia | Minutos, no horas |
+
+Las incidencias de Gitea que se crean en la UT2 son precisamente lo que permite calcular los tres últimos, porque Alertmanager solo guarda las alertas activas y olvida el pasado.
 
 ### Enlaces
 
@@ -70,7 +93,49 @@ Lista de enlaces de referencia de la [UT3](ut/ut3-seguridad-monitorizacion.md), 
 
 ## UT4 · Indicadores, KPI y pruebas del servicio
 
-Enlaces de ampliación de la unidad [UT4](ut/ut4-kpi-pruebas.md): las referencias originales de las señales doradas, USE y RED, el burn rate, los histogramas de Prometheus y la documentación de k6, ZAP, trivy, newman y Jenkins. Ningún apartado de teoría de la unidad se ha movido aquí: todos se explican en clase o los necesita alguna hoja de práctica.
+Enlaces de ampliación de la unidad [UT4](ut/ut4-kpi-pruebas.md): las referencias originales de las señales doradas, USE y RED, el burn rate, los histogramas de Prometheus y la documentación de k6, ZAP, trivy, newman y Jenkins. Se recoge además la colección de Postman entera de la que sale el fragmento de pruebas funcionales de la unidad.
+
+### Una colección de Postman entera
+
+El apartado de pruebas funcionales de la UT4 se queda con el bloque `event`, que es lo único propio de las pruebas. Esta es la colección completa de la que sale ese fragmento, en formato v2.1, con las dos peticiones enteras: una correcta y otra que espera un 422 por precio negativo. Sirve para ver dónde encaja cada `event` y qué rodea a las afirmaciones, que es lo que genera Postman al exportar y lo que después ejecuta newman.
+
+```json
+{
+  "info": { "name": "API curso", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+  "item": [
+    {
+      "name": "GET items",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{base}}/items"
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('status 200', () => pm.response.to.have.status(200));",
+          "pm.test('responde en menos de 500 ms', () => pm.expect(pm.response.responseTime).to.be.below(500));",
+          "pm.test('devuelve una lista', () => pm.expect(pm.response.json()).to.be.an('array'));"
+        ] }
+      }]
+    },
+    {
+      "name": "POST item precio negativo",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" },
+                   { "key": "Authorization", "value": "Bearer {{token}}" }],
+        "body": { "mode": "raw", "raw": "{\"name\": \"x\", \"price\": -3}" },
+        "url": "{{base}}/items"
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": ["pm.test('status 422', () => pm.response.to.have.status(422));"] }
+      }]
+    }
+  ]
+}
+```
 
 ### Enlaces
 
@@ -107,7 +172,35 @@ Enlaces de referencia de la unidad de logs, accesos y rendimiento que se cursa e
 
 ## UT6 · Copias de seguridad y restauración
 
-Enlaces de ampliación de la [UT6](ut/ut6-copias-seguridad.md), la unidad de copias de seguridad y restauración que se cursa en la empresa. No hay apartados movidos: todos los de la unidad los necesita alguna de las tres actividades.
+Enlaces de ampliación de la [UT6](ut/ut6-copias-seguridad.md), la unidad de copias de seguridad y restauración que se cursa en la empresa. Se recogen además el afinado de restic y la equivalencia de comandos con BorgBackup: ninguno de los dos hace falta para las tres actividades, pero aparecen en cuanto el repositorio crece o el destino deja de ser un bucket.
+
+### Afinado de restic
+
+Una copia diaria del tamaño de la del laboratorio no necesita ningún ajuste: restic funciona bien con los valores por defecto, y la caché local de `RESTIC_CACHE_DIR` ya se lleva casi toda la mejora posible. Lo que sigue aparece cuando el repositorio crece a cientos de gigabytes o cuando la ventana nocturna se queda corta.
+
+- `--read-concurrency 4` sube el número de ficheros que se leen a la vez. Ayuda en discos NVMe y estorba en discos mecánicos, donde el cuello es el cabezal y más peticiones simultáneas solo añaden desplazamientos.
+- `RESTIC_PACK_SIZE=64` (en MiB) agranda los paquetes que restic sube. Con menos objetos, un bucket grande se lista e indexa antes y se pagan menos peticiones; a cambio, cada `prune` reescribe más datos de golpe.
+- `--limit-upload` y `--limit-download` (en KiB/s) acotan el ancho de banda para que la copia no deje sin línea al resto de lo que se ejecuta esa noche.
+- `--max-unused` en `prune` decide cuánto espacio desaprovechado se tolera antes de reempaquetar. Cuanto más bajo, más limpio queda el repositorio y más tarda y más transfiere la operación.
+
+Antes de tocar cualquiera de estos conviene medir. El resumen que restic imprime al final de cada copia da ficheros leídos, datos añadidos y tiempo total, y con eso basta para saber si el cuello está en la CPU, en el disco o en la subida; ajustar el parámetro equivocado no mejora nada y sí complica el script.
+
+### BorgBackup y borgmatic: comandos y equivalencias
+
+BorgBackup guarda el repositorio en local o en un servidor al que se llega por SSH con `borg serve`; hasta la versión 2 no habla S3 de forma nativa. La compresión se elige en cada copia (`lz4` cuando manda la velocidad, `zstd` cuando manda el tamaño) y el cifrado al inicializar el repositorio: `repokey` guarda la clave dentro del propio repositorio protegida por la contraseña, y `keyfile` la deja en `~/.config/borg/keys/`, lo que obliga a custodiarla aparte.
+
+| Operación | restic | borg |
+|---|---|---|
+| Crear el repositorio | `restic init` | `borg init --encryption=repokey-blake2` |
+| Copiar | `restic backup /opt/app /var/backups --tag app` | `borg create --stats --compression zstd ssh://backup@nas.empresa.local/./app::{now} /opt/app /var/backups` |
+| Retención | `restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune` | `borg prune --keep-daily 7 --keep-weekly 4 --keep-monthly 6` y después `borg compact` |
+| Verificar | `restic check --read-data-subset=5%` | `borg check --verify-data` |
+| Restaurar una ruta | `restic restore latest --target /restore --include /var/backups/app.dump` | `borg extract ssh://backup@nas.empresa.local/./app::2027-05-03T02:30:14 var/backups/app.dump` |
+| Montar el repositorio | `restic mount /mnt/restic` | `borg mount` |
+
+Dos diferencias importan al operar. La primera es que en borg el espacio no se libera con `prune`: `prune` marca los archivos y es `compact` el que reescribe los segmentos, así que sin `compact` los datos siguen en el destino y el ocupado no baja. La segunda es que `--append-only` no es una opción del cliente sino del servidor: se pone en la línea de `authorized_keys` del usuario de copias del NAS, y con ella el cliente puede crear archivos nuevos pero no borrar los que ya hay. La limpieza se ejecuta entonces desde otra sesión sin esa restricción, igual que el `forget --prune` de restic se lanza desde otro host.
+
+Borgmatic es una capa encima que sustituye el script propio por un fichero YAML: declara los orígenes, la retención, las órdenes de antes y después de la copia (`before_backup: pg_dump...`) y los avisos a un servicio de vigilancia tipo healthchecks. Es lo habitual en instalaciones pequeñas que no quieren mantener un bash a mano, y el fichero se lee mucho mejor que el script equivalente.
 
 ### Enlaces
 
@@ -126,7 +219,38 @@ Enlaces de ampliación de la [UT6](ut/ut6-copias-seguridad.md), la unidad de cop
 
 ## UT7 · Actualización y gestión de vulnerabilidades
 
-Enlaces para ampliar de la unidad [UT7](ut/ut7-actualizacion-vulnerabilidades.md), Actualización y gestión de vulnerabilidades; ningún apartado de teoría ha salido de la unidad.
+Enlaces para ampliar de la unidad [UT7](ut/ut7-actualizacion-vulnerabilidades.md), Actualización y gestión de vulnerabilidades. Se recogen además las bases de imagen que hay por debajo de `slim` y `alpine` y la configuración de Dependabot, que no se usa en clase porque el repositorio del curso no está alojado en GitHub.
+
+### Bases mínimas: distroless y Chainguard
+
+Por debajo de las variantes `-slim` y `-alpine` hay imágenes base pensadas para no contener nada más que el intérprete o el binario de la aplicación, sin shell y sin gestor de paquetes.
+
+| Variante | Base | Tamaño orientativo | Cuándo |
+|---|---|---|---|
+| `gcr.io/distroless/python3-debian12` | Debian sin shell ni gestor de paquetes | Muy pequeña | Mínima superficie de ataque. No se puede entrar con `docker exec … sh` para depurar. |
+| `cgr.dev/chainguard/python` | Wolfi, una distribución mínima de Chainguard pensada para contenedores, reconstruida a diario con cero CVE como objetivo | Muy pequeña | Igual que distroless, pero con los parches mucho más rápidos. La etiqueta `latest` es gratuita; las versiones fijadas son de pago. |
+
+El efecto sobre el escaneo es directo: si no hay gestor de paquetes, no hay inventario de paquetes del sistema que analizar, y el informe se queda con las dependencias propias de la aplicación, que son las que de verdad se ejecutan. El precio se paga al depurar, porque dentro del contenedor no hay shell: hay que arrancar un contenedor auxiliar que comparta los espacios de nombres del que falla, o publicar una variante `:debug` de la misma imagen para esos casos. Para un servicio que se despliega sin intervención y se diagnostica por logs y métricas, compensa; para el laboratorio, donde entrar al contenedor es parte del trabajo, no.
+
+### Dependabot
+
+Dependabot es el robot de actualización de dependencias integrado en GitHub. Se configura con un fichero del propio repositorio, `.github/dependabot.yml`, con un bloque por ecosistema y directorio:
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+  - package-ecosystem: "pip"
+    directory: "/api"
+    schedule:
+      interval: "weekly"
+```
+
+Frente a Renovate cubre menos gestores, agrupa peor las actualizaciones relacionadas (no tiene un equivalente cómodo de `groupName`) y solo funciona en GitHub. A cambio no hay nada que instalar ni ningún token de robot que mantener: se activa desde la configuración del repositorio y las propuestas empiezan a llegar. Como el repositorio del curso está en Gitea, en clase se usa Renovate, pero las propuestas de Dependabot aparecen en cualquier proyecto alojado en GitHub, y sus avisos de seguridad, que salen de la GitHub Advisory Database, son la misma fuente que consulta Renovate en `vulnerabilityAlerts`.
 
 ### Enlaces
 
@@ -135,7 +259,7 @@ Enlaces para ampliar de la unidad [UT7](ut/ut7-actualizacion-vulnerabilidades.md
 - [Trivy, documentación oficial](https://trivy.dev/latest/docs/): modos de escaneo, filtros, formatos de salida e integración en CI, con ejemplos para Jenkins y GitLab.
 - [Especificación CVSS v4.0 de FIRST](https://www.first.org/cvss/v4.0/specification-document): qué mide cada métrica del vector y cómo se calcula la puntuación; incluye la calculadora.
 - [EPSS, de FIRST](https://www.first.org/epss/): el modelo, los datos diarios descargables y por qué complementa a CVSS.
-- [Catálogo KEV de CISA](https://www.cisa.gov/known-exploited-vulnerabilities-catalog): la lista de vulnerabilidades con explotación confirmada, descargable en JSON y CSV para cruzarla con vuestro SBOM.
+- [Catálogo KEV de CISA](https://www.cisa.gov/known-exploited-vulnerabilities-catalog): la lista de vulnerabilidades con explotación confirmada, descargable en JSON y CSV para cruzarla con el SBOM propio.
 - [OSV.dev](https://osv.dev/): base de datos abierta de vulnerabilidades por paquete y versión, con API y el proyecto `osv-scanner`.
 - [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/): el formato del CHANGELOG, con las categorías y las razones de cada regla.
 - [Guía de actualización de PostgreSQL](https://www.postgresql.org/docs/current/upgrading.html): diferencia entre versión menor y mayor, y las tres formas de hacer una mayor.
@@ -143,7 +267,19 @@ Enlaces para ampliar de la unidad [UT7](ut/ut7-actualizacion-vulnerabilidades.md
 
 ## UT8 · Terminación segura del contenedor
 
-Enlaces para ampliar de la [UT8](ut/ut8-terminacion-segura.md). En esta unidad todos los apartados de teoría se explican en clase o los necesita alguna hoja de práctica, así que aquí solo están las referencias para seguir por vuestra cuenta.
+Enlaces para ampliar de la [UT8](ut/ut8-terminacion-segura.md). Se recoge además el borrado físico de soportes por tipo, que en el laboratorio no llega a practicarse porque el disco de una máquina virtual es un fichero del hipervisor y no un soporte propio.
+
+### Borrado físico de soportes por tipo
+
+En el laboratorio no hay soportes propios que destruir: el disco de una VM de Proxmox es un fichero o un zvol, y lo que se escriba desde dentro de la VM no llega al medio físico. En una empresa con máquinas propias, en cambio, el método se elige por tipo de soporte y el acta de baja tiene que decir cuál se usó y quién lo ejecutó.
+
+- **Discos magnéticos dedicados.** `shred -n 3 -z -v /dev/sdb` hace tres pasadas aleatorias y una de ceros. `nwipe`, el sucesor de DBAN, hace lo mismo con verificación y con un registro de la operación, que es lo que sirve como prueba ante un auditor. Los dos cuentan como *Clear*.
+- **SSD y NVMe.** `shred` no vale: el controlador reparte las escrituras entre celdas y deja la copia original en otra página, legible con acceso al chip. La herramienta correcta es el borrado seguro del propio firmware del disco, `nvme format /dev/nvme0n1 --ses=1` (o `--ses=2` para el borrado criptográfico, si el disco lo soporta) y `hdparm --security-erase` en los que hablan SATA. `blkdiscard /dev/nvme0n1` descarta el dispositivo entero, pero sin garantía de que las celdas se borren de inmediato.
+- **Cinta.** El borrado lo hace el software de la librería, no el sistema operativo del host.
+- **Desmagnetizado.** Un desmagnetizador somete el soporte a un campo magnético que destruye la codificación. Cuenta como *Purge* en discos magnéticos y en cintas, y deja el soporte inservible. En un SSD no sirve de nada, porque la información no se guarda de forma magnética.
+- **Destrucción física.** Trituración o perforación con proveedor certificado, que devuelve un certificado de destrucción con el número de serie de cada soporte. Es lo que exigen los pliegos cuando la categoría del sistema es alta, cuando hay datos de salud o cuando el contrato lo especifica.
+
+La regla que ordena todo esto es la de siempre: si los datos estuvieron cifrados desde el principio y la clave se ha destruido, ninguno de estos métodos hace falta para que sean irrecuperables. El borrado físico es lo que queda cuando esa precaución no se tomó a tiempo.
 
 ### Enlaces
 

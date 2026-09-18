@@ -1,16 +1,16 @@
 # Presentación y evaluación
 
-<p class="ut-meta">Módulo 5169 · Mantenimiento del sistema de contenedores desplegado · 110 h · Clases martes y jueves, 2 h por sesión</p>
+<p class="ut-meta">Módulo 5169 · Mantenimiento del sistema de contenedores desplegado · 110 h · Clases martes y jueves, 1 h 50 min por sesión</p>
 
 ## De qué va la asignatura
 
 Desplegar un servicio es un día; mantenerlo son años. Esta asignatura se ocupa de todo lo que pasa después de que el pipeline de la asignatura de despliegue ponga el servicio en producción: vigilarlo, avisar cuando se degrada, probarlo, protegerlo, actualizarlo, copiarlo y, al final de su vida, retirarlo con limpieza. Es el trabajo diario de quien opera una plataforma de contenedores.
 
-La asignatura hermana, [Despliegue de plataformas de contenedores](https://victor-educ.github.io/apuntes-5166/) (módulo 5166), se cursa el mismo año. Compartimos laboratorio y el mismo servicio de referencia; lo que se monta allí es lo que se mantiene aquí.
+La asignatura hermana, [Despliegue de plataformas de contenedores](https://victor-educ.github.io/apuntes-5166/) (módulo 5166), se cursa el mismo año. Las dos comparten laboratorio y el mismo servicio de referencia; lo que se monta allí es lo que se mantiene aquí.
 
 ## Resultados de aprendizaje
 
-Cinco resultados de aprendizaje. Los resumo con mis palabras y digo en qué unidad se trabaja cada criterio; el texto oficial está en el real decreto del curso de especialización.
+El currículo define cinco resultados de aprendizaje. Las tablas siguientes los recogen en lenguaje llano e indican en qué unidad se trabaja cada criterio; el texto oficial está en el real decreto del curso de especialización.
 
 **RA1. Monitoriza el sistema de contenedores: integra los datos, gestiona las alarmas y protege las comunicaciones.**
 
@@ -98,10 +98,10 @@ Los exámenes son las sesiones 28 (2 de febrero de 2027) y 41 (6 de abril de 202
 
 ## Sobre el material
 
-Estos apuntes los he escrito yo apoyándome en Claude, el asistente de IA de Anthropic: partí de mis apuntes en Word y de la planificación de sesiones, y usé la herramienta para redactar, ampliar y revisar cada unidad. Lo digo porque no quiero que haya dudas sobre cómo se ha hecho. La revisión final y los errores que queden son míos, y los iré corrigiendo durante el curso.
+Este material lo ha escrito Víctor Sellés para la asignatura, con el apoyo de Claude (el asistente de IA de Anthropic) en la redacción, ampliación y revisión, a partir de apuntes propios y de la planificación del curso. La revisión final es del autor, igual que los errores que queden, que se corrigen durante el curso.
 
 ## Metodología
 
-Cada sesión de dos horas tiene una parte corta de explicación (entre 10 y 30 minutos, según la sesión) y una parte larga de laboratorio sobre el contenedor de referencia. El [calendario](calendario.md) y el plan de sesiones de cada unidad dicen, sesión a sesión, qué se explica y qué se practica, y de qué tipo es cada sesión: teoría y práctica, solo práctica, práctica evaluable o examen. Cada unidad está ordenada por sesiones: primero una introducción con los conceptos y herramientas de la unidad y el plan de sesiones, y después, sesión a sesión, los apartados de teoría que explico ese día seguidos de la hoja de práctica, con objetivo, requisitos previos, pasos, comprobación y entrega. Como el servicio es el mismo durante todo el curso, lo que se configura en una unidad sigue funcionando en la siguiente: las alarmas de la UT2 usan las métricas de la UT1, las pruebas de la UT4 verifican la actualización de la UT7 y la UT8 desmonta todo lo anterior. Por eso conviene no dejar nada a medias.
+Cada sesión de 110 minutos tiene una parte corta de explicación (entre 10 y 30 minutos, según la sesión) y una parte larga de laboratorio sobre el contenedor de referencia. El [calendario](calendario.md) y el plan de sesiones de cada unidad dicen, sesión a sesión, qué se explica y qué se practica, y de qué tipo es cada sesión: teoría y práctica, solo práctica, práctica evaluable o examen. Cada unidad está ordenada por sesiones: primero una introducción con los conceptos y herramientas de la unidad y el plan de sesiones, y después, sesión a sesión, los apartados de teoría que se explican ese día seguidos de la hoja de práctica, con objetivo, requisitos previos, pasos, comprobación y entrega. Como el servicio es el mismo durante todo el curso, lo que se configura en una unidad sigue funcionando en la siguiente: las alarmas de la UT2 usan las métricas de la UT1, las pruebas de la UT4 verifican la actualización de la UT7 y la UT8 desmonta todo lo anterior. Por eso conviene no dejar nada a medias.
 
 Todo lo que se hace se documenta en el momento. Al final de cada unidad esa documentación es la práctica evaluable.
