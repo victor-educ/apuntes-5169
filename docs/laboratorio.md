@@ -114,7 +114,7 @@ La tabla única del laboratorio (VNets y subredes, IP de cada máquina, IDs de V
 | Nombres de recording rules | `nivel:métrica:operación`, por ejemplo `app:errors:ratio5m` |
 | Repositorio de alertas | `alerting` en Gitea: rules.yml, alerts.yml, alertmanager.yml, receptor webhook |
 | Evidencias de pruebas | `tests/evidence/<versión>/` en el repositorio del servicio |
-| Copias | Repositorio restic en MinIO (`s3:http://10.10.0.30:9000/backups`), contraseña en `/etc/restic/pass` con permisos 600 |
+| Copias | Repositorio restic en MinIO (`s3:http://10.10.0.30:9000/backups`), contraseña en `/etc/restic/pass` con permisos 600. El bucket `backups` y la credencial `restic` nacen con el propio MinIO el 8 de enero, en la A5.4 de Despliegue; el `restic init` se hace una sola vez en todo el curso, en el paso 4 de la A7.4 |
 | Imágenes | Etiqueta con versión concreta, digest fijado en pre y pro; se publican en `registry.lab:5000` |
 
 Las direcciones que más se usan en esta asignatura, por si hace falta tenerlas a mano: `mon01` es la `10.10.0.20` en gestión, `web01` la `10.10.1.10` en front, `app01` la `10.10.2.10` en back y `db01` la `10.10.3.10` en data. Ni web01, ni app01, ni db01 tienen pata de gestión: Prometheus llega a sus exporters atravesando el cortafuegos, que es justo lo que se abre en la UT3.

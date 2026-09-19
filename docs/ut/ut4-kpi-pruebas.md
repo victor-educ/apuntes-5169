@@ -132,9 +132,11 @@ Capacidad responde a "¿cuándo se llenará?" y son casi siempre gauges o cocien
 |---|---|---|---|
 | `container_memory_working_set_bytes{service="app"}` | gauge | cAdvisor | Memoria que el kernel no puede reclamar; es la que cuenta para el OOM killer (el mecanismo del kernel que mata un proceso cuando se agota la memoria) |
 | `container_spec_memory_limit_bytes{service="app"}` | gauge | cAdvisor | Límite `mem_limit` de compose; sin límite cAdvisor devuelve un número enorme, no cero |
-| `node_filesystem_avail_bytes{mountpoint="/data"}` | gauge | node_exporter en db01 | Bytes disponibles para usuarios no root (distinto de `_free_bytes`, que incluye la reserva del 5 %) |
+| `node_filesystem_avail_bytes{mountpoint="/data"}` | gauge | node_exporter en db01 | Bytes disponibles para usuarios no root (distinto de `_free_bytes`, que incluye la reserva del 5 %) en `/data`, el disco de datos donde vive el clúster de PostgreSQL |
 | `pg_stat_activity_count{datname="app"}` | gauge | postgres_exporter | Conexiones abiertas por estado (`state="active"`, `"idle"`) |
 | `pg_settings_max_connections` | gauge | postgres_exporter | Valor de `max_connections` en `postgresql.conf` |
+
+`/data` no es la raíz de `db01`: es un disco aparte montado ahí, donde vive el clúster de PostgreSQL desde que lo separa la [A3.3 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/) el 27 de noviembre. Medir la capacidad de la base de datos sobre `/` mezclaría los datos con los logs del sistema, y la prueba de la A4.3, que llena el sistema de ficheros a propósito, dejaría la máquina sin PostgreSQL, sin journald y sin SSH. Dos de los nueve indicadores de la A4.2 y dos de los runbooks de la A4.3 miden ese punto de montaje: si `node_filesystem_avail_bytes{mountpoint="/data"}` no devuelve nada en Prometheus, lo que falta es el disco, no la consulta.
 
 Rendimiento responde a "¿cuánto tarda y cuánto procesa?" y suelen ser histogramas o counters derivados en el tiempo:
 
@@ -320,6 +322,7 @@ Y una regla práctica: ningún umbral se fija sin haber mirado antes la distribu
 - El repositorio alerting de la UT2 clonado, con `rules.yml`, `alerts.yml` y la recarga de Prometheus que montaste entonces.
 - Dos días de tráfico de prueba contra `app01` (el generador de la UT1 o k6 a ratos). Sin datos no hay umbral que justificar.
 - Límites `cpus` y `mem_limit` en el servicio `app` de `compose.yaml`; sin ellos los indicadores de saturación dan `+Inf` y 0 %.
+- `db01` con su disco de datos montado en `/data` y con `node_exporter` y `postgres_exporter` publicando: de ahí salen tres de los nueve indicadores (los dos de disco y el de conexiones). Compruébalo en `http://10.10.0.20:9090/graph` antes de empezar, con `node_filesystem_avail_bytes{mountpoint="/data"}` y con `pg_stat_activity_count`. Si la primera no devuelve nada falta el disco, que monta la [A3.3 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/) el 27 de noviembre; si la que no devuelve nada es la segunda, falta mover el `postgres_exporter` a `db01` ahora que PostgreSQL ya no es un contenedor de `app01`: es la receta de [Exporters](ut1-observabilidad.md#exporters-lo-que-no-se-puede-instrumentar) de la UT1 apuntando a la base local, y se cierra igual que los de la [A3.2](ut3-seguridad-monitorizacion.md#a32-red-y-firewall-sesion-17).
 - Lo explicado al principio de la sesión: [SLI, SLO y presupuesto de error](#indicadores-formulas-y-umbrales), [los nueve indicadores](#los-nueve-indicadores-del-servicio) y [cómo fijar umbrales](#como-fijar-umbrales).
 
 <span class="et et-pas">Pasos</span>
@@ -416,10 +419,10 @@ Dos fichas más, escritas con el mismo esquema, para ver cómo cambia el conteni
 | Campo | PgDown |
 |---|---|
 | Origen | `pg_up == 0` durante 1 min (postgres_exporter no consigue conectar) o `probe_success{instance="db01:5432"} == 0` |
-| Posible fallo | Contenedor `postgres` parado o reiniciándose (OOM, disco lleno, corrupción); `max_connections` agotadas y el exporter no entra; red entre mon01 y la subred data cortada por una regla de OPNsense |
+| Posible fallo | El servicio `postgresql` de db01 parado o reiniciándose (falta de memoria, disco lleno, corrupción); `max_connections` agotadas y el exporter no entra; red entre mon01 y la subred data cortada por una regla de OPNsense |
 | Impacto | Toda escritura y la mayoría de lecturas de la API fallan con 5xx; salta AppHighErrorRate a los 5 min. Inhibida por HostDown de db01 (UT2) |
-| Análisis | 1. Desde mon01: `nc -zv 10.10.3.10 5432` (si falla, red o proceso caído). 2. En db01: `docker compose ps postgres` y `docker inspect postgres --format '{{.State.OOMKilled}} {{.State.ExitCode}}'`. 3. `df -h /data` (disco lleno es la causa más frecuente en el laboratorio). 4. `docker logs postgres --since 15m \| tail -50` buscando `FATAL`, `PANIC` o `could not write`. 5. Si el contenedor está arriba: `docker exec postgres psql -U postgres -c "select count(*) from pg_stat_activity"` para descartar conexiones agotadas |
-| Resolución | Reinicio por OOM: `docker compose restart postgres` y subir `mem_limit` en el mismo turno. Disco lleno: liberar espacio (logs antiguos, WAL archivado ya copiado) y reiniciar; nunca borrar dentro de `pgdata`. Conexiones agotadas: `pg_terminate_backend` de las sesiones `idle` más antiguas y revisar el pool de la API. Corrupción (`PANIC` en los logs): no tocar, escalar y preparar restauración de la copia (UT6) |
+| Análisis | 1. Desde mon01: `nc -zv 10.10.3.10 5432` (si falla, red o proceso caído). 2. En db01: `systemctl status postgresql@17-main` y `journalctl -k \| grep -i 'out of memory'`. 3. `df -h /data` (disco lleno es la causa más frecuente en el laboratorio). 4. `sudo tail -50 /var/log/postgresql/postgresql-17-main.log` buscando `FATAL`, `PANIC` o `could not write`. 5. Si el servicio está arriba: `sudo -u postgres psql -c "select count(*) from pg_stat_activity"` para descartar conexiones agotadas |
+| Resolución | Proceso muerto por falta de memoria: `sudo systemctl restart postgresql@17-main` y subir la memoria de la VM en el mismo turno. Disco lleno: liberar espacio en `/data` (volcados locales antiguos, WAL archivado ya copiado) y reiniciar; nunca borrar dentro de `/data/postgresql`. Conexiones agotadas: `pg_terminate_backend` de las sesiones `idle` más antiguas y revisar el pool de la API. Corrupción (`PANIC` en los logs): no tocar, escalar y preparar restauración de la copia (UT6) |
 | Escalado | Inmediato al responsable de datos si hay `PANIC` o si no arranca en 10 min; en horario, aviso al equipo de desarrollo si la causa es el pool |
 
 | Campo | DiskWillFillIn7d |
@@ -427,8 +430,8 @@ Dos fichas más, escritas con el mismo esquema, para ver cómo cambia el conteni
 | Origen | `predict_linear(node_filesystem_avail_bytes{mountpoint="/data"}[7d], 7*86400) < 0` durante 1 h |
 | Posible fallo | Crecimiento normal de datos sin plan de capacidad; logs de PostgreSQL o de la aplicación sin rotación; copias locales (`pg_dump`) acumuladas en el mismo volumen; tabla sin `VACUUM` con bloat (espacio que siguen ocupando filas ya borradas) |
 | Impacto | Ninguno inmediato. Si no se actúa, en menos de una semana PostgreSQL deja de escribir y salta PgDown |
-| Análisis | 1. Panel "capacidad db01": pendiente de la gráfica de 30 días y fecha estimada. 2. `du -xsh /data/* \| sort -h \| tail` para ver qué crece. 3. `docker exec postgres psql -U postgres -c "select relname, pg_size_pretty(pg_total_relation_size(oid)) from pg_class order by pg_total_relation_size(oid) desc limit 10"`. 4. `ls -la /data/backups` (¿hay copias que ya están en restic, la herramienta de copias de la UT6?). 5. Comprobar `logrotate` en `/var/lib/docker/containers` si el crecimiento está fuera de `/data` |
-| Resolución | Copias locales ya replicadas: borrar las de más de 7 días. Logs: activar rotación (`max-size` en el driver `json-file`). Bloat: `VACUUM (VERBOSE)` de la tabla en ventana de baja carga. Crecimiento legítimo: abrir tarea de ampliación del disco virtual en Proxmox (`qm resize`) y `resize2fs`, con copia previa |
+| Análisis | 1. Panel "capacidad db01": pendiente de la gráfica de 30 días y fecha estimada. 2. `du -xsh /data/* \| sort -h \| tail` para ver qué crece. 3. `sudo -u postgres psql -c "select relname, pg_size_pretty(pg_total_relation_size(oid)) from pg_class order by pg_total_relation_size(oid) desc limit 10"`. 4. `ls -la /data/copias` (¿hay volcados que ya están copiados fuera de la máquina?). 5. Si el crecimiento está fuera de `/data`, `du -xsh /var/log/*` en db01: casi siempre son los logs de PostgreSQL sin rotar |
+| Resolución | Volcados locales ya replicados: borrar los de más de 7 días. Logs: revisar la rotación de `/var/log/postgresql` en `/etc/logrotate.d/postgresql-common`. Bloat: `VACUUM (VERBOSE)` de la tabla en ventana de baja carga. Crecimiento legítimo: abrir tarea de ampliación del disco virtual en Proxmox (`qm resize`) y `resize2fs`, con copia previa |
 | Escalado | Si la fecha estimada es inferior a 3 días, tratar como crítico y avisar al responsable de infraestructura en el día |
 
 El catálogo es la colección de fichas, versionada con las reglas de alerta y enlazada desde la anotación `runbook` de cada alarma. La A4.3 pide diez como mínimo; en la empresa lo normal es que haya entre 30 y 80 para un servicio mediano, y que la mitad se retiren al cabo de un año por no haber saltado nunca o por saltar sin acción posible.
@@ -441,6 +444,7 @@ El catálogo es la colección de fichas, versionada con las reglas de alerta y e
 
 - El repositorio alerting con las alarmas de la UT2 (`AppSlow`, `AppHighErrorRate`, `HostDown`, `PgDown` y las que añadiste) y los umbrales de la A4.2 ya cargados.
 - Un compañero disponible para la prueba cruzada del último paso.
+- Acceso a la consola de OPNsense y a la Gitea del laboratorio (el contenedor de `mon01`, `http://mon01:3001`, con el repositorio `ops/incidencias` de la A2.6): en el paso 5 se le da nombre y se publica ahí el catálogo.
 - Lo explicado al principio de la sesión: [la ficha de alarma](#catalogo-de-alarmas-y-runbooks), [qué hace bueno a un runbook](#que-hace-bueno-a-un-runbook) y [los dos ejemplos completos](#dos-runbooks-mas).
 
 <span class="et et-pas">Pasos</span>
@@ -458,7 +462,18 @@ El catálogo es la colección de fichas, versionada con las reglas de alerta y e
 
 4. En Resolución, ordena las acciones de menos a más destructiva. En Escalado, tiempo y rol concreto, no "avisar a alguien".
 
-5. Enlaza cada ficha desde su regla en `alerts.yml`:
+5. Publica el catálogo y enlaza cada ficha desde su regla en `alerts.yml`. Dos preparativos antes de escribir la primera anotación, para no tener que reescribir las diez fichas en febrero:
+
+    a. Da de alta el nombre del servidor de repositorios. En OPNsense, Services, Dnsmasq DHCP & DNS, Hosts, pulsa + y crea `gitea` en el dominio `lab` apuntando a `10.10.0.20`, que es donde corre hoy la Gitea del laboratorio (el contenedor que levantaste en `mon01` en la A2.6). Aplica y comprueba con `dig gitea.lab @10.10.0.1 +short`.
+
+    b. Dale remoto al repositorio del servicio, que hasta ahora era solo local. En `http://gitea.lab:3001`, crea el repositorio `servicio` dentro de la organización `ops` y empuja lo que tienes, incluido `docs/alarmas/`:
+
+    ```bash
+    git remote add origin http://gitea.lab:3001/ops/servicio.git
+    git push -u origin main
+    ```
+
+    Con eso, la anotación `runbook` apunta a una URL que abre de verdad:
 
     ```yaml
     - alert: AppHighErrorRate
@@ -467,16 +482,23 @@ El catálogo es la colección de fichas, versionada con las reglas de alerta y e
       labels: { severity: critical }
       annotations:
         summary: "Tasa de errores 5xx por encima del 1 %"
-        runbook: "https://gitea.lab/servicio/app/src/branch/main/docs/alarmas/AppHighErrorRate.md"
+        runbook: "http://gitea.lab:3001/ops/servicio/src/branch/main/docs/alarmas/AppHighErrorRate.md"
     ```
 
-    Valida con `promtool check rules alerts.yml`, recarga Prometheus y comprueba en `http://10.10.0.20:9090/alerts` que la anotación aparece en cada alarma.
+    Valida con `promtool check rules alerts.yml`, recarga Prometheus y comprueba en `http://10.10.0.20:9090/alerts` que la anotación aparece en cada alarma; abre una en el navegador para verlo.
 
-6. Prueba cruzada: dale un runbook a un compañero que no lo haya escrito y provoca la alarma (parar `postgres`, llenar `/data` con `fallocate -l 5G /data/relleno`, lanzar carga con k6). Cada pregunta que te haga es una línea que falta en la ficha: corrígela antes de terminar.
+    !!! otra "Cuando llegue gitea01"
+        El 17 de febrero, en la [A6.5 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/),
+        Gitea se muda a su máquina, `gitea01` (10.10.0.11), con nginx delante terminando TLS. Ese día solo
+        hay que cambiar el override a la 10.10.0.11 y quitar el `:3001` de las anotaciones con un
+        `sed -i 's|http://gitea.lab:3001|https://gitea.lab|' docs/alarmas/*.md alerts.yml`. Ningún runbook
+        se reescribe, y por eso hoy se usa el nombre `gitea.lab` y no la dirección de `mon01`.
+
+6. Prueba cruzada: dale un runbook a un compañero que no lo haya escrito y provoca la alarma (parar `postgresql` en db01, llenar `/data` con `sudo fallocate -l 4G /data/relleno`, lanzar carga con k6). Con el disco de 5 GB de db01, esos 4 G dejan el sistema de ficheros al 13 % disponible, que es lo que hace saltar `DbDiskLow` (aviso por debajo del 20 %) sin llenarlo del todo; bórralo con `sudo rm /data/relleno` en cuanto hayas capturado la alarma. Cada pregunta que te haga el compañero es una línea que falta en la ficha: corrígela antes de terminar.
 
 <span class="et et-com">Comprobación</span> Diez fichas o más con las seis filas rellenas; cada regla de `alerts.yml` tiene anotación `runbook` con una URL que abre; al menos un runbook ha pasado la prueba cruzada y recoge lo que hubo que añadir.
 
-<span class="et et-ent">Entrega</span> `docs/alarmas/` en el repositorio del servicio y `alerts.yml` actualizado en el repositorio alerting (merge request). Forma parte del dossier de la práctica evaluable.
+<span class="et et-ent">Entrega</span> `docs/alarmas/` en el repositorio del servicio, ya empujado a la Gitea del laboratorio, y `alerts.yml` actualizado en el repositorio alerting (merge request). Forma parte del dossier de la práctica evaluable.
 
 ## Sesión 23 · Pruebas funcionales
 
@@ -1025,7 +1047,7 @@ Una prueba que no se documenta no existe a efectos de auditoría ni de la UT7, d
 | Id y nombre | PR-03 Carga 50 usuarios |
 | Versión probada | `app:1.4.2`, commit `abc1234` |
 | Entorno | pre |
-| Fecha y ejecutor | 2027-01-14 · Jenkins job `app-pruebas` #87 (lanzado por vsl) |
+| Fecha y ejecutor | 2027-01-14 · Jenkins job `app-pruebas` #87 (lanzado por ops) |
 | Procedimiento | `k6 run --summary-export=... tests/k6/carga.js` con `API_URL=https://api.pre.lab`, `APP_VERSION=1.4.2` |
 | Resultado esperado | p95 < 500 ms, errores < 1 % |
 | Resultado obtenido | p95 = 412 ms, errores 0,2 % |
@@ -1072,7 +1094,7 @@ Las evidencias se guardan en el repositorio o en un almacén con la misma retenc
 | Seguridad | PS-01 (ZAP), PS-02 (trivy) | 1 | 1 | KO: CVE-2026-XXXXX HIGH en libssl, corregida en 3.5.2-1 |
 
 Veredicto de la versión: NO APTA para producción hasta reconstruir con base actualizada (PS-02).
-Firmado: vsl · Revisado: ...
+Firmado: ops · Revisado: ...
 ```
 
 #### La puerta de pruebas en el pipeline de Jenkins
@@ -1140,7 +1162,7 @@ flowchart TD
 Cada revisión deja un registro breve. La plantilla, en `ops/revisiones/AAAA-Wnn.md` para las semanales:
 
 ```markdown
-# Revisión semanal · 2027-W03 · 2027-01-22 · vsl
+# Revisión semanal · 2027-W03 · 2027-01-22 · ops
 
 ## Estado
 - Disponibilidad 30 d: 99,71 % (SLO 99,5 %). Presupuesto consumido: 58 % a día 22 → ritmo por encima de 1.
@@ -1159,7 +1181,7 @@ Cada revisión deja un registro breve. La plantilla, en `ops/revisiones/AAAA-Wnn
 2. El presupuesto de error va rápido por la incidencia del día 19; no hay margen para otro despliegue fallido este mes.
 
 ## Acciones
-- [ ] MR alerting!42: AppSlow for 5m → 10m. Responsable vsl. Antes del 26.
+- [ ] MR alerting!42: AppSlow for 5m → 10m. Responsable ops. Antes del 26.
 - [ ] Congelar despliegues no urgentes hasta el cierre del mes (presupuesto < 50 %). Comunicado a dev.
 ```
 

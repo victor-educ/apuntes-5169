@@ -2,7 +2,7 @@
 
 <p class="ut-meta">14 h · Sesiones 29 a 35 · RA4 CE d, e, f, g, h, i</p>
 
-Hasta aquí el módulo ha tratado de mirar el servicio (UT1 a UT3) y de medirlo y probarlo (UT4). Todo eso da por hecho que el servicio no cambia. En esta unidad cambia: aparecen versiones nuevas de la base de datos, del proxy y de la aplicación, aparecen vulnerabilidades en librerías que nadie sabía que llevaba el contenedor, y hay que decidir qué se actualiza, cuándo y cómo, sin romper nada y dejando rastro. Las pruebas de la UT4 se reutilizan tal cual como red de seguridad de cada actualización, y el repositorio restic que ya funciona en el laboratorio contra MinIO es el plan B. Después de esta unidad viene la UT8, donde se da de baja el entorno pre que aquí se usa tanto. Entre medias, del 1 al 5 de marzo, están las fiestas de la Magdalena, así que la práctica evaluable de la sesión 35 cierra la unidad antes del parón.
+Hasta aquí el módulo ha tratado de mirar el servicio (UT1 a UT3) y de medirlo y probarlo (UT4). Todo eso da por hecho que el servicio no cambia. En esta unidad cambia: aparecen versiones nuevas de la base de datos, del proxy y de la aplicación, aparecen vulnerabilidades en librerías que nadie sabía que llevaba el contenedor, y hay que decidir qué se actualiza, cuándo y cómo, sin romper nada y dejando rastro. Las pruebas de la UT4 se reutilizan tal cual como red de seguridad de cada actualización, y el plan B es una copia con restic contra el MinIO del laboratorio: el repositorio de copias del curso se inicializa en la sesión 32, que es la primera que lo necesita. Después de esta unidad viene la UT8, donde se da de baja el entorno pre que aquí se usa tanto. Entre medias, del 1 al 5 de marzo, están las fiestas de la Magdalena, así que la práctica evaluable de la sesión 35 cierra la unidad antes del parón.
 
 ## Introducción
 
@@ -32,7 +32,7 @@ Un jueves a las cuatro de la tarde llega un aviso: la librería que la API usa p
 | `.trivyignore` | Fichero del repositorio con los hallazgos aceptados, con motivo y fecha de caducidad. | Para que las excepciones queden escritas y no bloqueen el pipeline. |
 | Jenkins y el Jenkinsfile | El servidor de pipelines de la 5166 y el fichero que describe sus etapas. | Para añadir la etapa de escaneo y desplegar a través de él. |
 | Gitea (incidencias) y Keep a Changelog | El gestor de incidencias del curso y el formato estándar del `CHANGELOG.md`. | Para dejar rastro de cada actualización con enlaces a lo que la justifica. |
-| restic, newman, k6 y ZAP | El programa de copias del laboratorio, que guarda en MinIO, y las pruebas de la UT4. | Plan B y red de seguridad de cada actualización. |
+| restic, newman, k6 y ZAP | El programa de copias del laboratorio, que guarda en el MinIO de `mon01`, y las pruebas de la UT4. | Plan B y red de seguridad de cada actualización. El repositorio de copias se crea en la sesión 32 con las órdenes escritas en la hoja; restic se estudia a fondo en la [UT6](ut6-copias-seguridad.md#restic-a-fondo). |
 
 **Cómo está organizada la unidad.** La unidad sigue las sesiones en orden y cada sesión trae primero la teoría que se explica y después su hoja de práctica. En la sesión 29 se inventaría lo desplegado con versión y digest, se fijan las etiquetas flotantes y se pone Renovate a vigilar el repositorio con una política escrita. En las sesiones 30 y 31 se genera el SBOM, se escanea con Trivy y Grype y se investiga y decide qué hacer con cada hallazgo, incluida la reconstrucción con una base más pequeña. En las sesiones 32 y 33 se actualizan PostgreSQL y la aplicación en dev y pre con copia previa y verificación de integridad, y después se diagnostica una versión que falla y se decide rollback o parche en plazo. La sesión 34 cierra el círculo con las incidencias, el CHANGELOG y la etapa de escaneo en el pipeline, y la sesión 35 es la práctica evaluable.
 
@@ -60,7 +60,7 @@ Cada sesión son 110 minutos y empieza con una explicación corta antes del labo
 
 <p class="ut-meta" markdown>4 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Versiones, etiquetas y digests · 15 min&#10;Seguir la aparición de versiones · 10 min&#10;A7.1 Inventario de versiones y seguimiento automático · 85 min" data-dur="Versiones, etiquetas y digests · 15 min&#10;Seguir la aparición de versiones · 10 min&#10;A7.1 Inventario de versiones y seguimiento automático · 85 min">:material-school:<i class="dur-barra" style="--teoria:23%"></i>:material-flask:</span></p>
 
-Al acabar la sesión el compose y el Dockerfile del servicio no tienen ninguna etiqueta flotante, el inventario y la política de actualización están escritos y Renovate abre propuestas de cambio en `gitea01`. La hoja se apoya en los apartados de abajo: cómo nombrar una imagen sin ambigüedad (etiqueta, digest y versionado semántico), cómo funciona Renovate y su configuración, y la política escrita que decide quién aprueba qué. Dependabot, Watchtower y el job en el pipeline son las alternativas que conviene conocer para entender por qué no se usan aquí.
+Al acabar la sesión el compose y el Dockerfile del servicio no tienen ninguna etiqueta flotante, el inventario y la política de actualización están escritos y Renovate abre propuestas de cambio en el Gitea del laboratorio. La hoja se apoya en los apartados de abajo: cómo nombrar una imagen sin ambigüedad (etiqueta, digest y versionado semántico), cómo funciona Renovate y su configuración, y la política escrita que decide quién aprueba qué. Dependabot, Watchtower y el job en el pipeline son las alternativas que conviene conocer para entender por qué no se usan aquí.
 
 ### Versiones, etiquetas y digests
 
@@ -109,7 +109,8 @@ docker images --digests postgres
 docker manifest inspect postgres:17.6 | jq '.manifests[] | {digest, platform}'
 
 # Digest concreto de la imagen que está corriendo ahora mismo
-docker inspect --format '{{index .RepoDigests 0}}' app01-db-1
+# (el contenedor se llama <proyecto>-<servicio>-<n>: el proyecto es la carpeta del compose)
+docker inspect --format '{{index .RepoDigests 0}}' servicio-api-1
 
 # Reescribir el compose con todas las imágenes resueltas a digest
 docker compose config --resolve-image-digests > compose.pinned.yml
@@ -169,14 +170,14 @@ Con las versiones fijadas, el problema pasa a ser el contrario: nada cambia hast
 
 Renovate lee el repositorio, detecta dependencias (imágenes en `compose.yml` y en `FROM` de los Dockerfile, paquetes en `requirements.txt` o `package-lock.json`, módulos de Ansible, versiones de acciones de CI) y abre un pull request (PR: una propuesta de cambio que alguien revisa antes de fusionarla en la rama principal) por cada actualización disponible, con las notas de la versión pegadas en la descripción. Una persona revisa, el pipeline prueba, alguien fusiona. Automatiza el aviso, no la decisión.
 
-Funciona en GitHub, GitLab y Gitea, que es lo que hay en `gitea01`. Se ejecuta como contenedor con el token de un usuario técnico (una cuenta de Gitea solo para el robot):
+Funciona en GitHub, GitLab y Gitea, que es lo que hay en el laboratorio. Se ejecuta como contenedor con el token de un usuario técnico (una cuenta de Gitea solo para el robot):
 
 ```bash
 docker run --rm \
   -e RENOVATE_PLATFORM=gitea \
-  -e RENOVATE_ENDPOINT=https://gitea01.lab/api/v1 \
+  -e RENOVATE_ENDPOINT=http://gitea.lab:3001/api/v1 \
   -e RENOVATE_TOKEN=$TOKEN_BOT \
-  -e RENOVATE_REPOSITORIES=curso/servicio \
+  -e RENOVATE_REPOSITORIES=ops/servicio \
   -e LOG_LEVEL=info \
   renovate/renovate:latest
 ```
@@ -240,10 +241,10 @@ Watchtower es un contenedor que vigila a los demás del host, hace `pull` de sus
 La tercera vía es un job programado en Jenkins que compara lo desplegado con lo publicado y abre una incidencia. Es lo que hace Renovate pero a mano; sirve cuando no se puede instalar nada más o cuando la imagen viene de un registry que Renovate no entiende. El ejemplo abre la incidencia con `tea`, el cliente de línea de comandos de Gitea:
 
 ```bash
-DESPLEGADO=$(ssh app01 docker inspect --format '{{index .RepoDigests 0}}' app01-db-1 | cut -d@ -f2)
-PUBLICADO=$(docker manifest inspect postgres:17.6 -v | jq -r '.[0].Descriptor.digest')
+DESPLEGADO=$(ssh app01 docker inspect --format '{{index .RepoDigests 0}}' servicio-api-1 | cut -d@ -f2)
+PUBLICADO=$(docker manifest inspect registry.lab:5000/api:1.4.2 -v | jq -r '.[0].Descriptor.digest')
 if [ "$DESPLEGADO" != "$PUBLICADO" ]; then
-  tea issues create --repo curso/servicio --title "postgres:17.6 reconstruida" \
+  tea issues create --repo ops/servicio --title "api:1.4.2 reconstruida" \
     --labels actualizacion --description "Desplegado $DESPLEGADO, publicado $PUBLICADO"
 fi
 ```
@@ -263,12 +264,15 @@ Aquí toca escribir media página que diga cómo se actualiza el servicio. Sin e
 
 Dos tareas encadenadas: primero el inventario y luego, sobre él, su vigilancia automática.
 
-<span class="et et-obj">Objetivo</span> El compose y el Dockerfile del servicio sin ninguna etiqueta flotante, el inventario en `docs/inventario.md`, la política en `docs/politica-actualizacion.md` y Renovate con al menos un PR abierto en `gitea01`.
+<span class="et et-obj">Objetivo</span> El compose y el Dockerfile del servicio sin ninguna etiqueta flotante, el inventario en `docs/inventario.md`, la política en `docs/politica-actualizacion.md` y Renovate con al menos un PR abierto en el Gitea del laboratorio.
 
 <span class="et et-pre">Antes de empezar</span>
 
 - La VM de dev con el servicio del curso arrancado y `docker` y `jq` instalados.
-- Clon del repositorio `curso/servicio` de `gitea01` con permiso para abrir PR.
+- Clon del repositorio `ops/servicio` del Gitea del laboratorio (`gitea.lab`, hoy el contenedor de `mon01` en el 3001, al que le diste nombre en la A4.3) con permiso para abrir PR.
+
+    !!! ojo "El nombre no cambia, la dirección sí"
+        Se usa siempre `gitea.lab` y nunca la dirección de la máquina. El 17 de febrero, en la [A6.5 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), Gitea se muda a `gitea01` (10.10.0.11) con TLS delante, y ese día el único cambio es el host override y el endpoint, que pasa a `https://gitea.lab/api/v1`. Nada de lo que escribes hoy se reescribe.
 - Explicado antes: [Versiones, etiquetas y digests](#versiones-etiquetas-y-digests), [Versionado semántico](#versionado-semantico), [Renovate a fondo](#renovate-a-fondo) y [La política escrita](#la-politica-escrita).
 
 <span class="et et-pas">Pasos</span>
@@ -279,7 +283,7 @@ Dos tareas encadenadas: primero el inventario y luego, sobre él, su vigilancia 
     docker compose config --images                 # qué imágenes usa el compose
     docker images --digests                        # etiqueta y digest de las descargadas
     docker image inspect --format '{{index .RepoDigests 0}}  {{.Created}}' postgres:17.6
-    docker inspect --format '{{index .RepoDigests 0}}' app01-db-1   # la que está corriendo
+    docker inspect --format '{{index .RepoDigests 0}}' servicio-api-1   # la que está corriendo
     docker manifest inspect postgres:17.6 | jq '.manifests[] | {digest, platform}'
     ```
 
@@ -306,9 +310,9 @@ Dos tareas encadenadas: primero el inventario y luego, sobre él, su vigilancia 
     ```bash
     docker run --rm \
       -e RENOVATE_PLATFORM=gitea \
-      -e RENOVATE_ENDPOINT=https://gitea01.lab/api/v1 \
+      -e RENOVATE_ENDPOINT=http://gitea.lab:3001/api/v1 \
       -e RENOVATE_TOKEN=$TOKEN_BOT \
-      -e RENOVATE_REPOSITORIES=curso/servicio \
+      -e RENOVATE_REPOSITORIES=ops/servicio \
       -e RENOVATE_HOST_RULES='[{"matchHost":"registry.lab:5000","username":"renovate-bot","password":"'"$REGISTRY_PASS"'"}]' \
       -e LOG_LEVEL=debug \
       renovate/renovate:latest 2>&1 | tee renovate.log
@@ -499,7 +503,24 @@ En el pipeline, `pip-audit` corre en la etapa de construcción contra el `requir
            | @tsv' trivy-*.json | sort -u > hallazgos.tsv
     ```
 
-6. Pasa `hallazgos.tsv` a una tabla en `seguridad/hallazgos.md` y rellena las dos columnas que ningún escáner da: exploit conocido (el CVE en el catálogo KEV y el EPSS en `https://api.first.org/data/v1/epss?cve=CVE-AAAA-NNNN`) y alcanzable desde fuera (sí, no, no sé).
+6. Pasa a la tabla de `seguridad/hallazgos.md` **las diez filas más graves** de `hallazgos.tsv`, no todas: tres imágenes pueden dar cientos de hallazgos y la tabla es para decidir, no para archivar. Primero las CRITICAL y, si no llegas a diez, completa con las HIGH que tengan parche:
+
+    ```bash
+    { awk -F'\t' '$6=="CRITICAL"' hallazgos.tsv
+      awk -F'\t' '$6=="HIGH" && $5!="sin parche"' hallazgos.tsv; } | head -10 > top10.tsv
+    cut -f6 hallazgos.tsv | sort | uniq -c        # recuento por severidad: resume el resto
+    ```
+
+    Sobre esas diez rellena las dos columnas que ningún escáner da. La primera, exploit conocido, sale de dos consultas por CVE: el catálogo KEV, que se descarga una vez y se consulta en local, y el EPSS:
+
+    ```bash
+    curl -s https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json -o kev.json
+    C=CVE-2024-12345
+    jq -r --arg c "$C" '.vulnerabilities[] | select(.cveID==$c) | "en KEV desde " + .dateAdded' kev.json
+    curl -s "https://api.first.org/data/v1/epss?cve=$C" | jq -r '.data[0].epss'
+    ```
+
+    La segunda, alcanzable desde fuera (sí, no, no sé), la decides tú: mira si el paquete afectado está en el camino que atiende peticiones o solo en una herramienta de construcción. El `hallazgos.tsv` completo se entrega igual como evidencia, y encima de la tabla va la línea con el recuento por severidad.
 7. Compara los escáneres sobre la imagen de la aplicación y anota las diferencias:
 
     ```bash
@@ -508,7 +529,7 @@ En el pipeline, `pip-audit` corre en la etapa de construcción contra el `requir
     comm -3 t.txt g.txt      # lo que solo ve uno de los dos
     ```
 
-<span class="et et-com">Comprobación</span> La cabecera de cada informe de Trivy reconoce el sistema base (`(debian 12.x)`); `hallazgos.tsv` no está vacío; la tabla tiene las siete columnas; hay al menos un CVE anotado que solo aparece en uno de los escáneres.
+<span class="et et-com">Comprobación</span> La cabecera de cada informe de Trivy reconoce el sistema base (`(debian 12.x)`); `hallazgos.tsv` no está vacío; la tabla tiene diez filas (o todas las CRITICAL y las HIGH con parche, si salen menos de diez) con las dos columnas manuales rellenas y el recuento por severidad encima; hay al menos un CVE anotado que solo aparece en uno de los escáneres.
 
 <span class="et et-ent">Entrega</span> Commit con `seguridad/` (los tres SBOM, los JSON de ambos escáneres y `hallazgos.md`). Es la base de A7.3.
 
@@ -757,7 +778,7 @@ flowchart TB
     Cuando la actualización lleva migración de esquema, el rollback no es solo la imagen: hay que saber si la migración es reversible (`alembic downgrade -1` si la aplicación usa Alembic, el gestor de migraciones de SQLAlchemy) o si toca restaurar la copia. Eso se decide antes, no a los 35 minutos.
 
 6. **Despliegue.** `docker compose pull && docker compose up -d` a mano en dev; en pre y producción, el pipeline de despliegue de la 5166 UT6 con la versión nueva, que además deja el log del despliegue enlazable.
-7. **Migraciones.** Si la aplicación las lleva, se leen las notas de la versión: unas se ejecutan solas al arrancar, otras requieren un comando (`alembic upgrade head`, `python manage.py migrate`, `flyway migrate`). Hay que comprobar que han terminado antes de dar la actualización por buena. Para PostgreSQL, una versión menor (17.5 → 17.6) es parar y arrancar con la imagen nueva; una mayor (17 → 18) requiere `pg_upgrade` o volcado y restauración, y eso es un proyecto aparte.
+7. **Migraciones.** Si la aplicación las lleva, se leen las notas de la versión: unas se ejecutan solas al arrancar, otras requieren un comando (`alembic upgrade head`, `python manage.py migrate`, `flyway migrate`). Hay que comprobar que han terminado antes de dar la actualización por buena. Para PostgreSQL, una versión menor (17.5 → 17.6) es parar y arrancar con la imagen nueva, o `apt-get install --only-upgrade` y reiniciar el servicio cuando PostgreSQL es un paquete del sistema, que es como está en `db01`; una mayor (17 → 18) requiere `pg_upgrade` o volcado y restauración, y eso es un proyecto aparte.
 8. **Verificación** con las pruebas de la UT4 (funcionales con newman, carga con k6 y sus umbrales, ZAP en modo baseline) más la verificación de integridad de datos de abajo.
 9. **Producción en ventana**, con la misma copia previa, la misma verificación y la misma persona que hizo pre, que es la que sabe qué esperar.
 
@@ -802,58 +823,137 @@ La ventana es un compromiso con los usuarios: en ese rato puede haber cortes y f
 
 ### A7.4 Actualización en pre (sesión 32)
 
-<span class="et et-obj">Objetivo</span> PostgreSQL en la siguiente versión menor y la aplicación con la base corregida, en dev y en pre, con copia previa, `integridad.sql` idéntico antes y después, pruebas de la UT4 en verde y todo enlazado desde una incidencia.
+<span class="et et-obj">Objetivo</span> PostgreSQL de `pre` en la siguiente versión menor y la aplicación con la base corregida, en dev y en pre, con copia previa, `integridad.sql` idéntico antes y después, pruebas de la UT4 en verde y todo enlazado desde una incidencia.
 
 <span class="et et-pre">Antes de empezar</span>
 
 - El entorno pre creado por el IaC de la 5166 UT5 (no lo montes a mano) y acceso SSH a él.
-- El PR de A7.3 fusionado y la imagen `api:1.4.3` en el registry de `gitea01` (por el pipeline de la 5166 UT6 o construida a mano si aún no despliega).
-- restic funcionando contra el MinIO del laboratorio (`s3:http://10.10.0.30:9000/backups`, contraseña en `/etc/restic/pass`); newman, k6 con umbrales y ZAP baseline de la UT4 a mano, con la línea base de KPI apuntada.
+- El PR de A7.3 fusionado y la imagen `api:1.4.3` disponible: la construye el pipeline de la 5166 UT6, y si ese día aún no despliega (el registry del laboratorio se monta el 24 de febrero), constrúyela a mano en el propio host con `docker build -t api:1.4.3 .`.
+- `db01-pre` (10.20.3.10) accesible desde `app01-pre`: PostgreSQL de `pre` vive ahí, no en el compose de la aplicación.
+- Las credenciales del MinIO del laboratorio: el usuario `restic` y su secreto, creados el 8 de enero en el paso 1 de la [A5.4 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/), o las que dé el profesor si MinIO es del aula. El repositorio de copias se inicializa hoy, en el paso 4.
+- newman, k6 con umbrales y ZAP baseline de la UT4 a mano, con la línea base de KPI apuntada.
+- Trabajo que se puede traer hecho: la instalación de la letra a del paso 4 (`restic` y `postgresql-client` en `app01-pre`). Son dos paquetes que, con treinta descargas a la vez en el aula, se llevan un buen trozo de la sesión.
 - Explicado antes: [El ciclo](#el-ciclo), [Paso a paso](#paso-a-paso) y [Verificación de integridad de datos](#verificacion-de-integridad-de-datos).
 
 <span class="et et-pas">Pasos</span>
 
 1. Abre la incidencia en Gitea antes de tocar nada: título `Actualizar postgres 17.5 → 17.6 y api 1.4.2 → 1.4.3 (dev y pre)`, etiquetas `actualizacion` y `seguridad`, cuerpo con versiones origen y destino con digest, motivo (los CVE de A7.3), responsable y plan de vuelta atrás.
-2. Crea `scripts/integridad.sql` con las seis consultas del apartado y los nombres de tabla de tu servicio.
-3. Dev primero. Guarda el compose anterior, cambia las versiones y despliega:
+2. Copia las seis consultas del apartado a `scripts/integridad.sql` y cambia los nombres de tabla por los de tu servicio.
+3. Dev primero. Guarda el compose anterior, cambia la versión de la aplicación y despliega. PostgreSQL no está en este compose: desde diciembre vive en `db01` como paquete del sistema, y la versión menor se sube hoy solo en `pre`, que es el entorno de esta hoja.
 
     ```bash
     docker compose config --resolve-image-digests > compose.anterior.yml
-    # edita compose.yml: postgres:17.6-bookworm@sha256:... y api:1.4.3@sha256:...
+    # edita compose.yml: api:1.4.3@sha256:...
     docker compose pull && docker compose up -d
-    docker compose logs --tail 50 db api
+    docker compose logs --tail 50 api
     ```
 
-4. En pre, copia previa y foto de integridad antes de nada. Apunta el id del snapshot en la incidencia:
+4. Prepara el repositorio de copias del laboratorio y haz la copia previa de `pre`. El repositorio es el de las convenciones, `s3:http://10.10.0.30:9000/backups`, y se inicializa **una sola vez en todo el curso**.
+
+    !!! consulta "restic todavía no se ha explicado"
+        El programa de copias del laboratorio se estudia a fondo en la [UT6](ut6-copias-seguridad.md#restic-a-fondo),
+        que se cursa ya en la empresa. Aquí hacen falta cuatro órdenes suyas y van escritas enteras: crear el
+        repositorio, copiar con una etiqueta, listar la copia y, en la A7.5, restaurarla.
+
+    !!! ojo "Si el repositorio ya existe"
+        Si lo inicializaste tú en otra máquina, o lo ha creado el profesor para toda el aula, salta la
+        letra c: `restic init` responde `config file already exists`. Lo que no puedes hacer es
+        inicializarlo otra vez con otra contraseña, porque un repositorio restic solo se abre con la
+        contraseña con la que se creó, y perderías las copias anteriores. Pide la contraseña y el secreto
+        de acceso y ponlos en los ficheros de la letra a y la letra b.
+
+    a. En `app01-pre`, instala restic y el cliente de PostgreSQL, y crea la contraseña del repositorio:
 
     ```bash
     ssh app01-pre
-    cd /srv/servicio
-    docker compose config --resolve-image-digests > compose.anterior.yml
-    docker compose exec -T db pg_dump -U app app > /srv/copias/app-antes.sql
-    restic backup /srv/copias /srv/servicio --tag pre-actualizacion
-    docker compose exec -T db psql -U app -d app -f - < scripts/integridad.sql > integridad-antes.txt
+    sudo apt-get update && sudo apt-get install -y restic postgresql-client
+    restic version                              # 0.18 o superior
+    sudo install -d -m 700 /etc/restic
+    openssl rand -base64 32 | sudo tee /etc/restic/pass > /dev/null
+    sudo chmod 600 /etc/restic/pass
+    sudo cat /etc/restic/pass                   # cópiala ahora al gestor de contraseñas
     ```
 
-5. Despliega en pre: por el pipeline de la 5166 o, si aún no está, a mano (`git pull && docker compose pull && docker compose up -d`). Comprueba que las migraciones han terminado (por ejemplo `docker compose logs api | grep -i alembic`).
-6. Foto de integridad después y comparación:
+    !!! ojo "La contraseña vive fuera de la VM o no vive"
+        `/etc/restic/pass` está en `app01-pre`, y `pre` se destruye y se vuelve a crear con OpenTofu
+        cada vez que hace falta. Guarda esa contraseña en el gestor de contraseñas del puesto de
+        administración antes de seguir: sin ella el repositorio entero es ilegible. Eso no es un
+        defecto, es la propiedad que se aprovecha en la A8.3 para el borrado criptográfico del
+        entorno pre.
+
+    b. Escribe `/etc/restic/env` con las cinco variables. Las tres primeras son el destino y la caché; las dos últimas son la credencial `restic` de MinIO:
 
     ```bash
-    docker compose exec -T db psql -U app -d app -f - < scripts/integridad.sql > integridad-despues.txt
+    sudo tee /etc/restic/env > /dev/null <<'EOF'
+    RESTIC_REPOSITORY=s3:http://10.10.0.30:9000/backups
+    RESTIC_PASSWORD_FILE=/etc/restic/pass
+    RESTIC_CACHE_DIR=/var/cache/restic
+    AWS_ACCESS_KEY_ID=restic
+    AWS_SECRET_ACCESS_KEY=CambiaEsteSecreto2
+    EOF
+    sudo chmod 600 /etc/restic/env
+    ```
+
+    Sin las dos últimas, `restic init` falla con `Fatal: unable to open config file` aunque el bucket exista: restic no sabe con qué credencial hablar con MinIO.
+
+    c. Inicializa el repositorio y comprueba que abre:
+
+    ```bash
+    set -a; . /etc/restic/env; set +a
+    sudo -E restic init
+    sudo -E restic cat config                   # devuelve el JSON del repositorio
+    ```
+
+    !!! ojo "pre no ve la subred de gestión de dev por sí sola"
+        `app01-pre` sale a la red del aula por el NAT de `router-pre`, y la 10.10.0.30 está detrás de
+        OPNsense. Si `restic init` se queda parado o responde `dial tcp ... i/o timeout`, es eso: en
+        OPNsense, Firewall, NAT, Port Forward, crea una regla en la interfaz WAN del 9000 hacia
+        10.10.0.30:9000 con origen la IP de aula de `router-pre`, y anótala en la matriz de reglas con
+        su justificación. Es la única puerta que se abre hacia gestión desde otro entorno y por eso
+        lleva origen concreto y no `any`.
+
+    d. Ahora sí, la copia previa y la foto de integridad. PostgreSQL de `pre` no está en el compose de `app01-pre`: vive en `db01-pre` (10.20.3.10), así que el volcado y las consultas se piden por red desde aquí, que es donde está el repositorio de copias. Apunta el id del snapshot en la incidencia:
+
+    ```bash
+    cd /srv/servicio
+    docker compose config --resolve-image-digests > compose.anterior.yml
+    sudo install -d -m 750 -o ops -g ops /srv/copias
+    export PGPASSWORD='<la contraseña de app en pre>'   # o ponla en ~/.pgpass con chmod 600
+    pg_dump -h 10.20.3.10 -U app -d app > /srv/copias/app-antes.sql
+    psql   -h 10.20.3.10 -U app -d app -f scripts/integridad.sql > integridad-antes.txt
+    sudo -E restic backup /srv/copias /srv/servicio --tag pre-actualizacion
+    sudo -E restic snapshots --latest 1 --tag pre-actualizacion
+    ```
+
+5. Actualiza `pre`. Primero PostgreSQL, que en `db01-pre` es un paquete del sistema y no una imagen:
+
+    ```bash
+    ssh db01-pre
+    sudo apt-get update && sudo apt-get install -y --only-upgrade postgresql-17
+    sudo systemctl restart postgresql@17-main
+    sudo -u postgres psql -tAc 'show server_version'    # 17.6
+    exit
+    ```
+
+    Y después la aplicación, por el pipeline de la 5166 o, si aún no está, a mano (`git pull && docker compose pull && docker compose up -d`). Comprueba que las migraciones han terminado (por ejemplo `docker compose logs api | grep -i alembic`).
+6. Foto de integridad después y comparación, contra la misma base de `db01-pre`:
+
+    ```bash
+    psql -h 10.20.3.10 -U app -d app -f scripts/integridad.sql > integridad-despues.txt
     diff integridad-antes.txt integridad-despues.txt
     ```
 
     Debe salir vacío, salvo la fila de `version_num` si la 1.4.3 lleva migración.
 
-7. Pruebas de la UT4 contra pre: newman, k6 con umbrales, ZAP baseline. Compara p95 y tasa de errores con la línea base.
+7. Pruebas de la UT4 contra pre: newman y k6 con umbrales. Compara p95 y tasa de errores con la línea base.
 8. Enlaza en la incidencia el PR, el log del pipeline o del despliegue, el snapshot, las dos salidas de integridad y las pruebas. Mueve la tarjeta a `en pre`.
 9. Comprueba que el plan B está completo antes de irte: `compose.anterior.yml` guardado en dev y en pre con los digests de la versión anterior, el id del snapshot de restic apuntado en la incidencia y la orden exacta de vuelta atrás escrita en el cuerpo. En A7.5 se ejecuta de verdad y con reloj.
 
-<span class="et et-com">Comprobación</span> `docker compose ps` en pre muestra las imágenes nuevas con el digest esperado; el `diff` de integridad vacío o solo con la fila de migración; newman sin fallos, k6 dentro de umbrales, ZAP sin alertas nuevas; la incidencia con todos los enlaces.
+<span class="et et-com">Comprobación</span> `docker compose ps` en pre muestra las imágenes nuevas con el digest esperado y `db01-pre` responde con la versión menor nueva; `restic snapshots` lista la copia previa con su etiqueta; el `diff` de integridad vacío o solo con la fila de migración; newman sin fallos y k6 dentro de umbrales; la incidencia con todos los enlaces.
 
 <span class="et et-ent">Entrega</span> Incidencia en estado `en pre` con los enlaces; `scripts/integridad.sql` en el repositorio; `integridad-antes.txt`, `integridad-despues.txt` y los resultados de las pruebas en la carpeta de la práctica.
 
-<span class="et et-ext">Si te sobra tiempo</span> Ensaya el plan B en dev: `docker compose -f compose.anterior.yml up -d`, comprueba que responde y vuelve a la versión nueva. Y si aún te sobra, borra una fila en dev y mira cómo se manifiesta en cada una de las seis consultas de integridad.
+<span class="et et-ext">Si te sobra tiempo</span> Pasa el ZAP baseline de la A4.6 contra pre y compara sus alertas con las de diciembre. Después ensaya el plan B en dev: `docker compose -f compose.anterior.yml up -d`, comprueba que responde y vuelve a la versión nueva. Y si aún te sobra, borra una fila en dev y mira cómo se manifiesta en cada una de las seis consultas de integridad.
 
 ## Sesión 33 · Fallo provocado
 

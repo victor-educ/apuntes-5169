@@ -37,7 +37,7 @@ histogram_quantile(0.95, sum by(le)(rate(app_request_seconds_bucket[5m])))
 container_memory_working_set_bytes{name="app"} / container_spec_memory_limit_bytes{name="app"}
 increase(container_start_time_seconds{name="app"}[1h])
 pg_stat_activity_count / pg_settings_max_connections
-predict_linear(node_filesystem_avail_bytes{mountpoint="/data"}[7d], 30*86400) < 0
+predict_linear(node_filesystem_avail_bytes{mountpoint="/data"}[7d], 30*86400) < 0   # /data: el disco de datos de db01
 absent(up{job="app"})
 count({job="app"})
 ```
@@ -110,7 +110,8 @@ trivy image --severity HIGH,CRITICAL --ignore-unfixed registry.lab:5000/app:1.4.
 
 ```bash
 journalctl -u ssh --since yesterday -p err
-journalctl _COMM=sshd | grep "Failed password" | awk '{print $(NF-3)}' | sort | uniq -c | sort -rn | head
+# -u ssh, no _COMM=sshd: en Debian 13 los accesos los registra sshd-session
+journalctl -u ssh | grep "Failed password" | awk '{print $(NF-3)}' | sort | uniq -c | sort -rn | head
 grep "Failed password" /var/log/auth.log | wc -l
 sudo fail2ban-client status
 sudo fail2ban-client status sshd
@@ -134,15 +135,16 @@ ps aux --sort=-%mem | head
 
 ```bash
 export RESTIC_REPOSITORY=s3:http://10.10.0.30:9000/backups RESTIC_PASSWORD_FILE=/etc/restic/pass
-restic init
-docker exec db pg_dump -U app -Fc app > /var/backups/app.dump
+export AWS_ACCESS_KEY_ID=restic AWS_SECRET_ACCESS_KEY=...   # sin estas dos, restic ni siquiera abre el repositorio
+restic init                                                 # una sola vez en todo el curso
+pg_dump -h db01 -U app -Fc app > /var/backups/app.dump   # PostgreSQL vive en db01, no en el compose
 restic backup /var/backups/app.dump /opt/app/compose.yml /opt/app/data --tag app
 restic snapshots
 restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
 restic check --read-data-subset=5%
 restic restore latest --target /restore
 restic mount /mnt/restic
-pg_restore -U app -d app_test /restore/var/backups/app.dump
+pg_restore -h db01 -U app -d app_test /restore/var/backups/app.dump
 systemctl list-timers | grep backup
 systemctl status backup-app.timer
 ```
@@ -161,8 +163,8 @@ trivy fs . && trivy config .
 pip-audit -r requirements.txt
 npm audit --audit-level=high
 # Integridad de datos antes/después
-psql -U app -c "SELECT relname, n_live_tup FROM pg_stat_user_tables ORDER BY 1;"
-psql -U app -c "SELECT md5(string_agg(t::text, '' ORDER BY id)) FROM items t;"
+psql -h db01 -U app -c "SELECT relname, n_live_tup FROM pg_stat_user_tables ORDER BY 1;"
+psql -h db01 -U app -c "SELECT md5(string_agg(t::text, '' ORDER BY id)) FROM items t;"
 ```
 
 ## Terminación segura

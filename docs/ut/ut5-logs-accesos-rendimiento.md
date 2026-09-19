@@ -44,9 +44,9 @@ Cómo está organizada la unidad: la Introducción reúne los conceptos y las re
     Son las mismas semanas y, casi seguro, los mismos sistemas: la nube de la empresa donde se despliega en 5166 es
     donde aquí se revisan logs, accesos y rendimiento, de modo que conviene acordar con el tutor un único sistema para las dos
     asignaturas y reutilizar las evidencias que sirvan para ambas (una captura de Grafana anonimizada vale en las dos).
-    De 5166 hacen falta además dos cosas anteriores: el firewall nftables de la UT3, para entender dónde mete
-    fail2ban su tabla, y la pila de monitorización de la UT7 (marzo), que es la versión definitiva del mon01 sobre
-    el que se construyen los paneles de línea base.
+    De 5166 hacen falta además dos cosas anteriores: el cortafuegos de la UT3 y su apartado de nftables, para entender
+    dónde mete fail2ban su tabla, y la pila de monitorización de la UT7 (7 a 14 de abril, la semana anterior a salir), que es la versión definitiva
+    del mon01 sobre el que se construyen los paneles de línea base.
 
 ### Cómo trabajar en la empresa
 
@@ -96,7 +96,9 @@ Las cuatro actividades se hacen sobre sistemas reales de la empresa, en el orden
 | [Bloque 2 · Accesos y fuerza bruta](#bloque-2-accesos-y-fuerza-bruta-ce-3b) | 3b | Clasificar 24 h de intentos de acceso, revisar el mecanismo de bloqueo y demostrar un baneo de extremo a extremo | `a5.2-accesos.md` |
 | [Bloque 3 · Fallos y reinicios](#bloque-3-fallos-y-reinicios-ce-3c) | 3c | Analizar un reinicio o fallo real (o reproducido en pruebas) hasta la corrección y su verificación | `a5.3-fallos.md` |
 | [Bloque 4 · Rendimiento](#bloque-4-rendimiento-ce-3d) | 3d | Línea base de una semana, comparación con un periodo de carga y propuesta de acción con su coste | `a5.4-rendimiento.md` |
-| [Práctica evaluable](#practica-evaluable) | a, b, c, d | Procedimiento de cierre de dos páginas, ficha de evidencias firmada y entrega del conjunto en Gitea | `rutina.md`, `ficha-evidencias.pdf` |
+| [Práctica evaluable](#practica-evaluable) | a, b, c, d | Procedimiento de cierre de dos páginas, ficha de evidencias firmada y entrega del conjunto | `rutina.md`, `ficha-evidencias.pdf` |
+
+Dónde se guarda el trabajo mientras dura la estancia. El Gitea del laboratorio (`gitea.lab`) es una máquina del centro y desde la red de la empresa no se alcanza, así que el primer día se crea un repositorio local con `git init` en el equipo propio, con una carpeta `ut5/` dentro, y ahí van las evidencias según se producen; es lo mismo que se hizo con `alerting` en la UT2 cuando todavía no había servidor al que empujar. Al volver al centro se añade el remoto (`git remote add origin` y `git push -u`) y el conjunto se entrega por Aules, como el resto de prácticas evaluables. Regla que no admite excepción: nada entra en ese repositorio sin anonimizar antes, porque una vez en el historial de git borrarlo ya no es borrar un fichero.
 
 ## Bloque 1 · Revisión de logs (CE 3a)
 
@@ -300,7 +302,7 @@ El mensaje exacto es lo más valioso: es lo que se busca en Google, en la docume
 
 <span class="et et-com">Comprobación</span> La tabla tiene cinco filas con fecha, cada fila cita el comando exacto que se ejecutó, y la incidencia contiene un mensaje de log copiado literal con su recuento y su ventana temporal. Ningún host, IP pública ni usuario real aparece en el fichero.
 
-<span class="et et-ent">Entrega</span> `a5.1-logs.md` en la carpeta `ut5/` del repositorio de Gitea del módulo, con el registro de los cinco días y la incidencia anonimizada. Pide al tutor que firme la fila A5.1 de la ficha.
+<span class="et et-ent">Entrega</span> `a5.1-logs.md` en la carpeta `ut5/` del repositorio de la unidad, con el registro de los cinco días y la incidencia anonimizada. Pide al tutor que firme la fila A5.1 de la ficha.
 
 <span class="et et-ext">Si te sobra tiempo</span> Adapta el script `resumen-logs.sh` del apartado teórico a los contenedores de la empresa y propón al tutor programarlo en cron; adjunta la salida de una ejecución manual como evidencia extra.
 
@@ -318,7 +320,7 @@ Un sistema expuesto a Internet recibe intentos de acceso desde el minuto uno. Un
 
 | Origen | Dónde mirar | Qué contiene |
 |---|---|---|
-| SSH | `/var/log/auth.log` (Debian con rsyslog) o `journalctl _COMM=sshd` | Intentos fallidos, logins correctos, usuario inválido, clave aceptada |
+| SSH | `/var/log/auth.log` (Debian con rsyslog) o `journalctl -u ssh` | Intentos fallidos, logins correctos, usuario inválido, clave aceptada |
 | sudo, su, PAM | mismo fichero o journal, `_COMM=sudo` | Quién escaló privilegios y qué ejecutó |
 | Proxy inverso (nginx) | `/var/log/nginx/access.log` y `error.log` | Intentos a rutas de administración, 401/403, escáneres |
 | Aplicación | su log (stdout del contenedor) | Login fallido, usuario bloqueado, cambio de contraseña, tokens rechazados |
@@ -326,7 +328,7 @@ Un sistema expuesto a Internet recibe intentos de acceso desde el minuto uno. Un
 | VPN (red privada virtual) | WireGuard no registra handshakes por defecto; OpenVPN en su log; OPNsense en Sistema > Registro | Conexiones, orígenes, fallos de autenticación |
 | Firewall | OPNsense, `nft monitor`, `journalctl -k` con reglas `log` | Conexiones rechazadas, escaneos de puertos |
 
-En Debian 13 sin rsyslog instalado (rsyslog es el servicio clásico que reparte los mensajes del sistema en ficheros de `/var/log`), `auth.log` no existe y todo está en el journal; `journalctl _COMM=sshd --since today` es el equivalente. Si la empresa centraliza en Loki con Alloy o Promtail, el job suele llamarse `auth` o `syslog` y ahí van todas las búsquedas de abajo con `|=`.
+En Debian 13 sin rsyslog instalado (rsyslog es el servicio clásico que reparte los mensajes del sistema en ficheros de `/var/log`), `auth.log` no existe y todo está en el journal; `journalctl -u ssh --since today` es el equivalente. El filtro va por unidad de systemd y no por nombre de proceso a propósito: desde OpenSSH 9.8, que es la versión que trae Debian 13, el demonio que escucha (`sshd`) delega cada conexión en un proceso hijo, `sshd-session`, y es ese hijo el que escribe `Failed password`, `Invalid user` y `Accepted publickey`. Por eso `journalctl _COMM=sshd` devuelve poco más que los arranques del servicio y parece que nadie ha intentado entrar, mientras que `-u ssh` recoge los tres procesos (`sshd`, `sshd-session` y `sshd-auth`) porque todos cuelgan de la misma unidad, y funciona igual en Debian 12 y en Debian 13. Si la empresa centraliza en Loki con Alloy o Promtail, el job suele llamarse `auth` o `syslog` y ahí van todas las búsquedas de abajo con `|=`.
 
 #### Qué se busca: patrones de fuerza bruta y password spraying
 
@@ -357,17 +359,17 @@ Un intento cada tres minutos no dispara un `findtime = 10m` con `maxretry = 5` (
 
 ```bash
 # Fuerza bruta: intentos fallidos por IP, hoy
-journalctl _COMM=sshd --since today --no-pager \
+journalctl -u ssh --since today --no-pager \
   | grep -oE "Failed password for (invalid user )?\S+ from \S+" \
   | awk '{print $NF}' | sort | uniq -c | sort -rn | head
 
 # Spraying: usuarios distintos por IP en las últimas 24 h
-journalctl _COMM=sshd --since -24h --no-pager \
+journalctl -u ssh --since -24h --no-pager \
   | grep -oE "Invalid user \S+ from \S+" \
   | awk '{print $5, $3}' | sort -u | awk '{print $1}' | uniq -c | sort -rn | head
 
 # Logins correctos, para ver quién ha entrado y desde dónde (y cuándo)
-journalctl _COMM=sshd --since -7d --no-pager | grep "Accepted"
+journalctl -u ssh --since -7d --no-pager | grep "Accepted"
 
 # nginx: IPs que más 401/403/404 generan (escáneres y rutas de administración)
 awk '$9 ~ /^(401|403|404)$/ {print $1}' /var/log/nginx/access.log | sort | uniq -c | sort -rn | head
@@ -432,6 +434,8 @@ banaction_allports = nftables-allports
 [sshd]
 enabled = true
 mode    = aggressive
+# Debian 13: el journalmatch de fábrica solo casa _COMM=sshd y no ve a sshd-session
+journalmatch = _SYSTEMD_UNIT=ssh.service
 
 [nginx-http-auth]
 enabled  = true
@@ -449,7 +453,7 @@ findtime = 1d
 maxretry = 3
 ```
 
-Puntos a entender de esa configuración. `ignoreip` es obligatorio pensarlo antes de activar nada: un bloqueo sobre la propia IP de administración o sobre la sonda de monitorización es un problema autoinfligido que en una empresa se nota. Ahí van la red de gestión, la IP pública de la oficina y la del bastión desde el que se administra. `bantime.increment` es la forma moderna de castigar reincidentes: una IP que vuelve tras el primer baneo de 1 h recibe 2 h, luego 4 h, y así hasta `bantime.maxtime`; fail2ban guarda el historial en su base de datos SQLite (`/var/lib/fail2ban/fail2ban.sqlite3`), así que sobrevive a reinicios. La jail `recidive` es el mecanismo antiguo para lo mismo (lee el propio log de fail2ban y banea en todos los puertos a quien ha sido baneado tres veces en un día); se pueden usar las dos. El modo `aggressive` del filtro sshd incluye también los intentos que se quedan en preauth y los de usuario inválido.
+Puntos a entender de esa configuración. `ignoreip` es obligatorio pensarlo antes de activar nada: un bloqueo sobre la propia IP de administración o sobre la sonda de monitorización es un problema autoinfligido que en una empresa se nota. Ahí van la red de gestión, la IP pública de la oficina y la del bastión desde el que se administra. `bantime.increment` es la forma moderna de castigar reincidentes: una IP que vuelve tras el primer baneo de 1 h recibe 2 h, luego 4 h, y así hasta `bantime.maxtime`; fail2ban guarda el historial en su base de datos SQLite (`/var/lib/fail2ban/fail2ban.sqlite3`), así que sobrevive a reinicios. La jail `recidive` es el mecanismo antiguo para lo mismo (lee el propio log de fail2ban y banea en todos los puertos a quien ha sido baneado tres veces en un día); se pueden usar las dos. El modo `aggressive` del filtro sshd incluye también los intentos que se quedan en preauth y los de usuario inválido. La línea `journalmatch` es la que evita el fallo más silencioso de todos en Debian 13: el filtro de fábrica busca los mensajes del proceso `sshd` y en esa versión los escribe `sshd-session`, así que la jail arranca, se queda a cero fallos y no banea nunca. Filtrando por unidad, `_SYSTEMD_UNIT=ssh.service`, entran los mensajes de los tres procesos y la configuración vale también en Debian 12.
 
 Un filtro propio para la aplicación. Si la API del curso escribe `WARN auth: login failed for user=opstor ip=203.0.113.45` cuando alguien falla la contraseña, el filtro es una regex con el marcador `<HOST>` (o `<ADDR>` en versiones recientes) en el sitio de la IP:
 
@@ -478,7 +482,7 @@ Para probar un filtro antes de activarlo se usa `fail2ban-regex`, que dice cuán
 
 ```bash
 fail2ban-regex /srv/app/logs/app.log /etc/fail2ban/filter.d/app-login.conf --print-all-missed | tail -20
-fail2ban-regex "$(journalctl _COMM=sshd --since -1h -o short-iso | tail -200)" sshd
+fail2ban-regex "$(journalctl -u ssh --since -1h -o short-iso | tail -200)" sshd
 ```
 
 Operación con `fail2ban-client`:
@@ -532,23 +536,23 @@ La elección va por tamaño. Con uno o dos hosts, fail2ban basta: es más sencil
 
 <span class="et et-pas">Pasos</span>
 
-1. Localiza el log de accesos del sistema elegido (SSH, proxy inverso o aplicación) según la tabla del apartado teórico. En Debian sin rsyslog, `journalctl _COMM=sshd --since -24h`.
+1. Localiza el log de accesos del sistema elegido (SSH, proxy inverso o aplicación) según la tabla del apartado teórico. En Debian sin rsyslog, `journalctl -u ssh --since -24h`.
 
 2. Cuenta los intentos fallidos por IP y los usuarios distintos por IP:
 
     ```bash
     # Fuerza bruta: intentos fallidos por IP
-    journalctl _COMM=sshd --since -24h --no-pager \
+    journalctl -u ssh --since -24h --no-pager \
       | grep -oE "Failed password for (invalid user )?\S+ from \S+" \
       | awk '{print $NF}' | sort | uniq -c | sort -rn | head
 
     # Spraying: usuarios distintos por IP
-    journalctl _COMM=sshd --since -24h --no-pager \
+    journalctl -u ssh --since -24h --no-pager \
       | grep -oE "Invalid user \S+ from \S+" \
       | awk '{print $5, $3}' | sort -u | awk '{print $1}' | uniq -c | sort -rn | head
 
     # Logins correctos de la semana, con hora y origen
-    journalctl _COMM=sshd --since -7d --no-pager | grep "Accepted"
+    journalctl -u ssh --since -7d --no-pager | grep "Accepted"
 
     # nginx: escáneres y rutas de administración
     awk '$9 ~ /^(401|403|404)$/ {print $1}' /var/log/nginx/access.log | sort | uniq -c | sort -rn | head
@@ -575,6 +579,7 @@ La elección va por tamaño. Con uno o dos hosts, fail2ban basta: es más sencil
     ssh usuario_inexistente@servidor   # repetir hasta superar maxretry
     # En el servidor
     fail2ban-client status sshd        # la IP aparece en "Banned IP list"
+    nft list table inet f2b-table      # el nombre del set cambia con la versión; míralo aquí
     nft list set inet f2b-table addr-set-sshd
     # Desde la máquina de pruebas: la conexión da "Connection refused" o timeout
     # En el servidor, al terminar
@@ -734,6 +739,8 @@ services:
 
 El directorio `/var/crash` tiene que existir dentro del contenedor en la misma ruta que indica `core_pattern`, porque el kernel escribe la ruta interpretada desde el espacio de nombres de montaje del proceso que murió. Y hay que vigilar el tamaño: un dump de una JVM con 4 GB de heap ocupa 4 GB.
 
+Dos cosas más antes de habilitar esto en un sistema que no sea el propio. `core_pattern` y `fs.suid_dumpable` son parámetros del kernel del host: el cambio afecta a todos los contenedores y a los procesos del propio host, no solo al servicio que se está investigando. Y un volcado es una copia literal de la memoria del proceso, con lo que hubiera dentro en claro: contraseñas, tokens de sesión y datos personales. Por eso el volcado se trata como un dato a proteger (directorio con permisos restrictivos, retención corta, borrado en cuanto deja de hacer falta) y, fuera de un laboratorio propio, habilitar los volcados es un cambio que se autoriza, se anota y se revierte, no una configuración que se deja puesta por si acaso.
+
 Análisis según el runtime, con una herramienta por lenguaje: gdb es el depurador clásico de binarios nativos (C, C++, Go, Rust) y es el que lee el dump; py-spy inspecciona un proceso Python vivo sin pararlo; jcmd, jmap y jstack son las utilidades de la JVM para volcar memoria e hilos. Conviene fijarse en dos detalles del bloque: gdb se ejecuta dentro de la misma imagen que murió, y Java no necesita el dump del kernel porque genera el suyo.
 
 ```bash
@@ -793,7 +800,8 @@ El informe de A5.3 es una página y sigue esta estructura:
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Autorización del tutor para leer `docker inspect`, `docker events`, el journal del kernel y los directorios de dumps. Si no ha habido ningún fallo en el periodo, acuerda con él un entorno de pruebas (nunca producción) donde reproducir uno, y quién aprueba la corrección si la hay.
+- Autorización del tutor en dos niveles. El primero, de lectura: `docker inspect`, `docker events`, el journal del kernel y los directorios de dumps que ya existan. El segundo, aparte y explícito, para cualquier cambio en la máquina de la empresa: instalar una herramienta de diagnóstico que no esté (gdb, py-spy), habilitar volcados de memoria (paso 4) o aplicar la corrección. Si no ha habido ningún fallo en el periodo, acuerda con él un entorno de pruebas (nunca producción) donde reproducir uno, y quién aprueba la corrección si la hay.
+- Un contenedor de pruebas propio con la misma imagen y versión del servicio, en tu equipo o en ese entorno de pruebas. Es donde se hace todo lo que toca el kernel del host, que en el sistema de la empresa casi nunca se va a autorizar.
 - Acceso a las métricas del momento del fallo (Grafana o `sar`).
 - Leídos [Códigos de salida](#codigos-de-salida), [OOM: el kernel y los cgroups](#oom-el-kernel-y-los-cgroups), [Core dumps en contenedores](#core-dumps-en-contenedores) y [El método y la plantilla de informe](#el-metodo-y-la-plantilla-de-informe).
 
@@ -827,7 +835,39 @@ El informe de A5.3 es una página y sigue esta estructura:
 
 3. Recoge el contexto: el log de los cinco minutos previos (`docker logs --since "2027-05-04T02:36:00" --until "2027-05-04T02:41:00" app`), el mensaje del kernel si hubo OOM (`journalctl -k --since -24h | grep -iE "oom-kill|out of memory"`, `cat /sys/fs/cgroup/system.slice/docker-$CG.scope/memory.events`), y una captura de Grafana o una tabla de `sar` con memoria, CPU y conexiones en esos diez minutos.
 
-4. Analiza el dump o el registro de error según el runtime: `coredumpctl list` e `info` en el host; gdb dentro de la misma imagen para binarios nativos (`bt`, `thread apply all bt`); `py-spy dump --pid` para Python colgado; `hs_err_pid*.log`, `jmap` o `jstack` para Java. Si no había dump, habilítalo para la próxima (`ulimits: core: -1`, `/var/crash` montado, `core_pattern` de fichero) y dilo en el informe.
+4. Analiza el dump o el registro de error según el runtime. Lo que es solo lectura y no cambia nada en la máquina: `coredumpctl list` e `info` en el host, el `hs_err_pid*.log` de la JVM, y gdb sobre el dump dentro de un contenedor de la misma imagen y versión (`bt`, `thread apply all bt`). Instalar gdb o py-spy donde no estén, o inspeccionar un proceso vivo con `py-spy dump --pid`, ya es tocar el sistema: pídelo antes, es el segundo nivel de autorización de Antes de empezar.
+
+    Si no había dump, lo que falta es habilitar los volcados, y eso no se hace por cuenta propia en un sistema de la empresa.
+
+    !!! ojo "Habilitar volcados necesita autorización explícita del tutor"
+        `core_pattern` y `fs.suid_dumpable` son parámetros del kernel del **host**: valen para todos los contenedores y para los procesos del propio
+        host, no solo para el servicio que se está mirando. Además, un volcado ocupa tanto como la memoria que tuviera el proceso (una JVM con 4 GB
+        de heap da un fichero de 4 GB, y un disco lleno es una caída) y contiene en claro lo que hubiera en esa memoria: contraseñas, tokens y datos
+        personales. Por eso el volcado se protege como cualquier otro dato de la empresa y el cambio se pide por escrito, en la incidencia o por
+        correo, diciendo qué se cambia, en qué máquina, durante cuánto tiempo y quién lo revierte. Que el tutor diga que no en un sistema en
+        producción es lo normal y es una respuesta válida: se anota en el informe y se sigue por el camino de abajo, el de sin autorización.
+
+    **Con autorización**, y solo en la máquina y la ventana que él indique. Anota antes los valores actuales para poder dejarlo como estaba, y acuerda con él en ese mismo momento la retención de `/var/crash`, no después:
+
+    ```bash
+    cat /proc/sys/kernel/core_pattern        # anótalo: es el valor al que hay que volver
+    sysctl fs.suid_dumpable
+    ```
+
+    En el servicio, `ulimits: core: -1` y el volumen `/var/crash:/var/crash` en el Compose, con la misma ruta dentro y fuera. Al terminar, restaura el `core_pattern` anterior y borra los volcados que ya no hagan falta (`sudo find /var/crash -name 'core.*' -mtime +7 -delete`, o lo que el tutor acuerde), y dilo en el informe.
+
+    **Sin autorización**, que es lo que va a pasar casi siempre: haz la comprobación en tu contenedor de pruebas, con la misma imagen y versión del servicio. Ahí el kernel es el de tu equipo y lo tocas tú:
+
+    ```bash
+    cat /proc/sys/kernel/core_pattern                     # el valor al que volverás al acabar
+    sudo mkdir -p /var/crash
+    echo '/var/crash/core.%e.%p.%t' | sudo tee /proc/sys/kernel/core_pattern
+    docker run -d --rm --name prueba --ulimit core=-1 -v /var/crash:/var/crash imagen:1.4.2
+    docker exec prueba sh -c 'kill -SEGV 1'               # provoca el fallo en el proceso principal
+    ls -lh /var/crash                                     # el volcado está ahí
+    ```
+
+    El informe dice entonces: no había volcado, se ha comprobado en un entorno de pruebas que con esta configuración se genera, y se propone al equipo de Sistemas aplicarla en el host cuando se autorice, con el valor exacto de `core_pattern`, el `ulimits` del servicio, el espacio que haría falta en `/var/crash` y su retención. Eso responde al punto 4 de la plantilla igual de bien que un volcado real, y es lo que se valora.
 
 5. Formula una hipótesis principal y las alternativas que descartas, con el motivo. Reproduce en pruebas, corrige el origen (no el síntoma) con la aprobación del tutor, anotando fichero y valor antes y después.
 
@@ -951,7 +991,7 @@ Se documenta con una tabla antes/después (línea base, periodo de carga, difere
 
 <p class="ut-meta">En la empresa · con el tutor</p>
 
-En esta unidad no hay una práctica de laboratorio aparte: la práctica evaluable es el conjunto de las cuatro evidencias más el procedimiento de cierre, con la ficha firmada por el tutor de empresa. Se entrega en el repositorio de Gitea del módulo (carpeta `ut5/`, un fichero Markdown o PDF por actividad, más `rutina.md` y la ficha escaneada) antes del 11 de junio de 2027, dos días después de terminar la estancia. Todo anonimizado; una evidencia con datos identificables de la empresa se devuelve sin corregir hasta que se anonimice.
+En esta unidad no hay una práctica de laboratorio aparte: la práctica evaluable es el conjunto de las cuatro evidencias más el procedimiento de cierre, con la ficha firmada por el tutor de empresa. Se entrega por Aules la carpeta `ut5/` del repositorio de la unidad (un fichero Markdown o PDF por actividad, más `rutina.md` y la ficha escaneada) antes del 11 de junio de 2027, dos días después de terminar la estancia, y ese mismo día se empuja el repositorio a Gitea, que hasta la vuelta al centro no se alcanza. Todo anonimizado; una evidencia con datos identificables de la empresa se devuelve sin corregir hasta que se anonimice.
 
 Entregables:
 
@@ -1011,7 +1051,8 @@ Aunque esta unidad se hace en la empresa, estos son los tropiezos que se repiten
 
 - `docker logs` sin `--since` tarda minutos y llena el terminal. Siempre con ventana de tiempo, y con `--tail 200` para un vistazo rápido.
 - `grep ERROR` no encuentra nada porque la aplicación escribe en JSON con `"level":"error"` en minúsculas. Conviene mirar primero cinco líneas del log para ver el formato y usar `grep -i` o `jq`: `docker logs --since 1h app | jq -r 'select(.level=="error") | .msg'`.
-- fail2ban activo pero `status sshd` da cero fallos: el backend lee un `auth.log` que no existe porque el sistema no tiene rsyslog. `backend = systemd` en `jail.local` y reiniciar fail2ban. Se comprueba con `fail2ban-client get sshd logpath` o mirando `/var/log/fail2ban.log`.
+- `journalctl _COMM=sshd` no devuelve nada en Debian 13 y parece que no hay ni un intento de acceso. Desde OpenSSH 9.8 cada conexión la atiende un hijo llamado `sshd-session`, y es él quien escribe `Failed password` e `Invalid user`. Se filtra por unidad, `journalctl -u ssh`, que recoge `sshd`, `sshd-session` y `sshd-auth` y funciona igual en Debian 12.
+- fail2ban activo pero `status sshd` da cero fallos. Dos causas, y conviene descartar las dos: el backend lee un `auth.log` que no existe porque el sistema no tiene rsyslog (`backend = systemd` en `jail.local` y reiniciar fail2ban, se comprueba con `fail2ban-client get sshd logpath` o mirando `/var/log/fail2ban.log`), o el `journalmatch` de fábrica del filtro `sshd` solo casa `_COMM=sshd` y en Debian 13 no ve a `sshd-session` (`journalmatch = _SYSTEMD_UNIT=ssh.service` en la jail).
 - Baneada la IP de la propia oficina o de la sonda de Blackbox de mon01. `ignoreip` antes de `enabled = true`, y si ya ha pasado, `fail2ban-client set sshd unbanip`.
 - fail2ban banea en `INPUT` pero el puerto publicado por Docker sigue accesible: el tráfico a contenedores pasa por `DOCKER-USER`/`forward`, no por `input`. Bloquear en el proxy, en OPNsense, o usar la acción con `chain = DOCKER-USER`.
 - El filtro propio banea al proxy nginx (10.10.1.10) en lugar de al cliente: la aplicación registra la IP del proxy. Configurar `X-Forwarded-For` en nginx y que la aplicación lo registre (con cuidado: solo confiar en esa cabecera cuando viene del proxy).

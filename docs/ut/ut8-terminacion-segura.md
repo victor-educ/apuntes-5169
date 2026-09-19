@@ -761,7 +761,7 @@ Qué esperar: tras un `rm` en ext4, photorec recupera el dump entero (encuentra 
 
 <span class="et et-pre">Antes de empezar</span>
 
-- A8.2 terminada: las VM de pre no existen. Queda lo de fuera: MinIO (10.10.0.30), Loki y Mailpit en mon01, y la contraseña de restic en los hosts que la tenían.
+- A8.2 terminada: las VM de pre no existen. Queda lo que vive fuera de ellas: MinIO, Loki y Mailpit, los tres en la pila de `mon01` (MinIO publicado en la 10.10.0.30, que es una segunda dirección de esa máquina), y la contraseña de restic en los hosts que la tenían.
 - `mc` con el alias `s3` hacia MinIO, `aws` CLI, `restic`, `logcli`, `photorec` (paquete `testdisk`) y una máquina con ZFS (el nodo Proxmox con `local-zfs` o una VM).
 - Se ha explicado [por qué borrar no borra](#por-que-borrar-no-borra); los comandos están en [Opciones de más a menos fiable](#opciones-de-mas-a-menos-fiable), [Logs externos](#logs-externos) y [Verificar con photorec](#verificar-con-photorec-sobre-un-volumen-de-pruebas).
 

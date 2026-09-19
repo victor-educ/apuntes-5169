@@ -7,7 +7,7 @@ Hasta la UT5 todo el módulo ha transcurrido en el laboratorio del centro, sobre
 Estas páginas son guía de referencia y lista de evidencias. No se sacan datos de la empresa: lo que se entrega son configuraciones, listados y capturas anonimizadas (nombres de host, rutas y buckets pueden cambiarse por genéricos; el contenido de un dump nunca sale de allí).
 
 !!! empresa "Punto de partida en el laboratorio"
-    Antes de la incorporación a la empresa ya hay un repositorio restic funcionando contra el MinIO del laboratorio, con la convención `s3:http://10.10.0.30:9000/backups` y la contraseña en `/etc/restic/pass`. Sirve como referencia para comparar: la empresa tendrá su propia herramienta, su propio destino y sus propias políticas, y parte del trabajo es entender por qué son distintas.
+    Antes de la incorporación a la empresa ya hay un repositorio restic funcionando contra el MinIO del laboratorio, con la convención `s3:http://10.10.0.30:9000/backups` y la contraseña en `/etc/restic/pass`. Se monta en dos tiempos: el bucket `backups` y la credencial `restic` nacen con el propio MinIO en enero, en la A5.4 de Despliegue, y el repositorio se inicializa el 16 de febrero en la A7.4 de la UT7, que es la primera hoja que copia algo en él. Sirve como referencia para comparar: la empresa tendrá su propia herramienta, su propio destino y sus propias políticas, y parte del trabajo es entender por qué son distintas.
 
 ## Introducción
 
@@ -369,19 +369,25 @@ Si la empresa no tiene Prometheus, o el host que copia está fuera de su red de 
 
     Con MySQL o MariaDB, `mysqldump --single-transaction --routines --triggers --events app > app.sql`.
 
-5. Inicializa el repositorio (o usa el que ya exista) y haz una primera copia a mano, con el tag de la aplicación:
+5. Inicializa el repositorio (o usa el que ya exista) y haz una primera copia a mano, con el tag de la aplicación. Son cinco variables: las tres primeras dicen dónde está el repositorio, con qué contraseña se abre y dónde guarda la caché; las dos últimas son la credencial con la que restic habla con el bucket. Sin las dos últimas, `restic init` falla con `Fatal: unable to open config file` aunque el bucket exista y la contraseña esté bien, porque restic no sabe con qué credencial autenticarse en el destino:
 
     ```bash
+    # si el repositorio es nuevo, la contraseña antes que nada
+    sudo install -d -m 700 /etc/restic
+    openssl rand -base64 32 | sudo tee /etc/restic/pass > /dev/null && sudo chmod 600 /etc/restic/pass
+
     export RESTIC_REPOSITORY=s3:https://<destino>/backups
     export RESTIC_PASSWORD_FILE=/etc/restic/pass        # chmod 600, propietario root
     export RESTIC_CACHE_DIR=/var/cache/restic
+    export AWS_ACCESS_KEY_ID='<clave de acceso del bucket>'      # solo si el destino es S3 o MinIO
+    export AWS_SECRET_ACCESS_KEY='<secreto del bucket>'          # después, en /etc/restic/env con EnvironmentFile=
     restic init                                          # solo si el repositorio es nuevo
     restic backup /var/backups /opt/app/compose.yml /opt/app/.env.enc \
       /var/lib/docker/volumes/app_uploads/_data --tag app --one-file-system
     restic snapshots --latest 1 --tag app
     ```
 
-    El `.env` va cifrado (`age` o `sops`) antes de entrar en la copia; el fichero en claro no se incluye.
+    La contraseña se guarda en el gestor de contraseñas de la empresa en el mismo momento en que se genera, y con constancia escrita de quién la tiene: un repositorio sin contraseña no se restaura, y eso convierte la copia en nada. Si el repositorio ya existe, no lo inicialices otra vez con otra contraseña: pide la que hay y escríbela en `/etc/restic/pass`, porque un repositorio restic solo se abre con la contraseña con la que se creó. El `.env` va cifrado (`age` o `sops`) antes de entrar en la copia; el fichero en claro no se incluye.
 
 6. Escribe el script tomando como base el `backup-app.sh` de [Programar la copia](#programar-la-copia) (`set -euo pipefail`, dump, `restic backup`, `restic forget --keep-*` con la retención acordada, `restic check --read-data-subset=5%`, métrica al final), con rutas, usuario y destino de la empresa. Con otra herramienta (borg, borgmatic) el script cambia, las fases no.
 7. Programa el script con el timer y la unit de [systemd timers](#systemd-timers) (`OnCalendar` a la hora acordada, `Persistent=true`, `EnvironmentFile=/etc/restic/env` con las credenciales) o con la entrada de cron si es lo que usa la empresa:
@@ -432,7 +438,7 @@ Las **políticas** que hay que respetar y comprobar, y que son el contenido de l
 |---|---|---|
 | Cifrado | Cifrado en cliente, antes de que los datos salgan del host. El repositorio restic ya lo hace; en nube pública es obligatorio, no opcional. | `restic cat config` solo abre con la contraseña, y en el destino se ven blobs, no nombres de fichero de la aplicación. |
 | Ubicación | Si el servicio trata datos personales, el RGPD (artículo 32, seguridad del tratamiento, y capítulo V, transferencias internacionales) condiciona dónde puede estar la copia: un bucket en `eu-west-1` o `eu-south-2` vale; uno en `us-east-1` exige garantías adicionales que la empresa probablemente no quiere gestionar. | Región del bucket (`mc admin info`, con `mc`, el cliente de línea de comandos de MinIO, o la consola de la nube) frente a la que permite la política escrita. |
-| Protección contra borrado | El host que copia no debe poder destruir las copias. En S3 o MinIO se combinan el versionado del bucket (`mc version enable minio/backups`), que conserva las versiones anteriores de un objeto sobrescrito o borrado, y Object Lock en modo *compliance* con periodo de retención (`mc retention set --default COMPLIANCE 30d minio/backups`), que impide que nadie, ni el administrador, borre antes de que venza. La credencial del script lleva `s3:PutObject`, `s3:GetObject` y `s3:ListBucket` pero no `s3:DeleteObject`; con el servidor REST de restic el equivalente es `rest-server --append-only`. | `mc version info minio/backups`, `mc retention info minio/backups` y la política de la credencial; la prueba definitiva es que un `restic forget --prune` lanzado desde producción falle con `AccessDenied`. |
+| Protección contra borrado | El host que copia no debe poder destruir las copias. En S3 o MinIO se combinan el versionado del bucket (`mc version enable minio/backups`), que conserva las versiones anteriores de un objeto sobrescrito o borrado, y Object Lock en modo *compliance* con periodo de retención (`mc retention set --default COMPLIANCE 30d minio/backups`), que impide que nadie, ni el administrador, borre antes de que venza. La credencial del script lleva `s3:PutObject`, `s3:GetObject` y `s3:ListBucket` pero no `s3:DeleteObject`; con el servidor REST de restic el equivalente es `rest-server --append-only`. | `mc version info minio/backups`, `mc retention info minio/backups` y la política de la credencial; la prueba práctica es subir un objeto de usar y tirar con la credencial del script e intentar borrarlo, que tiene que responder `AccessDenied`. Nunca se prueba con un `forget --prune` contra el repositorio real: si la protección está mal puesta, que es lo que se está comprobando, el comando funciona y destruye copias. |
 
 Con eso, un atacante que entre en el host de producción no puede borrar la copia, que es el primer paso del ransomware moderno. El `forget --prune` se ejecuta desde otro host y con otras credenciales.
 
@@ -474,7 +480,15 @@ La comprobación es siempre la misma: listar el destino (`restic snapshots`, `aw
     - Cifrado en cliente: `restic cat config` abre solo con la contraseña; en el destino solo hay blobs (`mc ls` no muestra nombres de fichero de la aplicación).
     - Ubicación: región del bucket (`mc admin info` o la consola de la nube) frente a la que permite la política.
     - Protección contra borrado: `mc version info minio/backups`, `mc retention info minio/backups` y la política IAM de la credencial que usa el script (sin `s3:DeleteObject`). Si el destino es una NAS por SSH con borg, `--append-only` en el `authorized_keys` del usuario de copias.
-    - Prueba, con el tutor delante: desde producción, `restic forget <id> --prune` sobre un snapshot de prueba tiene que fallar con `AccessDenied`.
+    - Prueba de borrado, con el tutor delante y siempre sobre material de usar y tirar. Configura un alias de `mc` con la credencial que usa el script, no con la de administración (`mc alias set copia <endpoint> <clave> <secreto>`), sube un objeto que sobre e intenta borrarlo: `echo prueba > /tmp/borrado.txt`, `mc cp /tmp/borrado.txt copia/backups/prueba-borrado.txt` y `mc rm copia/backups/prueba-borrado.txt`. El `rm` tiene que responder `AccessDenied` y `mc ls copia/backups/prueba-borrado.txt` tiene que seguir mostrando el objeto: esa es la evidencia. Si el destino no deja escribir fuera del repositorio, crea uno de usar y tirar en otro prefijo (`restic -r s3:https://<destino>/backups/prueba init` y una copia de `/etc/hostname`) y lanza contra ese el `restic forget <id> --prune`. Anota el objeto o el prefijo de prueba para que quien administre el bucket lo retire cuando venza la retención.
+
+    !!! ojo "El repositorio real no se usa para probar borrados"
+        Un `restic forget <id> --prune` contra el repositorio de la empresa solo falla si la protección
+        contra borrado está bien puesta. Si está mal puesta, que es justo lo que vienes a comprobar, el
+        comando se ejecuta y borra copias de verdad, y `prune` reempaqueta el repositorio sin vuelta atrás.
+        La prueba va siempre sobre un objeto o un repositorio de usar y tirar, nunca sobre el que guarda los
+        datos del servicio.
+
 4. Rotación: cuenta en la salida de `restic snapshots --group-by tags` cuántas diarias, semanales y mensuales hay de verdad y compáralo con los `--keep-*` del script y con lo que dice la política. Las tres cosas tienen que coincidir.
 5. Limpieza: localiza el `prune` (timer o cron separado, en otro host o con otras credenciales) y su última ejecución (`journalctl -u backup-prune.service` o el log de cron); compara el espacio ocupado con el previsto; y comprueba que las copias caducadas han desaparecido del destino. Con versionado activado, mira la regla de ciclo de vida (`mc ilm rule ls minio/backups`) y que no queden versiones no actuales más viejas que la retención (`mc ls --versions`).
 6. Rellena la tabla de cumplimiento, una fila por punto de la política: requisito, cómo se comprobó, resultado, acción correctora con fecha si procede. Lo que no cumple se propone al tutor y, si lo autoriza, se corrige y se vuelve a comprobar.
@@ -482,7 +496,7 @@ La comprobación es siempre la misma: listar el destino (`restic snapshots`, `aw
 <span class="et et-com">Comprobación</span>
 
 - El listado del destino muestra los snapshots de la A6.1 y el recuento por tipo coincide con la política y con los flags `--keep-*`.
-- El `forget --prune` desde producción ha fallado (o hay otra prueba equivalente de que el host que copia no puede borrar).
+- El borrado del objeto (o del repositorio) de usar y tirar con la credencial del script ha fallado con `AccessDenied`, y las copias reales siguen intactas: `restic snapshots` devuelve las mismas de antes de la prueba.
 - La tabla de cumplimiento no tiene filas vacías y cada "no cumple" tiene acción y fecha.
 
 <span class="et et-ent">Entrega</span> En `a62/` del repositorio personal en Gitea: los listados del destino (anonimizados), la política (de la empresa o tu propuesta, indicando cuál) y la tabla de cumplimiento. Fila A6.2 de la ficha de evidencias firmada por el tutor.
@@ -500,8 +514,8 @@ Una copia que no se ha restaurado nunca no es una copia; es una esperanza. La re
 1. **Elegir la copia.** Normalmente la última: `restic snapshots --latest 1 --tag app`. Anotar el ID corto.
 2. **Preparar la plataforma de pruebas.** Una VM limpia o un `docker compose` con proyecto distinto (`-p app_restore`) en un host que no sea producción. Comprobar que tiene Docker, restic, espacio en disco (el doble del tamaño del dump) y acceso al destino.
 3. **Restaurar.** `restic restore <id> --target /restore`. Anotar cuánto tarda; en un bucket remoto esta suele ser la fase larga.
-4. **Levantar la base de datos vacía** con la versión de imagen que dice `/restore/var/backups/app-images.json`, y cargar: `psql -U postgres -f /restore/var/backups/globals.sql` para los roles, y `pg_restore -U app -d app -j 4 /restore/var/backups/app.dump`. Los errores de "role already exists" al cargar globals son normales si la imagen ya creó el rol.
-5. **Restaurar los volúmenes de ficheros** copiando `/restore/var/lib/docker/volumes/app_uploads/_data` al volumen nuevo, y colocar `compose.yml` y el `.env` descifrado.
+4. **Colocar la configuración y levantar la base de datos vacía** con la versión de imagen que dice `/restore/var/backups/app-images.json`. El `compose.yml` y el `.env` descifrado van en su sitio *antes* del primer `up`: la copia solo guarda el `.env.enc`, y sin el fichero en claro el contenedor de la base arranca sin contraseña ni nombre de base. Después se carga: `psql -U postgres -f /restore/var/backups/globals.sql` para los roles, y `pg_restore -U app -d app -j 4 /restore/var/backups/app.dump`. La ruta del dump va como argumento y no por redirección, porque `pg_restore` con `-j` abre el fichero varias veces y no puede hacerlo sobre la entrada estándar. Los errores de "role already exists" al cargar globals son normales si la imagen ya creó el rol.
+5. **Restaurar los volúmenes de ficheros** copiando `/restore/var/lib/docker/volumes/app_uploads/_data` al volumen nuevo.
 6. **Levantar el servicio** y verificar: la aplicación arranca; los datos están (`SELECT count(*) FROM pedidos`, el último registro por fecha, un fichero subido que se abre); pruebas funcionales básicas (login, una búsqueda, generar un informe). Comparar los recuentos con los de producción a la hora de la copia si es posible.
 7. **Parar el cronómetro** y comparar con el RTO. Si ha tardado más, el plan tiene un problema y es preferible descubrirlo hoy.
 8. **Registrar**: fecha, snapshot usado, quién, tiempo por fase, resultado, incidencias encontradas y qué se corrigió. **Destruir** el entorno de pruebas (contiene datos reales de la empresa) y borrar `/restore`.
@@ -582,18 +596,21 @@ Lo que la empresa necesita al final no es el script, sino un documento que otra 
     cat /restore/var/backups/app-images.json     # versión de imagen con la que se hizo la copia
     ```
 
-3. Levanta solo la base de datos con esa versión de imagen, en un proyecto de compose distinto, y carga roles y dump:
+3. Coloca la configuración, levanta solo la base de datos con esa versión de imagen, en un proyecto de compose distinto, y carga roles y dump. El orden importa: la copia solo guarda el `.env.enc`, así que el `.env` en claro tiene que estar en su sitio antes del primer `up`, o el contenedor de la base arranca sin contraseña ni nombre de base y la carga falla:
 
     ```bash
-    cd /restore/opt/app
+    cd /restore/opt/app                          # compose.yml, tal como se copió
+    sops -d .env.enc > .env                      # o age -d -i <clave> .env.enc > .env
+    chmod 600 .env
     docker compose -p app_restore up -d db
     docker compose -p app_restore exec -T db psql -U postgres -f - < /restore/var/backups/globals.sql
-    docker compose -p app_restore exec -T db pg_restore -U app -d app -j 4 < /restore/var/backups/app.dump
+    docker compose -p app_restore cp /restore/var/backups/app.dump db:/tmp/app.dump
+    docker compose -p app_restore exec -T db pg_restore -U app -d app -j 4 /tmp/app.dump
     ```
 
-    Los avisos de "role already exists" al cargar globals son normales. Anota la duración.
+    El dump se copia dentro del contenedor porque `pg_restore` con `-j` necesita la ruta del fichero como argumento, que es la forma que da [Restaurar: el mantenimiento preventivo](#restaurar-el-mantenimiento-preventivo): para trabajar en paralelo abre el fichero varias veces y no puede hacerlo sobre la entrada estándar, así que `pg_restore -j 4 < fichero` aborta. Los avisos de "role already exists" al cargar globals son normales. Anota la duración.
 
-4. Restaura los volúmenes de ficheros y la configuración: copia `/restore/var/lib/docker/volumes/app_uploads/_data` al volumen nuevo del proyecto `app_restore`, ajusta el propietario al UID que use la imagen (`chown -R 1000:1000` o el que corresponda), y coloca `compose.yml` y el `.env` descifrado.
+4. Restaura los volúmenes de ficheros: copia `/restore/var/lib/docker/volumes/app_uploads/_data` al volumen nuevo del proyecto `app_restore` y ajusta el propietario al UID que use la imagen (`chown -R 1000:1000` o el que corresponda).
 5. Levanta el resto del servicio (`docker compose -p app_restore up -d`) y verifica: recuento de las tablas principales (`SELECT count(*) FROM pedidos;` y el último registro por fecha), un fichero subido que se abre, y las pruebas funcionales que acuerdes con el tutor. Si es posible, compara los recuentos con producción a la hora de la copia.
 6. Para el cronómetro total y compáralo con el RTO de la A6.1. Si has tardado más, la incidencia va al registro con lo que habría que cambiar.
 7. Restauración de un fichero suelto, con su propio tiempo:
@@ -665,7 +682,7 @@ Documento de dos páginas, "Plan de copias y restauración del servicio X", con 
 ## Errores frecuentes en el laboratorio
 
 - **`pg_dump` vacío o de 0 bytes y código de salida 0.** Casi siempre es el `-T` que falta en `docker compose exec`, o `set -o pipefail` ausente cuando se encadena con `gzip`. Se ve mirando el tamaño del fichero (`ls -la /var/backups`) antes de dar la copia por buena; el script debería comprobar `[ -s "$DUMP" ]`.
-- **`Fatal: unable to open config file ... repository does not exist`.** La variable `RESTIC_REPOSITORY` no llega al script (systemd no hereda el entorno de la sesión interactiva). O se exporta en el propio script o va en `EnvironmentFile=`. `systemctl show backup-app.service -p Environment` dice qué ve la unit.
+- **`Fatal: unable to open config file ... repository does not exist`.** La variable `RESTIC_REPOSITORY` no llega al script (systemd no hereda el entorno de la sesión interactiva). O se exporta en el propio script o va en `EnvironmentFile=`. `systemctl show backup-app.service -p Environment` dice qué ve la unit. El mismo mensaje sale con el repositorio bien puesto cuando faltan `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`: restic llega al bucket pero no puede autenticarse, y no distingue las dos situaciones.
 - **`repository is already locked`.** Copia anterior interrumpida (reinicio, `kill`). `restic unlock` tras confirmar con `ps aux | grep restic` que no hay otro proceso.
 - **Copias de 0 B añadidos durante días.** La ruta copiada es un volumen que ya no usa la aplicación (se recreó con otro nombre tras un `docker compose down -v`). `docker volume ls` y `docker inspect` del contenedor para ver el volumen real.
 - **La alerta `BackupMissing` no salta aunque no haya copia.** La métrica desapareció (node_exporter reiniciado sin el directorio de textfile, fichero `.prom` borrado). Es el caso que cubre `absent()`; si no está la segunda regla, no hay aviso. `curl -s 10.10.2.10:9100/metrics | grep backup_` (la IP del host que hace la copia) desde mon01 lo confirma.
