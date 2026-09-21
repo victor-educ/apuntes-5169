@@ -7,7 +7,7 @@ Hasta la UT5 todo el módulo ha transcurrido en el laboratorio del centro, sobre
 Estas páginas son guía de referencia y lista de evidencias. No se sacan datos de la empresa: lo que se entrega son configuraciones, listados y capturas anonimizadas (nombres de host, rutas y buckets pueden cambiarse por genéricos; el contenido de un dump nunca sale de allí).
 
 !!! empresa "Punto de partida en el laboratorio"
-    Antes de la incorporación a la empresa ya hay un repositorio restic funcionando contra el MinIO del laboratorio, con la convención `s3:http://10.10.0.30:9000/backups` y la contraseña en `/etc/restic/pass`. Se monta en dos tiempos: el bucket `backups` y la credencial `restic` nacen con el propio MinIO en enero, en la A5.4 de Despliegue, y el repositorio se inicializa el 16 de febrero en la A7.4 de la UT7, que es la primera hoja que copia algo en él. Sirve como referencia para comparar: la empresa tendrá su propia herramienta, su propio destino y sus propias políticas, y parte del trabajo es entender por qué son distintas.
+    Antes de la incorporación a la empresa ya hay un repositorio restic funcionando contra el MinIO del laboratorio, con la convención `s3:http://10.10.0.30:9000/backups` y la contraseña en `/etc/restic/pass`. Se monta en dos tiempos: el bucket `backups` y la credencial `restic` nacen con el propio MinIO el 18 de diciembre, en la A5.2 de Despliegue, y el repositorio se inicializa el 11 de febrero en la A7.4 de la UT7, que es la primera hoja que copia algo en él. Sirve como referencia para comparar: la empresa tendrá su propia herramienta, su propio destino y sus propias políticas, y parte del trabajo es entender por qué son distintas.
 
 ## Introducción
 

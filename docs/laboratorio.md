@@ -37,7 +37,7 @@ flowchart TB
 
 <p class="pie" markdown>Mantenimiento no construye este laboratorio: lo construye Despliegue. Aquí en naranja lo que vigila, que es lo que sí se monta en esta asignatura.</p>
 
-Ese es el entorno completo, y no existe hasta diciembre. Las dos asignaturas van en paralelo y la de despliegue construye la VPC en noviembre y el cortafuegos en diciembre, mientras que esta empieza a vigilar contenedores el 1 de octubre. Por eso el curso arranca con un entorno provisional y se migra al definitivo cuando la otra asignatura lo tiene listo.
+Ese es el entorno completo, y no existe hasta diciembre. Las dos asignaturas van en paralelo y la de despliegue construye la VPC y el cortafuegos en noviembre, mientras que esta empieza a vigilar contenedores el 1 de octubre. Por eso el curso arranca con un entorno provisional y se migra al definitivo cuando la otra asignatura lo tiene listo.
 
 ## Entorno provisional (octubre y noviembre)
 
@@ -54,11 +54,11 @@ Con lo que se hace en la primera semana de la asignatura de despliegue (Proxmox 
 
 Sin firewall y sin subredes: todo está en la red del aula. Es suficiente para las UT1 y UT2, que van de sacar datos del contenedor y convertirlos en alarmas. La seguridad de esas comunicaciones se trata en la UT3 precisamente cuando hay dónde aplicarla.
 
-**web01 y db01 no existen hasta diciembre**, cuando la asignatura de despliegue separa las zonas. En octubre y en noviembre no hay que buscarlas ni inventarlas: la base de datos es el servicio `db` del compose del servicio y el proxy es el servicio `nginx` del mismo compose, los dos en el mismo host que la API. Las subredes 10.10.x.x llegan con la VPC (18 de noviembre) y el cortafuegos, con OPNsense (9 de diciembre).
+**web01 y db01 no entran en juego hasta la UT3**, a finales de noviembre, cuando la asignatura de despliegue separa las zonas. Hasta entonces no hay que buscarlas ni inventarlas: la base de datos es el servicio `db` del compose del servicio y el proxy es el servicio `nginx` del mismo compose, los dos en el mismo host que la API. Las subredes 10.10.x.x llegan con la VPC (18 de noviembre) y el cortafuegos, con OPNsense (20 de noviembre).
 
-**Migración al entorno definitivo.** La UT3 de esta asignatura (26 de noviembre a 10 de diciembre) coincide con la UT3 de despliegue, en la que se instala OPNsense y se crean las zonas. En esa quincena app01 pasa a la subred back, se separan web01 y db01 según lo que pida la asignatura de despliegue, y mon01 pasa a la subred de gestión con la IP 10.10.0.20. Como las VM son clones de plantilla y la configuración está en compose y en Git, mover una VM de red es cambiar el bridge y la IP; los apuntes de la UT3 explican el orden para no perder los datos de Prometheus y Loki.
+**Migración al entorno definitivo.** La UT3 de esta asignatura (26 de noviembre a 3 de diciembre) coincide con la UT3 de despliegue, en la que se instala OPNsense y se crean las zonas. En esos días app01 pasa a la subred back, se separan web01 y db01 según lo que pida la asignatura de despliegue, y mon01 pasa a la subred de gestión con la IP 10.10.0.20. Como las VM son clones de plantilla y la configuración está en compose y en Git, mover una VM de red es cambiar el bridge y la IP; los apuntes de la UT3 explican el orden para no perder los datos de Prometheus y Loki.
 
-El entorno **pre** hace falta desde la UT4, en la sesión 23 (14 de enero), se vuelve a usar en la UT7 y es el que se da de baja en la UT8. Lo crea la UT5 de despliegue: las tres VM de pre salen del `tofu apply` de su A5.3, el 18 de diciembre, así que llega a tiempo.
+El entorno **pre** hace falta desde la UT4, en la sesión 23 (14 de enero), se vuelve a usar en la UT7 y es el que se da de baja en la UT8. Lo crea la UT5 de despliegue: las tres VM de pre salen del `tofu apply` de su A5.3, el 8 de enero, así que llega a tiempo.
 
 ## Lo que se añade en cada unidad
 
@@ -114,7 +114,7 @@ La tabla única del laboratorio (VNets y subredes, IP de cada máquina, IDs de V
 | Nombres de recording rules | `nivel:métrica:operación`, por ejemplo `app:errors:ratio5m` |
 | Repositorio de alertas | `alerting` en Gitea: rules.yml, alerts.yml, alertmanager.yml, receptor webhook |
 | Evidencias de pruebas | `tests/evidence/<versión>/` en el repositorio del servicio |
-| Copias | Repositorio restic en MinIO (`s3:http://10.10.0.30:9000/backups`), contraseña en `/etc/restic/pass` con permisos 600. El bucket `backups` y la credencial `restic` nacen con el propio MinIO el 8 de enero, en la A5.4 de Despliegue; el `restic init` se hace una sola vez en todo el curso, en el paso 4 de la A7.4 |
+| Copias | Repositorio restic en MinIO (`s3:http://10.10.0.30:9000/backups`), contraseña en `/etc/restic/pass` con permisos 600. El bucket `backups` y la credencial `restic` nacen con el propio MinIO el 18 de diciembre, en la A5.2 de Despliegue; el `restic init` se hace una sola vez en todo el curso, en el paso 4 de la A7.4 |
 | Imágenes | Etiqueta con versión concreta, digest fijado en pre y pro; se publican en `registry.lab:5000` |
 
 Las direcciones que más se usan en esta asignatura, por si hace falta tenerlas a mano: `mon01` es la `10.10.0.20` en gestión, `web01` la `10.10.1.10` en front, `app01` la `10.10.2.10` en back y `db01` la `10.10.3.10` en data. Ni web01, ni app01, ni db01 tienen pata de gestión: Prometheus llega a sus exporters atravesando el cortafuegos, que es justo lo que se abre en la UT3.

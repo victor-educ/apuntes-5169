@@ -1,8 +1,8 @@
 # Calendario de sesiones
 
-<p class="ut-meta">Curso 2026-27 · Martes y jueves · 1 h 50 min por sesión · 41 sesiones (82 h) · Presentación el 1 de octubre de 2026 · Formación en empresa del 19 de abril al 9 de junio de 2027</p>
+<p class="ut-meta">Curso 2026-27 · Martes y jueves · 1 h 50 min por sesión · 41 sesiones (82 h) · Presentación el 1 de octubre de 2026 · Última clase el 8 de abril de 2027 · Formación en empresa del 19 de abril al 9 de junio de 2027</p>
 
-Las fechas están calculadas sobre el calendario escolar de Castelló 2026-27. El curso empieza el jueves 1 de octubre de 2026, y esa primera sesión es la de presentación de la asignatura. El periodo de clase en el centro llega hasta el 16 de abril de 2027, justo antes de la formación en empresa: las 41 sesiones ocupan hasta el 6 de abril y los tres últimos días, el 8, el 13 y el 15, quedan de margen para recuperar entregas y repasar. No son lectivos el 8, 9 y 12 de octubre, el 8 de diciembre, del 22 de diciembre al 7 de enero, del 1 al 5 de marzo (Magdalena), el 19 de marzo y la semana de Pascua (del 25 de marzo al 2 de abril). Si un día cae festivo por sorpresa, todo se corre una sesión.
+Las fechas están calculadas sobre el calendario escolar de Castelló 2026-27. El curso empieza el jueves 1 de octubre de 2026, y esa primera sesión es la de presentación de la asignatura. El periodo de clase en el centro termina el jueves 8 de abril de 2027, justo antes de la formación en empresa: las 41 sesiones llegan hasta ese día, que es el del examen de la segunda evaluación, y el único día libre es el martes 6 de abril, que queda de margen para recuperar entregas y repasar antes del examen. No son lectivos el 8, 9 y 12 de octubre, el 8 de diciembre, del 22 de diciembre al 7 de enero, del 1 al 5 de marzo (Magdalena), el 19 de marzo, la semana de Pascua (del 25 de marzo al 2 de abril) ni la semana del 12 al 16 de abril, en la que ya no hay clase. Si un día cae festivo por sorpresa, todo se corre una sesión.
 
 Cada sesión dura 110 minutos y casi todas tienen la misma forma: una explicación corta al principio (entre 10 y 30 minutos, indicada en la columna de teoría) y el resto de laboratorio. Las sesiones marcadas como práctica no tienen explicación nueva. Las sesiones en **negrita** son evaluables.
 
@@ -34,9 +34,14 @@ Cada día de clase lleva el color de su unidad. Al pasar el ratón por encima se
 | 14 | 19 nov | UT2 | Verificación completa | Práctica | Repaso del procedimiento de verificación (5 min). | Verificar cada alarma: provocarla, medir tiempos, canales, issue creada y cerrada; rellenar la tabla. |
 | **15** | **24 nov** | **UT2** | **Práctica evaluable UT2** | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el repositorio alerting, el informe de verificación y la tabla de categorización. |
 | 16 | 26 nov | UT3 | Auditoría inicial | Teoría y práctica | Superficie de exposición de la monitorización; ss, nmap y tcpdump aplicados a exporters (20 min). | Inventario de puertos en app01, db01 y mon01, escaneo desde otras subredes, matriz de exposición con lo que no debería verse. |
-| 17 | 1 dic | UT3 | Red y firewall | Teoría y práctica | Por qué un puerto publicado en Docker salta el firewall del host y cómo se corrige; red dedicada y nftables (15 min). | Mover exporters a la red monitoring o a la IP de gestión, reglas nftables por host y en OPNsense; repetir el escaneo. Trasladar app01 y mon01 a la VPC dev. |
-| 18 | 3 dic | UT3 | TLS y autenticación | Teoría y práctica | web.config.file en exporters, bcrypt, mTLS entre Promtail y Loki (20 min). | Certificados de la CA del curso, TLS y basic auth en exporters, mTLS Promtail-Loki; Prometheus sigue en UP y curl sin certificado falla. |
-| **19** | **10 dic** | **UT3** | **Práctica evaluable UT3** | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar la matriz de puertos antes y después, reglas, configuración TLS, evidencias y el documento de política. |
+| 17 | 1 dic | UT3 | Red, firewall y TLS | Teoría y práctica | Por qué un puerto publicado en Docker salta el firewall del host y cómo se corrige (10 min); red dedicada, nftables por host y las reglas de OPNsense (10 min); TLS y basic auth en los exporters con bcrypt (10 min). | Cerrar app01 en la VPC: node_exporter en la IP de zona, nftables del host y tres reglas en OPNsense, TLS y basic auth en su node_exporter; repetir el escaneo desde web01. |
+| **18** | **3 dic** | **UT3** | **Práctica evaluable UT3** | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar la matriz de puertos antes y después, reglas, configuración TLS con mTLS entre Promtail y Loki, evidencias y el documento de política. |
+| **19** | **10 dic** | **EX1** | **Examen 1ª evaluación** | Examen | Sin explicación nueva | Prueba teórico-práctica de UT1 a UT3 en el laboratorio. |
+
+### Segunda evaluación
+
+| Nº | Fecha | UT | Sesión | Tipo | Se explica | Se practica |
+|---:|-------|----|--------|------|------------|-------------|
 | 20 | 15 dic | UT4 | Fichas de métricas | Teoría y práctica | Señales doradas, USE y RED; la ficha de métrica y las tres categorías (25 min). | Documentar al menos quince métricas del contenedor de referencia y clasificarlas. |
 | 21 | 17 dic | UT4 | Indicadores | Teoría y práctica | SLI, SLO y presupuesto de error; los nueve indicadores y sus trampas (25 min). | Implementar los nueve indicadores como recording rules y panel de KPI con umbrales justificados. |
 | 22 | 12 ene | UT4 | Catálogo de alarmas | Teoría y práctica | Qué hace un buen runbook (15 min). | Ficha completa para al menos diez alarmas y enlace desde la anotación runbook. |
@@ -45,25 +50,20 @@ Cada día de clase lleva el color de su unidad. Al pasar el ratón por encima se
 | 25 | 21 ene | UT4 | Estrés y seguridad | Teoría y práctica | Estrés frente a carga; ZAP baseline y trivy image (15 min). | Rampa hasta el fallo y tiempo de recuperación; ZAP y trivy sobre la imagen; lista de hallazgos. |
 | 26 | 26 ene | UT4 | Documentación de pruebas y seguimiento | Teoría y práctica | La ficha de caso de prueba, el informe de versión y el ciclo de revisión diario, semanal y mensual (20 min). | Fichas de las diez pruebas con evidencias archivadas, informe de la versión, y una revisión semanal ejecutada con la plantilla y un umbral ajustado por merge request. |
 | **27** | **28 ene** | **UT4** | **Práctica evaluable UT4** | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el dossier de operación: fichas, indicadores, catálogo, informe de pruebas y registro de revisión. |
-| **28** | **2 feb** | **EX1** | **Examen 1ª evaluación** | Examen | Sin explicación nueva | Prueba teórico-práctica de UT1 a UT4 en el laboratorio. |
-
-### Segunda evaluación
-
-| Nº | Fecha | UT | Sesión | Tipo | Se explica | Se practica |
-|---:|-------|----|--------|------|------------|-------------|
-| 29 | 4 feb | UT7 | Inventario de versiones y seguimiento automático | Teoría y práctica | Etiquetas frente a digests, versionado semántico, variantes de imagen; Renovate y por qué no Watchtower (25 min). | Inventario con versión y digest, fijar versiones en compose y Dockerfile; Renovate sobre el repositorio y política de actualización. |
-| 30 | 9 feb | UT7 | Escaneo | Teoría y práctica | CVE, CVSS, EPSS y KEV; SBOM; qué hace cada escáner (20 min). | SBOM con Syft; Trivy y Grype sobre aplicación, BD y proxy; tabla de hallazgos. |
-| 31 | 11 feb | UT7 | Investigar y decidir | Teoría y práctica | Cómo leer un informe de Trivy y las cuatro soluciones posibles (15 min). | Investigar cinco hallazgos en NVD y OSV, decidir y justificar; reconstruir con base slim y comparar. |
-| 32 | 16 feb | UT7 | Actualización en pre | Teoría y práctica | El ciclo de actualización, migraciones y verificación de integridad con SQL (15 min). | Actualizar PostgreSQL y la aplicación en dev y pre con copia previa; recuentos y sumas de control antes y después; pruebas de la UT4. |
-| 33 | 18 feb | UT7 | Fallo provocado | Práctica | Clasificación de fallos y plantilla de reporte (10 min). | Versión que falla al actualizar: analizar, clasificar, rollback o parche en 40 minutos y reporte a desarrollo. |
-| 34 | 23 feb | UT7 | Trazabilidad | Teoría y práctica | Incidencias enlazadas, CHANGELOG y la etapa de escaneo en el pipeline (15 min). | Registrar las actualizaciones como incidencias con enlaces, actualizar el CHANGELOG y añadir la etapa Trivy que falla con CRITICAL. |
-| **35** | **25 feb** | **UT7** | **Práctica evaluable UT7** | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar inventario y política, informe de vulnerabilidades, evidencia de actualización, reporte de fallo e incidencias. |
-| 36 | 9 mar | UT8 | Plan de baja | Teoría y práctica | La baja como cambio: aprobación, ventana, qué se conserva; dónde deja rastro un servicio (25 min). | Inventariar todo lo que el servicio ha dejado en el entorno y redactar la lista de comprobación de baja con verificación por punto. |
-| 37 | 11 mar | UT8 | Liberar la infraestructura | Práctica | Orden correcto de la baja (10 min). | Baja del entorno pre: compose, imágenes, redes, VM con tofu destroy, DNS, reglas, credenciales y proyecto archivado; verificar cada punto. |
+| 28 | 2 feb | UT7 | Inventario de versiones y seguimiento automático | Teoría y práctica | Etiquetas frente a digests, versionado semántico, variantes de imagen; Renovate y por qué no Watchtower (25 min). | Inventario con versión y digest, fijar versiones en compose y Dockerfile; Renovate sobre el repositorio y política de actualización. |
+| 29 | 4 feb | UT7 | Escaneo | Teoría y práctica | CVE, CVSS, EPSS y KEV; SBOM; qué hace cada escáner (20 min). | SBOM con Syft; Trivy y Grype sobre aplicación, BD y proxy; tabla de hallazgos. |
+| 30 | 9 feb | UT7 | Investigar y decidir | Teoría y práctica | Cómo leer un informe de Trivy y las cuatro soluciones posibles (15 min). | Investigar cinco hallazgos en NVD y OSV, decidir y justificar; reconstruir con base slim y comparar. |
+| 31 | 11 feb | UT7 | Actualización en pre | Teoría y práctica | El ciclo de actualización, migraciones y verificación de integridad con SQL (15 min). | Actualizar PostgreSQL y la aplicación en dev y pre con copia previa; recuentos y sumas de control antes y después; pruebas de la UT4. |
+| 32 | 16 feb | UT7 | Fallo provocado | Práctica | Clasificación de fallos y plantilla de reporte (10 min). | Versión que falla al actualizar: analizar, clasificar, rollback o parche en 40 minutos y reporte a desarrollo. |
+| 33 | 18 feb | UT7 | Trazabilidad | Teoría y práctica | Incidencias enlazadas, CHANGELOG y la etapa de escaneo en el pipeline (15 min). | Registrar las actualizaciones como incidencias con enlaces, actualizar el CHANGELOG y añadir la etapa Trivy que falla con CRITICAL. |
+| **34** | **23 feb** | **UT7** | **Práctica evaluable UT7** | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar inventario y política, informe de vulnerabilidades, evidencia de actualización, reporte de fallo e incidencias. |
+| 35 | 25 feb | UT8 | Plan de baja | Teoría y práctica | La baja como cambio: aprobación, ventana, qué se conserva; dónde deja rastro un servicio (25 min). | Inventariar todo lo que el servicio ha dejado en el entorno y redactar la lista de comprobación de baja con verificación por punto. |
+| 36 | 9 mar | UT8 | Liberar la infraestructura: servicio y contenedores | Teoría y práctica | Orden correcto de la baja (10 min); cómo se liberan contenedores, volúmenes, imágenes y registry (15 min). | Parar el servicio y liberar contenedores, volúmenes, imágenes y redes; guardar el dump de bloqueo y los dashboards; borrar del registry por digest. |
+| 37 | 11 mar | UT8 | Liberar la infraestructura: VM, red y credenciales | Teoría y práctica | Lo que tofu destroy no se lleva; reglas antes que aliases; revocar no es borrar (10 min); cómo se liberan VM, IP, DNS, firewall, certificados y credenciales (20 min). | Destruir las VM con tofu destroy, liberar IP y DNS, quitar reglas y aliases, revocar certificados y borrar credenciales; verificar cada punto desde fuera. |
 | 38 | 16 mar | UT8 | Copias y logs | Teoría y práctica | Por qué borrar no borra: SSD, copy-on-write, versionado; borrado criptográfico (20 min). | Destruir la clave de restic, borrar versiones en S3, logs rotados y streams de Loki; intentar recuperar con photorec. |
 | 39 | 18 mar | UT8 | Datos y monitorización | Teoría y práctica | DELETE, DROP y VACUUM FULL; anonimización; desconfigurar targets, reglas y dashboards (15 min). | Anonimizar y borrar con VACUUM FULL; retirar targets, reglas, rutas, dashboards y Promtail; comprobar que no quedan series ni alarmas. |
 | **40** | **23 mar** | **UT8** | **Práctica evaluable UT8** | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el acta de baja con la lista de comprobación completa y una evidencia por punto. |
-| **41** | **6 abr** | **EX2** | **Examen 2ª evaluación** | Examen | Sin explicación nueva | Prueba teórico-práctica de UT7 y UT8. Cierre de entregas antes de la formación en empresa. |
+| **41** | **8 abr** | **EX2** | **Examen 2ª evaluación** | Examen | Sin explicación nueva | Prueba teórico-práctica de UT4, UT7 y UT8 en el laboratorio. Cierre de entregas antes de la formación en empresa. |
 
 ## Formación en empresa (19 abr a 9 jun 2027)
 
@@ -80,12 +80,12 @@ gantt
     section Centro
     UT1 Observabilidad        :2026-10-01, 2026-10-27
     UT2 Alarmas               :2026-10-29, 2026-11-24
-    UT3 Seguridad monitoriz.  :2026-11-26, 2026-12-10
+    UT3 Seguridad monitoriz.  :2026-11-26, 2026-12-03
+    Examen 1ª ev              :milestone, 2026-12-10, 0d
     UT4 KPI y pruebas         :2026-12-15, 2027-01-28
-    Examen 1ª ev              :milestone, 2027-02-02, 0d
-    UT7 Actualización         :2027-02-04, 2027-02-25
-    UT8 Terminación segura    :2027-03-09, 2027-03-23
-    Examen 2ª ev              :milestone, 2027-04-06, 0d
+    UT7 Actualización         :2027-02-02, 2027-02-23
+    UT8 Terminación segura    :2027-02-25, 2027-03-23
+    Examen 2ª ev              :milestone, 2027-04-08, 0d
     section Empresa
     FE                        :2027-04-19, 2027-06-09
 ```

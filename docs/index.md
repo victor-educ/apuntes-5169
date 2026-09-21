@@ -108,14 +108,14 @@ flowchart LR
 |----|--------|------:|-------|---------|
 | [UT1](ut/ut1-observabilidad.md) | Observabilidad de contenedores: métricas, logs y eventos | 14 | Centro | RA1 a |
 | [UT2](ut/ut2-alarmas.md) | Umbrales, agregación y gestión de alarmas | 16 | Centro | RA1 b–e |
-| [UT3](ut/ut3-seguridad-monitorizacion.md) | Seguridad de las comunicaciones de monitorización | 8 | Centro | RA1 f, g |
+| [UT3](ut/ut3-seguridad-monitorizacion.md) | Seguridad de las comunicaciones de monitorización | 6 | Centro | RA1 f, g |
 | [UT4](ut/ut4-kpi-pruebas.md) | Indicadores, KPI y pruebas del servicio | 16 | Centro | RA2 a–f |
 | [UT5](ut/ut5-logs-accesos-rendimiento.md) | Explotación de logs, accesos y rendimiento | 14 | Empresa | RA3 a–d |
 | [UT6](ut/ut6-copias-seguridad.md) | Copias de seguridad y restauración | 14 | Empresa | RA4 a, b, c |
 | [UT7](ut/ut7-actualizacion-vulnerabilidades.md) | Actualización y gestión de vulnerabilidades | 14 | Centro | RA4 d–i |
-| [UT8](ut/ut8-terminacion-segura.md) | Terminación segura del contenedor | 10 | Centro | RA5 a–d |
+| [UT8](ut/ut8-terminacion-segura.md) | Terminación segura del contenedor | 12 | Centro | RA5 a–d |
 
-Las unidades del centro van seguidas de octubre a marzo: la UT8 cierra el 23 de marzo. Los exámenes de evaluación van después de la UT4 (primera evaluación, 2 de febrero de 2027) y después de la UT8 (segunda evaluación, 6 de abril de 2027); las dos sesiones de examen son las 4 h que faltan para las 110 del módulo. Los tres últimos días de clase, el 8, el 13 y el 15 de abril, quedan de margen para recuperar entregas y repasar antes de la formación en empresa.
+Las unidades del centro van seguidas de octubre a marzo: la UT8 cierra el 23 de marzo. Los exámenes de evaluación van después de la UT3 (primera evaluación, 10 de diciembre de 2026) y después de la UT8 (segunda evaluación, 8 de abril de 2027), y sus dos sesiones están contadas dentro de las 41 sesiones y las 82 h que el módulo tiene en el centro. Como las clases del curso terminan el 9 de abril, solo queda un día suelto, el 6 de abril, para recuperar entregas y repasar antes de la formación en empresa.
 
 ## Cómo usar estos apuntes
 
@@ -126,7 +126,7 @@ Las unidades del centro van seguidas de octubre a marzo: la UT8 cierra el 23 de 
 
 ## Antes de empezar
 
-Se da por hecho lo mismo que en la asignatura de despliegue: terminal de Linux, redes básicas, Docker y Git. No hace falta tener el laboratorio montado para empezar, porque no existe todavía: la asignatura arranca el 1 de octubre con Docker en el puesto del alumno, con el servicio del curso (nginx, API y PostgreSQL en un solo compose) y una pila mínima de monitorización en localhost. El laboratorio va llegando por fases desde la asignatura de despliegue: app01 y mon01 el 14 de octubre, la VPC dev en noviembre y el cortafuegos en diciembre, y cada unidad indica sobre qué se trabaja ese día. La página de [laboratorio](laboratorio.md) detalla qué hay disponible en cada momento.
+Se da por hecho lo mismo que en la asignatura de despliegue: terminal de Linux, redes básicas, Docker y Git. No hace falta tener el laboratorio montado para empezar, porque no existe todavía: la asignatura arranca el 1 de octubre con Docker en el puesto del alumno, con el servicio del curso (nginx, API y PostgreSQL en un solo compose) y una pila mínima de monitorización en localhost. El laboratorio va llegando por fases desde la asignatura de despliegue: app01 y mon01 el 14 de octubre, y la VPC dev y el cortafuegos en noviembre, y cada unidad indica sobre qué se trabaja ese día. La página de [laboratorio](laboratorio.md) detalla qué hay disponible en cada momento.
 
 ## Sobre estos apuntes
 

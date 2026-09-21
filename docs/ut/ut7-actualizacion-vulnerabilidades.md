@@ -1,8 +1,8 @@
 # UT7 · Actualización y gestión de vulnerabilidades
 
-<p class="ut-meta">14 h · Sesiones 29 a 35 · RA4 CE d, e, f, g, h, i</p>
+<p class="ut-meta">14 h · Sesiones 28 a 34 · RA4 CE d, e, f, g, h, i</p>
 
-Hasta aquí el módulo ha tratado de mirar el servicio (UT1 a UT3) y de medirlo y probarlo (UT4). Todo eso da por hecho que el servicio no cambia. En esta unidad cambia: aparecen versiones nuevas de la base de datos, del proxy y de la aplicación, aparecen vulnerabilidades en librerías que nadie sabía que llevaba el contenedor, y hay que decidir qué se actualiza, cuándo y cómo, sin romper nada y dejando rastro. Las pruebas de la UT4 se reutilizan tal cual como red de seguridad de cada actualización, y el plan B es una copia con restic contra el MinIO del laboratorio: el repositorio de copias del curso se inicializa en la sesión 32, que es la primera que lo necesita. Después de esta unidad viene la UT8, donde se da de baja el entorno pre que aquí se usa tanto. Entre medias, del 1 al 5 de marzo, están las fiestas de la Magdalena, así que la práctica evaluable de la sesión 35 cierra la unidad antes del parón.
+Hasta aquí el módulo ha tratado de mirar el servicio (UT1 a UT3) y de medirlo y probarlo (UT4). Todo eso da por hecho que el servicio no cambia. En esta unidad cambia: aparecen versiones nuevas de la base de datos, del proxy y de la aplicación, aparecen vulnerabilidades en librerías que nadie sabía que llevaba el contenedor, y hay que decidir qué se actualiza, cuándo y cómo, sin romper nada y dejando rastro. Las pruebas de la UT4 se reutilizan tal cual como red de seguridad de cada actualización, y el plan B es una copia con restic contra el MinIO del laboratorio: el repositorio de copias del curso se inicializa en la sesión 31, que es la primera que lo necesita. Después de esta unidad viene la UT8, donde se da de baja el entorno pre que aquí se usa tanto. La práctica evaluable de la sesión 34 cierra la unidad el 23 de febrero y la UT8 arranca el 25, justo antes del parón de las fiestas de la Magdalena, del 1 al 5 de marzo.
 
 ## Introducción
 
@@ -32,15 +32,15 @@ Un jueves a las cuatro de la tarde llega un aviso: la librería que la API usa p
 | `.trivyignore` | Fichero del repositorio con los hallazgos aceptados, con motivo y fecha de caducidad. | Para que las excepciones queden escritas y no bloqueen el pipeline. |
 | Jenkins y el Jenkinsfile | El servidor de pipelines de la 5166 y el fichero que describe sus etapas. | Para añadir la etapa de escaneo y desplegar a través de él. |
 | Gitea (incidencias) y Keep a Changelog | El gestor de incidencias del curso y el formato estándar del `CHANGELOG.md`. | Para dejar rastro de cada actualización con enlaces a lo que la justifica. |
-| restic, newman, k6 y ZAP | El programa de copias del laboratorio, que guarda en el MinIO de `mon01`, y las pruebas de la UT4. | Plan B y red de seguridad de cada actualización. El repositorio de copias se crea en la sesión 32 con las órdenes escritas en la hoja; restic se estudia a fondo en la [UT6](ut6-copias-seguridad.md#restic-a-fondo). |
+| restic, newman, k6 y ZAP | El programa de copias del laboratorio, que guarda en el MinIO de `mon01`, y las pruebas de la UT4. | Plan B y red de seguridad de cada actualización. El repositorio de copias se crea en la sesión 31 con las órdenes escritas en la hoja; restic se estudia a fondo en la [UT6](ut6-copias-seguridad.md#restic-a-fondo). |
 
-**Cómo está organizada la unidad.** La unidad sigue las sesiones en orden y cada sesión trae primero la teoría que se explica y después su hoja de práctica. En la sesión 29 se inventaría lo desplegado con versión y digest, se fijan las etiquetas flotantes y se pone Renovate a vigilar el repositorio con una política escrita. En las sesiones 30 y 31 se genera el SBOM, se escanea con Trivy y Grype y se investiga y decide qué hacer con cada hallazgo, incluida la reconstrucción con una base más pequeña. En las sesiones 32 y 33 se actualizan PostgreSQL y la aplicación en dev y pre con copia previa y verificación de integridad, y después se diagnostica una versión que falla y se decide rollback o parche en plazo. La sesión 34 cierra el círculo con las incidencias, el CHANGELOG y la etapa de escaneo en el pipeline, y la sesión 35 es la práctica evaluable.
+**Cómo está organizada la unidad.** La unidad sigue las sesiones en orden y cada sesión trae primero la teoría que se explica y después su hoja de práctica. En la sesión 28 se inventaría lo desplegado con versión y digest, se fijan las etiquetas flotantes y se pone Renovate a vigilar el repositorio con una política escrita. En las sesiones 29 y 30 se genera el SBOM, se escanea con Trivy y Grype y se investiga y decide qué hacer con cada hallazgo, incluida la reconstrucción con una base más pequeña. En las sesiones 31 y 32 se actualizan PostgreSQL y la aplicación en dev y pre con copia previa y verificación de integridad, y después se diagnostica una versión que falla y se decide rollback o parche en plazo. La sesión 33 cierra el círculo con las incidencias, el CHANGELOG y la etapa de escaneo en el pipeline, y la sesión 34 es la práctica evaluable.
 
 !!! otra "Lo que hace falta de la otra asignatura"
-    Esta unidad va del 4 al 25 de febrero y coincide con la primera mitad de la [UT6 de Despliegue, integración continua con Jenkins](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), que va del 3 de febrero al 24 de marzo. Dos cosas dependen de ella (Jenkins, sus credenciales y el registry local se explican allí y aquí se dan por conocidos):
+    Esta unidad va del 2 al 23 de febrero y coincide con la primera mitad de la [UT6 de Despliegue, integración continua con Jenkins](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), que va del 3 de febrero al 12 de marzo. Dos cosas dependen de ella (Jenkins, sus credenciales y el registry local se explican allí y aquí se dan por conocidos):
 
     - El entorno pre que aquí se actualiza lo crea el repositorio IaC de la [UT5 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/) con OpenTofu, así que a principios de febrero ya existe. No se monta a mano.
-    - La etapa de escaneo con Trivy que se pide en la sesión 34 (23 de febrero) se añade al Jenkinsfile que en la 5166 se escribe en sus sesiones 35 y 36 (19 y 24 de febrero): la etapa `Package`, entre la que se coloca el escaneo, se monta allí el día 24, o sea el día siguiente, en el apartado [Pipeline declarativo](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/#pipeline-declarativo). Si ese día el pipeline aún no despliega, la etapa se prueba en un job aparte que solo construya y escanee, y se integra cuando el pipeline esté completo.
+    - La etapa de escaneo con Trivy que se pide en la sesión 33 (18 de febrero) se añade al Jenkinsfile que en la 5166 se escribe el día anterior, el 17 de febrero, en el apartado [Pipeline declarativo](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/#pipeline-declarativo). La etapa `Package`, entre la que se coloca el escaneo, se monta allí al día siguiente, el 19 de febrero. Si ese día el pipeline aún no despliega, la etapa se prueba en un job aparte que solo construya y escanee, y se integra cuando el pipeline esté completo.
 
 ### Plan de sesiones
 
@@ -48,17 +48,17 @@ Cada sesión son 110 minutos y empieza con una explicación corta antes del labo
 
 | Sesión | Fecha | Tipo | Se explica | Se practica |
 |---:|-------|------|------------|-------------|
-| [29](#sesion-29-inventario-de-versiones-y-seguimiento-automatico) | 4 feb | Teoría y práctica | Etiquetas frente a digests, versionado semántico, variantes de imagen; Renovate y por qué no Watchtower (25 min). | Inventario con versión y digest, fijar versiones en compose y Dockerfile; Renovate sobre el repositorio y política de actualización. |
-| [30](#sesion-30-escaneo) | 9 feb | Teoría y práctica | CVE, CVSS, EPSS y KEV; SBOM; qué hace cada escáner (20 min). | SBOM con Syft; Trivy y Grype sobre aplicación, BD y proxy; tabla de hallazgos. |
-| [31](#sesion-31-investigar-y-decidir) | 11 feb | Teoría y práctica | Cómo leer un informe de Trivy y las cuatro soluciones posibles (15 min). | Investigar cinco hallazgos en NVD y OSV, decidir y justificar; reconstruir con base slim y comparar. |
-| [32](#sesion-32-actualizacion-en-pre) | 16 feb | Teoría y práctica | El ciclo de actualización, migraciones y verificación de integridad con SQL (15 min). | Actualizar PostgreSQL y la aplicación en dev y pre con copia previa; recuentos y sumas de control antes y después; pruebas de la UT4. |
-| [33](#sesion-33-fallo-provocado) | 18 feb | Práctica | Clasificación de fallos y plantilla de reporte (10 min). | Versión que falla al actualizar: analizar, clasificar, rollback o parche en 40 minutos y reporte a desarrollo. |
-| [34](#sesion-34-trazabilidad) | 23 feb | Teoría y práctica | Incidencias enlazadas, CHANGELOG y la etapa de escaneo en el pipeline (15 min). | Registrar las actualizaciones como incidencias con enlaces, actualizar el CHANGELOG y añadir la etapa Trivy que falla con CRITICAL. |
-| [35](#sesion-35-practica-evaluable) | 25 feb | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar inventario y política, informe de vulnerabilidades, evidencia de actualización, reporte de fallo e incidencias. |
+| [28](#sesion-28-inventario-de-versiones-y-seguimiento-automatico) | 2 feb | Teoría y práctica | Etiquetas frente a digests, versionado semántico, variantes de imagen; Renovate y por qué no Watchtower (25 min). | Inventario con versión y digest, fijar versiones en compose y Dockerfile; Renovate sobre el repositorio y política de actualización. |
+| [29](#sesion-29-escaneo) | 4 feb | Teoría y práctica | CVE, CVSS, EPSS y KEV; SBOM; qué hace cada escáner (20 min). | SBOM con Syft; Trivy y Grype sobre aplicación, BD y proxy; tabla de hallazgos. |
+| [30](#sesion-30-investigar-y-decidir) | 9 feb | Teoría y práctica | Cómo leer un informe de Trivy y las cuatro soluciones posibles (15 min). | Investigar cinco hallazgos en NVD y OSV, decidir y justificar; reconstruir con base slim y comparar. |
+| [31](#sesion-31-actualizacion-en-pre) | 11 feb | Teoría y práctica | El ciclo de actualización, migraciones y verificación de integridad con SQL (15 min). | Actualizar PostgreSQL y la aplicación en dev y pre con copia previa; recuentos y sumas de control antes y después; pruebas de la UT4. |
+| [32](#sesion-32-fallo-provocado) | 16 feb | Práctica | Clasificación de fallos y plantilla de reporte (10 min). | Versión que falla al actualizar: analizar, clasificar, rollback o parche en 40 minutos y reporte a desarrollo. |
+| [33](#sesion-33-trazabilidad) | 18 feb | Teoría y práctica | Incidencias enlazadas, CHANGELOG y la etapa de escaneo en el pipeline (15 min). | Registrar las actualizaciones como incidencias con enlaces, actualizar el CHANGELOG y añadir la etapa Trivy que falla con CRITICAL. |
+| [34](#sesion-34-practica-evaluable) | 23 feb | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar inventario y política, informe de vulnerabilidades, evidencia de actualización, reporte de fallo e incidencias. |
 
-## Sesión 29 · Inventario de versiones y seguimiento automático
+## Sesión 28 · Inventario de versiones y seguimiento automático
 
-<p class="ut-meta" markdown>4 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Versiones, etiquetas y digests · 15 min&#10;Seguir la aparición de versiones · 10 min&#10;A7.1 Inventario de versiones y seguimiento automático · 85 min" data-dur="Versiones, etiquetas y digests · 15 min&#10;Seguir la aparición de versiones · 10 min&#10;A7.1 Inventario de versiones y seguimiento automático · 85 min">:material-school:<i class="dur-barra" style="--teoria:23%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>2 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Versiones, etiquetas y digests · 15 min&#10;Seguir la aparición de versiones · 10 min&#10;A7.1 Inventario de versiones y seguimiento automático · 85 min" data-dur="Versiones, etiquetas y digests · 15 min&#10;Seguir la aparición de versiones · 10 min&#10;A7.1 Inventario de versiones y seguimiento automático · 85 min">:material-school:<i class="dur-barra" style="--teoria:23%"></i>:material-flask:</span></p>
 
 Al acabar la sesión el compose y el Dockerfile del servicio no tienen ninguna etiqueta flotante, el inventario y la política de actualización están escritos y Renovate abre propuestas de cambio en el Gitea del laboratorio. La hoja se apoya en los apartados de abajo: cómo nombrar una imagen sin ambigüedad (etiqueta, digest y versionado semántico), cómo funciona Renovate y su configuración, y la política escrita que decide quién aprueba qué. Dependabot, Watchtower y el job en el pipeline son las alternativas que conviene conocer para entender por qué no se usan aquí.
 
@@ -260,7 +260,7 @@ Aquí toca escribir media página que diga cómo se actualiza el servicio. Sin e
 - Qué espera al ciclo: todo lo demás, agrupado cada dos semanas.
 - Cuánto tiempo se da a una actualización que falla antes de volver atrás: 40 minutos en pre, 20 en producción.
 
-### A7.1 Inventario de versiones y seguimiento automático (sesión 29)
+### A7.1 Inventario de versiones y seguimiento automático (sesión 28)
 
 Dos tareas encadenadas: primero el inventario y luego, sobre él, su vigilancia automática.
 
@@ -272,7 +272,7 @@ Dos tareas encadenadas: primero el inventario y luego, sobre él, su vigilancia 
 - Clon del repositorio `ops/servicio` del Gitea del laboratorio (`gitea.lab`, hoy el contenedor de `mon01` en el 3001, al que le diste nombre en la A4.3) con permiso para abrir PR.
 
     !!! ojo "El nombre no cambia, la dirección sí"
-        Se usa siempre `gitea.lab` y nunca la dirección de la máquina. El 17 de febrero, en la [A6.5 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), Gitea se muda a `gitea01` (10.10.0.11) con TLS delante, y ese día el único cambio es el host override y el endpoint, que pasa a `https://gitea.lab/api/v1`. Nada de lo que escribes hoy se reescribe.
+        Se usa siempre `gitea.lab` y nunca la dirección de la máquina. El 12 de febrero, en la [A6.4 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), Gitea se muda a `gitea01` (10.10.0.11) con TLS delante, y ese día el único cambio es el host override y el endpoint, que pasa a `https://gitea.lab/api/v1`. Nada de lo que escribes hoy se reescribe.
 - Explicado antes: [Versiones, etiquetas y digests](#versiones-etiquetas-y-digests), [Versionado semántico](#versionado-semantico), [Renovate a fondo](#renovate-a-fondo) y [La política escrita](#la-politica-escrita).
 
 <span class="et et-pas">Pasos</span>
@@ -319,7 +319,7 @@ Dos tareas encadenadas: primero el inventario y luego, sobre él, su vigilancia 
     ```
 
 9. Mira la pestaña de pull requests del repositorio: tiene que haber uno de `renovate-bot` que devuelva la versión que bajaste en el paso 7. Guarda la captura.
-10. Política de actualización: `docs/politica-actualizacion.md`, con los seis puntos del apartado [La política escrita](#la-politica-escrita) como encabezados y una o dos líneas en cada uno decididas para tu servicio (quién aprueba, en qué ventana, qué se automerge). Se cierra en la práctica evaluable de la sesión 35. Añádela al PR del paso 5.
+10. Política de actualización: `docs/politica-actualizacion.md`, con los seis puntos del apartado [La política escrita](#la-politica-escrita) como encabezados y una o dos líneas en cada uno decididas para tu servicio (quién aprueba, en qué ventana, qué se automerge). Se cierra en la práctica evaluable de la sesión 34. Añádela al PR del paso 5.
 
 <span class="et et-com">Comprobación</span> El `grep` del paso 3 no muestra etiquetas flotantes; el servicio arranca con el compose fijado; en Gitea hay un PR de `renovate-bot` con la etiqueta `actualizacion` y las notas de la versión; `grep skipping renovate.log` no menciona la imagen del registry propio.
 
@@ -327,9 +327,9 @@ Dos tareas encadenadas: primero el inventario y luego, sobre él, su vigilancia 
 
 <span class="et et-ext">Si te sobra tiempo</span> Añade un `packageRule` con `versioning` explícito para alguna imagen que no siga semver.
 
-## Sesión 30 · Escaneo
+## Sesión 29 · Escaneo
 
-<p class="ut-meta" markdown>9 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Vulnerabilidades en los componentes · 20 min&#10;A7.2 Escaneo · 90 min" data-dur="Vulnerabilidades en los componentes · 20 min&#10;A7.2 Escaneo · 90 min">:material-school:<i class="dur-barra" style="--teoria:18%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>4 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Vulnerabilidades en los componentes · 20 min&#10;A7.2 Escaneo · 90 min" data-dur="Vulnerabilidades en los componentes · 20 min&#10;A7.2 Escaneo · 90 min">:material-school:<i class="dur-barra" style="--teoria:18%"></i>:material-flask:</span></p>
 
 Al acabar la sesión quedan hechos el SBOM de las tres imágenes del servicio, los informes de Trivy y Grype y una tabla de hallazgos HIGH y CRITICAL con las columnas de exploit conocido y alcanzable. La hoja se apoya en el vocabulario de abajo (CVE, CVSS, EPSS y KEV), en qué es un SBOM y cómo lo genera Syft, y en qué hace cada escáner y con qué opciones. Cómo leer el informe y decidir queda para la sesión siguiente.
 
@@ -447,7 +447,7 @@ osv-scanner scan --lockfile api/requirements.txt --lockfile web/package-lock.jso
 
 En el pipeline, `pip-audit` corre en la etapa de construcción contra el `requirements.txt` antes de construir la imagen, y Trivy después contra la imagen construida. Dos filtros a distinta altura.
 
-### A7.2 Escaneo (sesión 30)
+### A7.2 Escaneo (sesión 29)
 
 <span class="et et-obj">Objetivo</span> Tres SBOM y los informes JSON de Trivy y Grype en el repositorio, y una tabla de hallazgos HIGH y CRITICAL con las columnas de exploit conocido y alcanzable rellenas.
 
@@ -535,9 +535,9 @@ En el pipeline, `pip-audit` corre en la etapa de construcción contra el `requir
 
 <span class="et et-ext">Si te sobra tiempo</span> `trivy fs --scanners vuln,secret .` y `pip-audit -r api/requirements.txt`; anota si ven algo nuevo.
 
-## Sesión 31 · Investigar y decidir
+## Sesión 30 · Investigar y decidir
 
-<p class="ut-meta" markdown>11 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Leer un informe · 5 min&#10;Las cuatro soluciones y el registro de excepciones · 5 min&#10;Fuentes y cómo se leen · 5 min&#10;A7.3 Investigar y decidir · 95 min" data-dur="Leer un informe · 5 min&#10;Las cuatro soluciones y el registro de excepciones · 5 min&#10;Fuentes y cómo se leen · 5 min&#10;A7.3 Investigar y decidir · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>9 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Leer un informe · 5 min&#10;Las cuatro soluciones y el registro de excepciones · 5 min&#10;Fuentes y cómo se leen · 5 min&#10;A7.3 Investigar y decidir · 95 min" data-dur="Leer un informe · 5 min&#10;Las cuatro soluciones y el registro de excepciones · 5 min&#10;Fuentes y cómo se leen · 5 min&#10;A7.3 Investigar y decidir · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
 
 Al acabar la sesión están investigados cinco hallazgos en NVD y OSV, decidido y justificado qué hacer con cada uno, documentado el `.trivyignore` y medido cuánto cambia el informe al reconstruir la imagen con base slim. La hoja se apoya en el diagrama de decisión de Leer un informe y en las cuatro soluciones posibles con su registro de excepciones; las fuentes donde se consulta cada CVE están justo antes de la hoja como material de consulta.
 
@@ -645,7 +645,7 @@ Las excepciones aceptadas van a `.trivyignore` en la raíz del repositorio. Triv
 
 ```text
 # CVE-2023-45853: MiniZip no se compila en zlib1g de Debian. Debian: will_not_fix.
-# Decidido en #142 por el equipo de Sistemas el 2027-02-11. Revisar cuando Debian cambie de estado.
+# Decidido en #142 por el equipo de Sistemas el 2027-02-09. Revisar cuando Debian cambie de estado.
 CVE-2023-45853 exp:2027-08-01
 
 # CVE-2024-6345: setuptools solo se usa en la etapa de construcción; no está en la imagen final desde 1.4.3.
@@ -669,7 +669,7 @@ Una línea sin comentario ni fecha es una excepción que nadie revisará, y en s
 
 Al investigar un hallazgo en la actividad A7.3, el orden de lectura es: ficha NVD u OSV para saber qué es y qué versiones afecta, aviso del proyecto para saber si ya hay parche y cómo se activa, issue tracker del componente para ver si hay mitigación mientras tanto, y KEV para saber si corre prisa.
 
-### A7.3 Investigar y decidir (sesión 31)
+### A7.3 Investigar y decidir (sesión 30)
 
 <span class="et et-obj">Objetivo</span> Cinco hallazgos decididos y justificados, un `.trivyignore` documentado y una comparación medida de la imagen de la aplicación con base completa y con base `-slim`.
 
@@ -717,9 +717,9 @@ Al investigar un hallazgo en la actividad A7.3, el orden de lectura es: ficha NV
 
 <span class="et et-ext">Si te sobra tiempo</span> Quita `setuptools` de la imagen final y comprueba si desaparece una fila del informe.
 
-## Sesión 32 · Actualización en pre
+## Sesión 31 · Actualización en pre
 
-<p class="ut-meta" markdown>16 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Actualizar · 15 min&#10;A7.4 Actualización en pre · 95 min" data-dur="Actualizar · 15 min&#10;A7.4 Actualización en pre · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>11 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Actualizar · 15 min&#10;A7.4 Actualización en pre · 95 min" data-dur="Actualizar · 15 min&#10;A7.4 Actualización en pre · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
 
 Al acabar la sesión PostgreSQL y la aplicación están actualizados en dev y en pre con copia previa, la salida de `integridad.sql` es idéntica antes y después y las pruebas de la UT4 están en verde, todo enlazado desde una incidencia. La hoja se apoya en el ciclo completo de una actualización, en el paso a paso con el plan de vuelta atrás escrito y en las consultas de verificación de integridad; las ventanas de mantenimiento son el marco en que se hace después el paso a producción.
 
@@ -821,16 +821,16 @@ Y las cosas que solo se ven desde fuera: una prueba funcional de lectura y escri
 
 La ventana es un compromiso con los usuarios: en ese rato puede haber cortes y fuera de él no. Para el servicio del curso, martes de 7:00 a 8:00. Dentro de la ventana el orden es siempre el mismo: aviso previo (banner o correo, 48 horas antes para mayores), silencio de las alarmas afectadas en Alertmanager (UT2) con fecha de fin, copia, despliegue, verificación, retirada del silencio, cierre de la incidencia. Y un reloj: si a los 20 minutos de la hora prevista de fin no está verificado, se vuelve atrás sin discutir. Esa regla evita el "cinco minutos más" que acaba en dos horas de caída.
 
-### A7.4 Actualización en pre (sesión 32)
+### A7.4 Actualización en pre (sesión 31)
 
 <span class="et et-obj">Objetivo</span> PostgreSQL de `pre` en la siguiente versión menor y la aplicación con la base corregida, en dev y en pre, con copia previa, `integridad.sql` idéntico antes y después, pruebas de la UT4 en verde y todo enlazado desde una incidencia.
 
 <span class="et et-pre">Antes de empezar</span>
 
 - El entorno pre creado por el IaC de la 5166 UT5 (no lo montes a mano) y acceso SSH a él.
-- El PR de A7.3 fusionado y la imagen `api:1.4.3` disponible: la construye el pipeline de la 5166 UT6, y si ese día aún no despliega (el registry del laboratorio se monta el 24 de febrero), constrúyela a mano en el propio host con `docker build -t api:1.4.3 .`.
+- El PR de A7.3 fusionado y la imagen `api:1.4.3` disponible: la construye el pipeline de la 5166 UT6, y si ese día aún no despliega (el registry del laboratorio se monta el 19 de febrero), constrúyela a mano en el propio host con `docker build -t api:1.4.3 .`.
 - `db01-pre` (10.20.3.10) accesible desde `app01-pre`: PostgreSQL de `pre` vive ahí, no en el compose de la aplicación.
-- Las credenciales del MinIO del laboratorio: el usuario `restic` y su secreto, creados el 8 de enero en el paso 1 de la [A5.4 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/), o las que dé el profesor si MinIO es del aula. El repositorio de copias se inicializa hoy, en el paso 4.
+- Las credenciales del MinIO del laboratorio: el usuario `restic` y su secreto, creados el 18 de diciembre en el paso 1 de la [A5.2 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/), o las que dé el profesor si MinIO es del aula. El repositorio de copias se inicializa hoy, en el paso 4.
 - newman, k6 con umbrales y ZAP baseline de la UT4 a mano, con la línea base de KPI apuntada.
 - Trabajo que se puede traer hecho: la instalación de la letra a del paso 4 (`restic` y `postgresql-client` en `app01-pre`). Son dos paquetes que, con treinta descargas a la vez en el aula, se llevan un buen trozo de la sesión.
 - Explicado antes: [El ciclo](#el-ciclo), [Paso a paso](#paso-a-paso) y [Verificación de integridad de datos](#verificacion-de-integridad-de-datos).
@@ -878,7 +878,7 @@ La ventana es un compromiso con los usuarios: en ese rato puede haber cortes y f
         `/etc/restic/pass` está en `app01-pre`, y `pre` se destruye y se vuelve a crear con OpenTofu
         cada vez que hace falta. Guarda esa contraseña en el gestor de contraseñas del puesto de
         administración antes de seguir: sin ella el repositorio entero es ilegible. Eso no es un
-        defecto, es la propiedad que se aprovecha en la A8.3 para el borrado criptográfico del
+        defecto, es la propiedad que se aprovecha en la [A8.4](ut8-terminacion-segura.md#a84-copias-y-logs-sesion-38) para el borrado criptográfico del
         entorno pre.
 
     b. Escribe `/etc/restic/env` con las cinco variables. Las tres primeras son el destino y la caché; las dos últimas son la credencial `restic` de MinIO:
@@ -955,9 +955,9 @@ La ventana es un compromiso con los usuarios: en ese rato puede haber cortes y f
 
 <span class="et et-ext">Si te sobra tiempo</span> Pasa el ZAP baseline de la A4.6 contra pre y compara sus alertas con las de diciembre. Después ensaya el plan B en dev: `docker compose -f compose.anterior.yml up -d`, comprueba que responde y vuelve a la versión nueva. Y si aún te sobra, borra una fila en dev y mira cómo se manifiesta en cada una de las seis consultas de integridad.
 
-## Sesión 33 · Fallo provocado
+## Sesión 32 · Fallo provocado
 
-<p class="ut-meta" markdown>18 de febrero · Práctica · <span class="dur" tabindex="0" aria-label="Cuando algo falla · 10 min&#10;A7.5 Fallo provocado · 100 min" data-dur="Cuando algo falla · 10 min&#10;A7.5 Fallo provocado · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>16 de febrero · Práctica · <span class="dur" tabindex="0" aria-label="Cuando algo falla · 10 min&#10;A7.5 Fallo provocado · 100 min" data-dur="Cuando algo falla · 10 min&#10;A7.5 Fallo provocado · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
 
 Esta sesión es casi toda práctica: el profesor entrega una versión de la aplicación que falla al actualizar y hay que diagnosticarla en pre, clasificarla y decidir rollback o parche antes de los 40 minutos, con un reporte reproducible para el equipo de desarrollo. La explicación corta de abajo recoge el orden de diagnóstico, la tabla de clasificación y la plantilla del reporte, que es lo que se usa en la hoja.
 
@@ -986,7 +986,7 @@ Todo lo que afecte al código o a la configuración de la aplicación se reporta
 ```markdown
 ## Fallo al actualizar api 1.4.3 → 1.5.0 en pre
 
-**Fecha y hora:** 2027-02-18 09:15, entorno pre (app01-pre, 10.20.2.10)
+**Fecha y hora:** 2027-02-16 09:15, entorno pre (app01-pre, 10.20.2.10)
 **Versión origen:** api:1.4.3@sha256:c0de…  **Versión destino:** api:1.5.0@sha256:f00d…
 **Clasificación:** bloqueante. **Decisión:** rollback a 1.4.3 a las 09:41 (26 min).
 
@@ -994,7 +994,7 @@ Todo lo que afecte al código o a la configuración de la aplicación se reporta
 El contenedor `api` se reinicia cada 8 s. El endpoint /health devuelve 502 desde el proxy.
 
 ### Pasos para reproducir
-1. Con la base de datos en pre (volcado del 2027-02-18 07:00), cambiar la imagen a 1.5.0 en compose.yml.
+1. Con la base de datos en pre (volcado del 2027-02-16 07:00), cambiar la imagen a 1.5.0 en compose.yml.
 2. `docker compose up -d api`.
 3. `docker compose logs api` muestra lo de abajo.
 
@@ -1017,7 +1017,7 @@ Incidencia #147 · PR !61 · Pipeline #892 · Copia previa restic snapshot 3fa2b
 
 Con eso, quien lo lea reproduce el fallo sin preguntar nada; si falta un bloque, el reporte vuelve con preguntas.
 
-### A7.5 Fallo provocado (sesión 33)
+### A7.5 Fallo provocado (sesión 32)
 
 El profesor entrega una versión de la aplicación que falla al actualizar (cambio de formato de configuración).
 
@@ -1026,7 +1026,7 @@ El profesor entrega una versión de la aplicación que falla al actualizar (camb
 <span class="et et-pre">Antes de empezar</span>
 
 - Pre en la versión de A7.4, con `compose.anterior.yml` guardado y una copia reciente.
-- La imagen `api:1.5.0` del profesor en el registry de `gitea01`, con su digest.
+- La imagen `api:1.5.0` del profesor en el registry de `gitea01`, con su digest. Ese registry se monta en la 5166 UT6 el 19 de febrero, tres días después de esta sesión: hasta entonces la imagen se entrega como fichero y se carga en `app01-pre` con `docker load -i api-1.5.0.tar`, y el digest sale de `docker image inspect api:1.5.0 --format '{{index .RepoDigests 0}}{{.Id}}'`.
 - Un reloj a la vista y una incidencia abierta: `Actualizar api 1.4.3 → 1.5.0 (pre)`, con el plan de vuelta atrás.
 - Explicado antes: [Cuando algo falla](#cuando-algo-falla), con la tabla de clasificación y la plantilla de reporte.
 
@@ -1063,9 +1063,9 @@ El profesor entrega una versión de la aplicación que falla al actualizar (camb
 
 <span class="et et-ext">Si te sobra tiempo</span> Si hiciste rollback, prueba ahora el parche sin reloj y anota en el reporte si confirma la causa.
 
-## Sesión 34 · Trazabilidad
+## Sesión 33 · Trazabilidad
 
-<p class="ut-meta" markdown>23 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Trazabilidad · 15 min&#10;A7.6 Trazabilidad · 95 min" data-dur="Trazabilidad · 15 min&#10;A7.6 Trazabilidad · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>18 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Trazabilidad · 15 min&#10;A7.6 Trazabilidad · 95 min" data-dur="Trazabilidad · 15 min&#10;A7.6 Trazabilidad · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
 
 Al acabar la sesión las dos actualizaciones anteriores (la verificada y la revertida) están registradas como incidencias enlazadas en Gitea, el `CHANGELOG.md` está al día y el Jenkinsfile lleva una etapa de Trivy que bloquea una imagen con CRITICAL corregible y deja pasar la corregida. La hoja se apoya en qué debe contener una incidencia de actualización, en el formato Keep a Changelog y en la etapa de escaneo tal como se escribe en la sintaxis declarativa de la 5166.
 
@@ -1086,9 +1086,9 @@ Las etiquetas no son decoración: dentro de un año, `label:seguridad label:reve
 El `CHANGELOG.md` del repositorio sigue el formato Keep a Changelog (https://keepachangelog.com/es-ES/1.1.0/): una sección por versión con fecha, y dentro, las categorías fijas `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`. Lo que interesa a quien mantiene el servicio es la categoría `Security` y anotar las versiones de las dependencias:
 
 ```markdown
-## [1.4.3] - 2027-02-16
+## [1.4.3] - 2027-02-11
 ### Security
-- Base actualizada a python:3.13-slim-bookworm (digest 2027-02-10): corrige CVE-2023-44487 en libnghttp2 (#142).
+- Base actualizada a python:3.13-slim-bookworm (digest 2027-02-08): corrige CVE-2023-44487 en libnghttp2 (#142).
 - setuptools eliminado de la imagen final (#143).
 ### Changed
 - PostgreSQL 17.5 → 17.6 en pre y producción (#145).
@@ -1127,7 +1127,7 @@ stage('Escaneo de vulnerabilidades') {
 
 Tres detalles: el JSON se genera siempre, falle o no la puerta, porque es lo que se enlaza desde la incidencia, mientras que el SARIF (un formato normalizado de resultados de análisis que entienden las interfaces de revisión de código) es el que leen otras herramientas; `--ignore-unfixed` en la puerta evita bloquear el pipeline por algo que nadie puede arreglar hoy (pero no en el informe archivado); y el umbral empieza en CRITICAL. Tras un mes con la puerta en verde, se baja a `HIGH,CRITICAL`. Empezar en HIGH el primer día es la forma de que el equipo desactive la etapa la primera semana.
 
-### A7.6 Trazabilidad (sesión 34)
+### A7.6 Trazabilidad (sesión 33)
 
 <span class="et et-obj">Objetivo</span> Las actualizaciones de A7.4 (verificada) y A7.5 (revertida) registradas y enlazadas en Gitea, el `CHANGELOG.md` al día y una etapa de Trivy en el Jenkinsfile que bloquea una imagen vulnerable y deja pasar la corregida.
 
@@ -1147,7 +1147,7 @@ Tres detalles: el JSON se genera siempre, falle o no la puerta, porque es lo que
 5. Pipeline en verde: lanza con la 1.4.3 (base slim) y el `.trivyignore` de A7.3. Captura y artefactos.
 6. Enlaza ambos pipelines desde la incidencia de A7.4.
 7. Deja el repositorio de incidencias en condiciones de contestar a una auditoría. Comprueba que existen las seis etiquetas del apartado (`actualizacion`, `seguridad`, `funcionalidad`, `ciclo`, `mayor`, `revertida`), crea las que falten con su color y su descripción, y repasa que las dos incidencias llevan las suyas. Después contesta con una búsqueda, no de memoria, a estas tres preguntas, y guarda cada captura con la búsqueda a la vista: cuántas actualizaciones de seguridad ha habido, cuántas ha habido que deshacer (`label:actualizacion label:revertida`) y cuál fue la última actualización verificada.
-8. Monta el índice de actualizaciones en `docs/actualizaciones/README.md`, que es lo que la práctica evaluable de la sesión 35 pide enlazado: una fila por actualización con fecha, versión origen y destino con digest, motivo, estado, y los enlaces a la incidencia, al PR, al pipeline, al informe de Trivy de antes y de después, a las pruebas de la UT4 y al snapshot de la copia previa. Rellénalo con las dos actualizaciones de A7.4 y A7.5 y comprueba abriendo uno a uno que ningún enlace está roto. Enlázalo desde el `CHANGELOG.md` y desde el `README.md` del repositorio.
+8. Monta el índice de actualizaciones en `docs/actualizaciones/README.md`, que es lo que la práctica evaluable de la sesión 34 pide enlazado: una fila por actualización con fecha, versión origen y destino con digest, motivo, estado, y los enlaces a la incidencia, al PR, al pipeline, al informe de Trivy de antes y de después, a las pruebas de la UT4 y al snapshot de la copia previa. Rellénalo con las dos actualizaciones de A7.4 y A7.5 y comprueba abriendo uno a uno que ningún enlace está roto. Enlázalo desde el `CHANGELOG.md` y desde el `README.md` del repositorio.
 
 <span class="et et-com">Comprobación</span> En Gitea, `label:actualizacion` lista las dos incidencias y sus enlaces abren; `CHANGELOG.md` tiene versión, fecha y solo las categorías fijas; en Jenkins hay un build rojo con `bloqueada por CRITICAL` y uno verde, ambos con JSON y SARIF archivados; las tres búsquedas de auditoría devuelven lo que esperabas; el índice no tiene ninguna celda vacía ni ningún enlace roto.
 
@@ -1155,9 +1155,9 @@ Tres detalles: el JSON se genera siempre, falle o no la puerta, porque es lo que
 
 <span class="et et-ext">Si te sobra tiempo</span> Baja el umbral a `HIGH,CRITICAL` en una rama y cuenta las excepciones que harían falta.
 
-## Sesión 35 · Práctica evaluable
+## Sesión 34 · Práctica evaluable
 
-<p class="ut-meta" markdown>25 de febrero · Práctica evaluable · <span class="dur" tabindex="0" aria-label="Explicación · 10 min&#10;Trabajo en la práctica · 100 min" data-dur="Explicación · 10 min&#10;Trabajo en la práctica · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
+<p class="ut-meta" markdown>23 de febrero · Práctica evaluable · <span class="dur" tabindex="0" aria-label="Explicación · 10 min&#10;Trabajo en la práctica · 100 min" data-dur="Explicación · 10 min&#10;Trabajo en la práctica · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
 
 Sobre el servicio del curso, entrega en el repositorio de `gitea01` y en la carpeta de la práctica:
 

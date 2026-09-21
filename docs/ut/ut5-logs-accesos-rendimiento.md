@@ -45,7 +45,7 @@ Cómo está organizada la unidad: la Introducción reúne los conceptos y las re
     donde aquí se revisan logs, accesos y rendimiento, de modo que conviene acordar con el tutor un único sistema para las dos
     asignaturas y reutilizar las evidencias que sirvan para ambas (una captura de Grafana anonimizada vale en las dos).
     De 5166 hacen falta además dos cosas anteriores: el cortafuegos de la UT3 y su apartado de nftables, para entender
-    dónde mete fail2ban su tabla, y la pila de monitorización de la UT7 (7 a 14 de abril, la semana anterior a salir), que es la versión definitiva
+    dónde mete fail2ban su tabla, y la pila de monitorización de la UT7 (del 17 de marzo al 7 de abril), que es la versión definitiva
     del mon01 sobre el que se construyen los paneles de línea base.
 
 ### Cómo trabajar en la empresa

@@ -2,7 +2,7 @@
 
 <p class="ut-meta">16 h · Sesiones 8 a 15 · RA1 CE b, c, d, e</p>
 
-La UT1 dejó mon01 recogiendo tres cosas del contenedor de referencia: métricas (cAdvisor, el exporter de la API y el de PostgreSQL en Prometheus), logs (Loki) y eventos del demonio Docker. Ahora mismo eso es un almacén que sólo sirve si alguien mira el dashboard. Esta unidad convierte esos datos en alarmas: condiciones que se evalúan solas, que despiertan a alguien cuando toca y que dejan rastro en un gestor de incidencias. La UT3 protege esta pila (autenticación, TLS, quién puede silenciar qué) y la UT4 escribe el catálogo de alarmas y sus runbooks (el procedimiento escrito de qué hacer cuando suena cada una) a partir de lo que se monta aquí.
+La UT1 dejó mon01 recogiendo tres cosas del contenedor de referencia: métricas (cAdvisor, el exporter de la API y el de PostgreSQL en Prometheus), logs (Loki) y eventos del demonio Docker. Ahora mismo eso es un almacén que sólo sirve si alguien mira el dashboard. Esta unidad convierte esos datos en alarmas: condiciones que se evalúan solas, que despiertan a alguien cuando toca y que dejan rastro en un gestor de incidencias. La UT3 protege esta pila (autenticación, TLS, quién puede silenciar qué) en tres sesiones y con ella se cierra la primera evaluación, cuyo examen es el 10 de diciembre y entra UT1, UT2 y UT3 completas. Ya en la segunda, la UT4 escribe el catálogo de alarmas y sus runbooks (el procedimiento escrito de qué hacer cuando suena cada una) a partir de lo que se monta aquí.
 
 ## Introducción
 
