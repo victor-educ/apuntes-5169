@@ -27,11 +27,14 @@ Un caso típico, y de los que se dan en el laboratorio: el jueves a las tres de 
 | `docker logs` | El comando que muestra lo que un contenedor ha escrito por pantalla | Revisar los errores de las últimas 24 h contenedor por contenedor |
 | Loki y LogQL | La base de datos de logs de UT1 y su lenguaje de consulta, parecido al de Prometheus | Guardar las búsquedas en un panel de Grafana y convertirlas en alertas |
 | logrotate | Un programa que cada noche comprime y borra logs antiguos para que el disco no se llene | Comprobar que los logs de nginx y de la aplicación tienen retención |
+| Fuerza bruta y password spraying | Muchas contraseñas contra pocos usuarios desde una misma IP, frente a una o dos contraseñas contra muchos usuarios a ritmo lento | Clasificar los intentos de acceso del Bloque 2: el primero se cuenta por intentos y el segundo por usuarios distintos |
 | fail2ban | Un vigilante que lee los logs, cuenta los fallos de cada IP y la bloquea un rato en el firewall | Cortar la fuerza bruta contra SSH, nginx y la aplicación |
 | CrowdSec | Lo mismo que fail2ban, con una lista de IPs maliciosas compartida entre quienes lo usan | Alternativa con varios hosts o cuando se bloquea en OPNsense |
 | nftables | El firewall del kernel de Linux, el mismo de UT3 | Comprobar sobre el firewall que la IP bloqueada lo está de verdad |
+| Código de salida y `OOMKilled` | El número con el que termina el proceso principal de un contenedor (por encima de 128, una señal) y la marca de Docker que dice si lo mató el OOM killer | Acotar un reinicio del Bloque 3 a kernel, Docker o aplicación antes de leer ningún log |
 | cgroups y OOM killer | El mecanismo del kernel que limita la memoria de un contenedor, y el proceso que mata al que se pasa | Entender por qué un contenedor muere con código 137 |
 | Core dumps (gdb, py-spy, jmap) | Una copia de la memoria de un proceso al morir, y las herramientas que la leen según el lenguaje | Saber en qué función ha reventado un servicio en vez de adivinarlo |
+| Línea base | Los valores normales de un sistema en una semana sin incidentes, con su forma a lo largo del día | Tener contra qué comparar el periodo de carga del Bloque 4 |
 | Prometheus, node_exporter, cAdvisor y `sar` | La pila de métricas de mon01 (recolector y agentes de host y contenedores), y el grabador a fichero que la sustituye si no hay servidor | Tomar la línea base de CPU, memoria, disco y red y compararla con un día de carga |
 | Método USE | Tres preguntas por recurso (uso, saturación, errores) para no dejarse nada | Recorrer CPU, memoria, disco y red con el mismo guion |
 
@@ -44,15 +47,14 @@ Cómo está organizada la unidad: la Introducción reúne los conceptos y las re
     Son las mismas semanas y, casi seguro, los mismos sistemas: la nube de la empresa donde se despliega en 5166 es
     donde aquí se revisan logs, accesos y rendimiento, de modo que conviene acordar con el tutor un único sistema para las dos
     asignaturas y reutilizar las evidencias que sirvan para ambas (una captura de Grafana anonimizada vale en las dos).
-    De 5166 hacen falta además dos cosas anteriores: el cortafuegos de la UT3 y su apartado de nftables, para entender
-    dónde mete fail2ban su tabla, y la pila de monitorización de la UT7 (del 17 de marzo al 7 de abril), que es la versión definitiva
-    del mon01 sobre el que se construyen los paneles de línea base.
+
+De esta misma asignatura hace falta tener presente la sesión 17 de la UT3 (1 de diciembre): [por qué Docker se salta el firewall del host](ut3-seguridad-monitorizacion.md#por-que-docker-se-salta-el-firewall-del-host), con la cadena `DOCKER-USER`, y [el firewall nftables por host](ut3-seguridad-monitorizacion.md#nftables-por-host-el-fichero-completo). Es lo que explica dónde mete fail2ban su tabla en el Bloque 2 y por qué su bloqueo no alcanza por sí solo a los puertos que publica Docker.
 
 ### Cómo trabajar en la empresa
 
 Cada empresa tiene sus herramientas. Unas tendrán Loki y Grafana como en mon01, otras tendrán Elastic y Kibana, Graylog, Datadog, o simplemente ficheros en `/var/log` y un `grep`. Lo que se evalúa no es la herramienta, es el método: qué se busca, cómo se justifica y qué se hace con lo que se encuentra. Por eso cada apartado de esta unidad da primero el método y después los comandos para el caso más habitual (Linux con Docker, journald y nginx), con su equivalente en Loki cuando existe. Si en la empresa hay otra cosa, se adapta el comando y se anota en la evidencia cuál se ha usado.
 
-Lo segundo que hay que tener claro es el alcance. El trabajo se hace sobre sistemas en producción o cerca de producción. Todo lo que sea lectura (leer logs, consultar métricas, listar IPs bloqueadas) queda cubierto por la autorización general del tutor. Todo lo que cambie algo (activar una jail, cambiar un límite de memoria, reiniciar un servicio) se acuerda antes con el tutor, se hace en el horario que él diga y se apunta. Una evidencia que diga "reinicié el contenedor para comprobar" sin que el tutor lo supiera es una evidencia que no vale, aunque el resultado sea correcto.
+Lo segundo que hay que tener claro es el alcance. El trabajo se hace sobre sistemas en producción o cerca de producción. Todo lo que sea lectura (leer logs, consultar métricas, listar IPs bloqueadas) queda cubierto por la autorización general del tutor, aunque que algo sea lectura no quiere decir que se pueda hacer con cualquier usuario: `fail2ban-client`, `nft` o el journal del kernel piden `sudo` aunque solo consulten, y ese acceso se pide aparte. Todo lo que cambie algo (activar una jail, cambiar un límite de memoria, reiniciar un servicio) se acuerda antes con el tutor, se hace en el horario que él diga y se apunta. Una evidencia que diga "reinicié el contenedor para comprobar" sin que el tutor lo supiera es una evidencia que no vale, aunque el resultado sea correcto.
 
 ```mermaid
 flowchart LR
@@ -134,27 +136,27 @@ journalctl -u nginx --since yesterday -p err --no-pager
 # Todo el host, prioridad crit o superior, con explicación de cada mensaje
 journalctl -p crit -x --since "-24h"
 
-# Ficheros clásicos: nginx, últimas 24 h de 5xx
-awk -v d="$(date -d '-1 day' +%d/%b/%Y)" '$4 ~ d && $9 ~ /^5/' /var/log/nginx/access.log | wc -l
+# Ficheros clásicos: nginx, 5xx de ayer
+zcat -f /var/log/nginx/access.log* | awk -v d="$(LC_ALL=C date -d '-1 day' +%d/%b/%Y)" '$4 ~ d && $9 ~ /^5/' | wc -l
 ```
 
-`journalctl -p` acepta el nombre o el número de prioridad syslog (0 emerg a 7 debug); `-p err` equivale a `-p 0..3`. Docker escribe stdout y stderr por separado y `docker logs` los devuelve en los dos descriptores, de ahí el `2>&1` antes del `grep`.
+`journalctl -p` acepta el nombre o el número de prioridad syslog (0 emerg a 7 debug); `-p err` equivale a `-p 0..3`. Docker escribe stdout y stderr por separado y `docker logs` los devuelve en los dos descriptores, de ahí el `2>&1` antes del `grep`. En el recuento de nginx, `zcat -f` lee también los ficheros ya rotados: logrotate rota de madrugada, y en la revisión de la mañana las líneas de ayer ya no están en `access.log` sino en `access.log.1`. `LC_ALL=C` hace que el mes salga en inglés (`May`), como lo escribe nginx.
 
-En Loki, las mismas búsquedas con LogQL, su lenguaje de consulta: el selector entre llaves elige el flujo de logs y lo que va detrás lo filtra o lo cuenta. La ventaja no es la sintaxis, es que la consulta se guarda en un panel de Grafana y no depende de recordar el comando.
+En Loki, las mismas búsquedas con LogQL, su lenguaje de consulta: el selector entre llaves elige el flujo de logs y lo que va detrás lo filtra o lo cuenta. La ventaja no es la sintaxis, es que la consulta se guarda en un panel de Grafana y no depende de recordar el comando. Los ejemplos usan las etiquetas del laboratorio (`service` y `level`); en la empresa se cambian por las que ponga su agente de logs.
 
 ```text
-{job="docker", container="app"} |~ "ERROR|FATAL|Exception"
+{service="app", level="error"}
 
-sum by (level) (count_over_time({job="docker", container="app"} | json | level =~ "error|fatal" [24h]))
+sum by (level) (count_over_time({service="app", level=~"error|critical"}[24h]))
 
 # Volumen de líneas por hora, para ver el "doble de lo habitual" o el silencio
-sum(count_over_time({job="docker", container="app"}[1h]))
+sum(count_over_time({service="app"}[1h]))
 
-# 5xx en nginx en la última hora
-count_over_time({job="nginx"} | pattern `<ip> - - [<_>] "<method> <uri> <_>" <status> <_>` | status >= 500 [1h])
+# 5xx en nginx en la última hora, con el log en formato combinado (con log JSON, | json)
+count_over_time({service="nginx"} | pattern `<ip> - - [<_>] "<method> <uri> <_>" <status> <_>` | status >= 500 [1h])
 ```
 
-En Grafana 12 estas consultas van a un dashboard "Revisión diaria" con cuatro paneles (errores por nivel, volumen por hora, 5xx, accesos fallidos) y una variable `$container`. Es el panel que se abre cada mañana, y una captura suya con fecha vale como evidencia de la revisión. Conviene guardar además las consultas en la pestaña Explore con la estrella de favoritos (query library en Grafana 12), para que el siguiente que llegue las herede.
+En Grafana 12 estas consultas van a un dashboard "Revisión diaria" con cuatro paneles (errores por nivel, volumen por hora, 5xx, accesos fallidos) y una variable `$service`. Es el panel que se abre cada mañana, y una captura suya con fecha vale como evidencia de la revisión. Conviene guardar además las consultas en la pestaña Explore con la estrella de favoritos (query library en Grafana 12), para que el siguiente que llegue las herede.
 
 #### Un script diario que resuma errores
 
@@ -263,8 +265,8 @@ El mensaje exacto es lo más valioso: es lo que se busca en Google, en la docume
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Autorización del tutor: qué servicio se revisa, dónde están sus logs (fichero, journal, `docker logs` o plataforma central) y con qué usuario se leen. Solo lectura; no hace falta más.
-- Un fichero `a5.1-logs.md` en tu carpeta de trabajo, con la tabla del paso 1 vacía.
+- Autorización del tutor: qué servicio se revisa, dónde están sus logs (fichero, journal, `docker logs` o plataforma central) y con qué usuario se leen. Solo lectura, pero con un usuario que pueda leerlos de verdad: grupo `adm` o `systemd-journal`, grupo `docker` o `sudo` para esos comandos.
+- Un fichero `a5.1-logs.md` en tu carpeta de trabajo, con la tabla del paso 2 vacía.
 - Leídos [Qué buscar](#que-buscar), [Comandos para la revisión diaria](#comandos-para-la-revision-diaria) y [Cómo se redacta una incidencia útil](#como-se-redacta-una-incidencia-util).
 
 <span class="et et-pas">Pasos</span>
@@ -281,10 +283,10 @@ El mensaje exacto es lo más valioso: es lo que se busca en Google, en la docume
 
     ```bash
     journalctl -u nginx --since yesterday -p err --no-pager
-    awk -v d="$(date -d '-1 day' +%d/%b/%Y)" '$4 ~ d && $9 ~ /^5/' /var/log/nginx/access.log | wc -l
+    zcat -f /var/log/nginx/access.log* | awk -v d="$(LC_ALL=C date -d '-1 day' +%d/%b/%Y)" '$4 ~ d && $9 ~ /^5/' | wc -l
     ```
 
-    En Loki, la consulta equivalente es `{job="docker", container="app"} |~ "ERROR|FATAL|Exception"` y el volumen por hora `sum(count_over_time({job="docker", container="app"}[1h]))`.
+    El `zcat -f` es para que cuente también el fichero que logrotate ha rotado esta madrugada. En Loki, la consulta equivalente es `{service="app", level="error"}` y el volumen por hora `sum(count_over_time({service="app"}[1h]))`, con las etiquetas que use el Loki de la empresa.
 
 2. Cada día, a la misma hora, ejecuta la revisión y rellena una fila de la tabla. La columna de errores agrupa por tipo, no lista líneas sueltas:
 
@@ -372,8 +374,11 @@ journalctl -u ssh --since -24h --no-pager \
 journalctl -u ssh --since -7d --no-pager | grep "Accepted"
 
 # nginx: IPs que más 401/403/404 generan (escáneres y rutas de administración)
-awk '$9 ~ /^(401|403|404)$/ {print $1}' /var/log/nginx/access.log | sort | uniq -c | sort -rn | head
-awk '$7 ~ /(wp-login|wp-admin|\.env|phpmyadmin|\/admin|\.git)/ {print $1, $7}' /var/log/nginx/access.log | sort | uniq -c | sort -rn | head
+# El fichero actual y el de ayer, que logrotate ya ha rotado: así se cubren 24 h
+zcat -f /var/log/nginx/access.log /var/log/nginx/access.log.1 \
+  | awk '$9 ~ /^(401|403|404)$/ {print $1}' | sort | uniq -c | sort -rn | head
+zcat -f /var/log/nginx/access.log /var/log/nginx/access.log.1 \
+  | awk '$7 ~ /(wp-login|wp-admin|\.env|phpmyadmin|\/admin|\.git)/ {print $1, $7}' | sort | uniq -c | sort -rn | head
 ```
 
 Otras dos señales que no son fuerza bruta pero se revisan en el mismo pase: accesos correctos fuera del horario habitual (un `Accepted publickey` a las 03:40 de una cuenta que siempre entra de 8 a 18) y orígenes geográficos raros. Para lo segundo, `geoiplookup` (paquete `geoip-bin`) o la base de datos GeoLite2 de MaxMind (gratuita con registro) dan el país de una IP; en Loki, Alloy tiene una etapa `geoip` que añade `geoip_country_code` como etiqueta, y con eso el panel de Grafana puede mostrar un mapa de orígenes. Un país nuevo en la lista de logins correctos es motivo de llamada, no de incidencia.
@@ -455,7 +460,7 @@ maxretry = 3
 
 Puntos a entender de esa configuración. `ignoreip` es obligatorio pensarlo antes de activar nada: un bloqueo sobre la propia IP de administración o sobre la sonda de monitorización es un problema autoinfligido que en una empresa se nota. Ahí van la red de gestión, la IP pública de la oficina y la del bastión desde el que se administra. `bantime.increment` es la forma moderna de castigar reincidentes: una IP que vuelve tras el primer baneo de 1 h recibe 2 h, luego 4 h, y así hasta `bantime.maxtime`; fail2ban guarda el historial en su base de datos SQLite (`/var/lib/fail2ban/fail2ban.sqlite3`), así que sobrevive a reinicios. La jail `recidive` es el mecanismo antiguo para lo mismo (lee el propio log de fail2ban y banea en todos los puertos a quien ha sido baneado tres veces en un día); se pueden usar las dos. El modo `aggressive` del filtro sshd incluye también los intentos que se quedan en preauth y los de usuario inválido. La línea `journalmatch` es la que evita el fallo más silencioso de todos en Debian 13: el filtro de fábrica busca los mensajes del proceso `sshd` y en esa versión los escribe `sshd-session`, así que la jail arranca, se queda a cero fallos y no banea nunca. Filtrando por unidad, `_SYSTEMD_UNIT=ssh.service`, entran los mensajes de los tres procesos y la configuración vale también en Debian 12.
 
-Un filtro propio para la aplicación. Si la API del curso escribe `WARN auth: login failed for user=opstor ip=203.0.113.45` cuando alguien falla la contraseña, el filtro es una regex con el marcador `<HOST>` (o `<ADDR>` en versiones recientes) en el sitio de la IP:
+Un filtro propio para la aplicación. Si la aplicación escribe `WARN auth: login failed for user=usuario_a ip=203.0.113.45` cuando alguien falla la contraseña, el filtro es una regex con el marcador `<HOST>` (o `<ADDR>` en versiones recientes) en el sitio de la IP:
 
 ```ini
 # /etc/fail2ban/filter.d/app-login.conf
@@ -504,7 +509,7 @@ nft list table inet f2b-table
 nft list set inet f2b-table addr-set-sshd
 ```
 
-Si en el host ya hay un firewall nftables propio (como el de 5166 UT3, [https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/)), fail2ban añade su tabla aparte y las dos conviven; el orden de evaluación entre tablas depende de la prioridad de las cadenas, y la de fail2ban usa `priority -1` para ir antes que `filter` (0). Con Docker de por medio, el tráfico a puertos publicados por contenedores pasa por la cadena `DOCKER-USER` de iptables antes que por `INPUT`; fail2ban tiene la acción `iptables-multiport` con `chain = DOCKER-USER` para ese caso, o se banea en `forward` con una acción nftables personalizada. Es uno de los motivos por los que en el laboratorio del curso el bloqueo se hace en el proxy o en OPNsense y no en app01.
+Si en el host ya hay un firewall nftables propio (como el de [la sesión 17 de la UT3](ut3-seguridad-monitorizacion.md#nftables-por-host-el-fichero-completo), con su tabla `inet fw`), fail2ban añade su tabla aparte y las dos conviven; el orden de evaluación entre tablas depende de la prioridad de las cadenas, y la de fail2ban usa `priority -1` para ir antes que `filter` (0). Con Docker de por medio, el tráfico a puertos publicados por contenedores pasa por la cadena `DOCKER-USER` de iptables antes que por `INPUT`; fail2ban tiene la acción `iptables-multiport` con `chain = DOCKER-USER` para ese caso, o se banea en `forward` con una acción nftables personalizada. Por eso, en un host con Docker, conviene bloquear en el proxy o en el cortafuegos del entorno, o usar la acción sobre `DOCKER-USER`.
 
 Comprobar un bloqueo de verdad, que es lo que pide la actividad A5.2: desde una máquina que no esté en `ignoreip` (una VM de pruebas, el móvil con datos), fallar la contraseña SSH seis veces, ver la IP en `fail2ban-client status sshd`, ver la regla en nftables, comprobar que la conexión ahora da `Connection refused` o se queda en timeout, y desbanear. Capturas de esos cuatro pasos son la evidencia. Documentación oficial: [https://github.com/fail2ban/fail2ban/wiki](https://github.com/fail2ban/fail2ban/wiki) y las páginas de manual `jail.conf(5)`.
 
@@ -531,6 +536,7 @@ La elección va por tamaño. Con uno o dos hosts, fail2ban basta: es más sencil
 <span class="et et-pre">Antes de empezar</span>
 
 - Autorización del tutor en dos niveles: lectura de los logs de acceso (general) y, aparte, permiso explícito para la prueba de bloqueo del paso 5, con la IP de pruebas acordada, el día y la hora. Si no autoriza la prueba, se documenta y la actividad termina en el paso 4.
+- Acceso con `sudo` al cliente del mecanismo de bloqueo (`fail2ban-client`, `cscli`) y a `nft`, que los pasos 4 y 5 necesitan. Si la empresa no lo concede, acuerda con el tutor que ejecute él esos comandos mientras se los dictas, y anota en la entrega quién los ejecutó.
 - Saber qué mecanismo usa la empresa (fail2ban, CrowdSec, bloqueo en OPNsense u otro) y dónde está su configuración.
 - Leídos [Qué se busca: patrones de fuerza bruta y password spraying](#que-se-busca-patrones-de-fuerza-bruta-y-password-spraying) y [fail2ban a fondo](#fail2ban-a-fondo) o [CrowdSec como alternativa](#crowdsec-como-alternativa), según el caso.
 
@@ -554,8 +560,9 @@ La elección va por tamaño. Con uno o dos hosts, fail2ban basta: es más sencil
     # Logins correctos de la semana, con hora y origen
     journalctl -u ssh --since -7d --no-pager | grep "Accepted"
 
-    # nginx: escáneres y rutas de administración
-    awk '$9 ~ /^(401|403|404)$/ {print $1}' /var/log/nginx/access.log | sort | uniq -c | sort -rn | head
+    # nginx: escáneres y rutas de administración (hoy y el fichero ya rotado de ayer)
+    zcat -f /var/log/nginx/access.log /var/log/nginx/access.log.1 \
+      | awk '$9 ~ /^(401|403|404)$/ {print $1}' | sort | uniq -c | sort -rn | head
     ```
 
 3. Clasifica lo que ves en una de cuatro categorías y explica por qué: ruido de fondo (muchas IPs, pocos intentos cada una), fuerza bruta (una IP, muchos intentos contra pocos usuarios), spraying (una IP, muchos usuarios, ritmo lento) o nada. Guarda un extracto de diez a veinte líneas, anonimizado, que muestre el patrón.
@@ -566,11 +573,11 @@ La elección va por tamaño. Con uno o dos hosts, fail2ban basta: es más sencil
     fail2ban-client status                 # jails activas
     fail2ban-client status sshd            # fallos, baneos e IPs
     fail2ban-client get sshd bantime
-    fail2ban-client get sshd logpath       # que el backend lea el log que existe
+    fail2ban-client get sshd journalmatch  # con backend systemd; con backend de fichero, get sshd logpath
     grep -E "ignoreip|bantime|findtime|maxretry|backend" /etc/fail2ban/jail.local
     ```
 
-    Con CrowdSec: `cscli metrics`, `cscli decisions list`, `cscli bouncers list`. Comprueba que `ignoreip` (o la lista blanca equivalente) incluye la red de gestión, la oficina y la sonda de monitorización. Si hay una aplicación propia con log de logins fallidos y no tiene filtro, propón uno y pruébalo sin activarlo: `fail2ban-regex /ruta/app.log /etc/fail2ban/filter.d/app-login.conf --print-all-missed | tail -20`.
+    Con CrowdSec: `cscli metrics`, `cscli decisions list`, `cscli bouncers list`. Comprueba que `ignoreip` (o la lista blanca equivalente) incluye la red de gestión, la oficina y la sonda de monitorización.
 
 5. Prueba de bloqueo, en el momento acordado con el tutor y desde una IP que no esté en `ignoreip`:
 
@@ -592,7 +599,7 @@ La elección va por tamaño. Con uno o dos hosts, fail2ban basta: es más sencil
 
 <span class="et et-ent">Entrega</span> `a5.2-accesos.md` en `ut5/` del repositorio, con el extracto clasificado, la configuración anonimizada y la prueba del bloqueo (salida de `fail2ban-client status`, `cscli decisions list` o equivalente, y la regla del firewall). Firma del tutor en la fila A5.2.
 
-<span class="et et-ext">Si te sobra tiempo</span> Si la empresa tiene Loki, escribe la regla `PasswordSprayingSSH` del apartado [Detección en Loki y alerta](#deteccion-en-loki-y-alerta) adaptada a su job y comprueba en Explore que la consulta devuelve algo con el log real.
+<span class="et et-ext">Si te sobra tiempo</span> Si hay una aplicación propia que registra los logins fallidos y no tiene filtro, escribe uno como el de [fail2ban a fondo](#fail2ban-a-fondo) y pruébalo sin activarlo: `fail2ban-regex /ruta/app.log /etc/fail2ban/filter.d/app-login.conf --print-all-missed | tail -20`. Si la empresa tiene Loki, escribe la regla `PasswordSprayingSSH` del apartado [Detección en Loki y alerta](#deteccion-en-loki-y-alerta) adaptada a su job y comprueba en Explore que la consulta devuelve algo con el log real.
 
 ## Bloque 3 · Fallos y reinicios (CE 3c)
 
@@ -789,7 +796,8 @@ El informe de A5.3 es una página y sigue esta estructura:
    se ha habilitado para la próxima"
 5. Hipótesis (una principal, alternativas descartadas y por qué)
 6. Reproducción: dónde, cómo, resultado
-7. Corrección aplicada: qué se cambió (fichero, valor antes y después), quién lo aprobó
+7. Corrección: qué se cambió (fichero, valor antes y después), dónde (pruebas o
+   el sistema real) y quién lo aprobó
 8. Verificación: métrica o comando que demuestra que no se repite, y durante cuánto tiempo
 9. Acciones pendientes: lo que queda para el equipo de desarrollo o para más adelante
 ```
@@ -817,7 +825,7 @@ El informe de A5.3 es una página y sigue esta estructura:
 
     Anota código de salida, `OOMKilled`, `RestartCount`, imagen y versión. Si el código es mayor de 128, resta 128 y `kill -l N` da la señal.
 
-2. Si no ha ocurrido ninguno, reproduce uno en el entorno de pruebas acordado. Dos formas sencillas:
+2. Si no ha ocurrido ninguno, reproduce uno en el entorno de pruebas acordado. Lo más sencillo es un OOM, que sale con 137 y `OOMKilled=true`:
 
     ```yaml
     # OOM: un contenedor que reserva memoria por encima de su límite
@@ -828,10 +836,7 @@ El informe de A5.3 es una página y sigue esta estructura:
         command: python3 -c "a=[]; [a.append(b' '*1024*1024) for _ in range(200)]"
     ```
 
-    ```bash
-    # Segfault con dumps habilitados (ulimits core -1 y /var/crash montado)
-    kill -SEGV $(docker inspect app --format '{{.State.Pid}}')
-    ```
+    Un fallo por señal con volcado no se provoca con `kill -SEGV` al proceso principal: es el PID 1 del contenedor y el kernel descarta la señal si no tiene manejador para ella. Cómo se provoca bien está en el paso 4, en tu contenedor de pruebas.
 
 3. Recoge el contexto: el log de los cinco minutos previos (`docker logs --since "2027-05-04T02:36:00" --until "2027-05-04T02:41:00" app`), el mensaje del kernel si hubo OOM (`journalctl -k --since -24h | grep -iE "oom-kill|out of memory"`, `cat /sys/fs/cgroup/system.slice/docker-$CG.scope/memory.events`), y una captura de Grafana o una tabla de `sar` con memoria, CPU y conexiones en esos diez minutos.
 
@@ -863,15 +868,17 @@ El informe de A5.3 es una página y sigue esta estructura:
     sudo mkdir -p /var/crash
     echo '/var/crash/core.%e.%p.%t' | sudo tee /proc/sys/kernel/core_pattern
     docker run -d --rm --name prueba --ulimit core=-1 -v /var/crash:/var/crash imagen:1.4.2
-    docker exec prueba sh -c 'kill -SEGV 1'               # provoca el fallo en el proceso principal
+    docker exec prueba sh -c 'sleep 60 & kill -SEGV $!'   # el fallo, en un proceso hijo
     ls -lh /var/crash                                     # el volcado está ahí
     ```
 
+    La señal va a un proceso hijo porque el PID 1 del contenedor la ignora si no tiene manejador para ella, y entonces `/var/crash` se queda vacío aunque la configuración esté bien. Lo que se comprueba es lo mismo: el `core_pattern`, el `ulimit` y el montaje.
+
     El informe dice entonces: no había volcado, se ha comprobado en un entorno de pruebas que con esta configuración se genera, y se propone al equipo de Sistemas aplicarla en el host cuando se autorice, con el valor exacto de `core_pattern`, el `ulimits` del servicio, el espacio que haría falta en `/var/crash` y su retención. Eso responde al punto 4 de la plantilla igual de bien que un volcado real, y es lo que se valora.
 
-5. Formula una hipótesis principal y las alternativas que descartas, con el motivo. Reproduce en pruebas, corrige el origen (no el síntoma) con la aprobación del tutor, anotando fichero y valor antes y después.
+5. Formula una hipótesis principal y las alternativas que descartas, con el motivo. Reproduce en pruebas y corrige allí el origen (no el síntoma), anotando fichero y valor antes y después. Llevar la corrección al sistema de la empresa lo decide el tutor: si no lo aprueba, el informe la deja como propuesta en las acciones pendientes.
 
-6. Verifica durante los días que queden de estancia: `RestartCount` estable, `oom_kill` sin subir, o el panel sin nuevas caídas. Indica cuántos días.
+6. Verifica donde se aplicó la corrección. En el sistema de la empresa, durante los días que queden de estancia: `RestartCount` estable, `oom_kill` sin subir, o el panel sin nuevas caídas. En pruebas, repitiendo la reproducción con la corrección puesta. Indica cuántos días o cuántas repeticiones.
 
 <span class="et et-com">Comprobación</span> El informe cabe en una página, sigue los nueve puntos en orden, incluye el mensaje del kernel o del runtime literal y termina con una verificación medible y con las acciones pendientes.
 
@@ -902,18 +909,18 @@ La toma más útil es la de Prometheus, porque ya está: si `node_exporter` y cA
 quantile_over_time(0.95, (100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))))[7d:5m])
 ```
 
-Si no hay Prometheus, la línea base se toma con `sar` (paquete `sysstat`), que graba cada 10 minutos en `/var/log/sysstat/` y guarda un mes por defecto: `sar -u -f /var/log/sysstat/sa04` da la CPU de todo el día 4, `sar -r` la memoria, `sar -d` el disco, `sar -n DEV` la red. Conviene activarlo la primera semana en la empresa si no está (`ENABLED="true"` en `/etc/default/sysstat`), porque la semana de datos es el requisito de A5.4 y no se puede recuperar hacia atrás.
+Si no hay Prometheus, la línea base se toma con `sar` (paquete `sysstat`), que graba cada 10 minutos en `/var/log/sysstat/` y guarda tantos días como diga `HISTORY` en `/etc/sysstat/sysstat`, que en Debian es 7: `sar -u -f /var/log/sysstat/sa04` da la CPU de todo el día 4, `sar -r` la memoria, `sar -d` el disco, `sar -n DEV` la red. Conviene activarlo la primera semana en la empresa si no está (`ENABLED="true"` en `/etc/default/sysstat`) y subir a la vez `HISTORY` a 28, el máximo con el que los ficheros siguen llamándose `saDD`: la semana de datos es el requisito de A5.4, no se puede recuperar hacia atrás y con 7 días el primero puede borrarse antes de procesarlo.
 
-Se guarda como tabla, con lo mínimo que hace falta para comparar después: por recurso, valor medio, p95 (el valor que el 95 % de las muestras no supera, para que un pico aislado no distorsione) y máximo, en horario laboral y fuera de él, más las tres o cuatro horas concretas que definen la forma (pico de la mañana, batch nocturno). Y se guarda con fecha y con la versión de la aplicación desplegada en ese momento, porque una línea base tomada con la versión 1.4 no sirve para juzgar la 1.6 si el despliegue cambió el consumo.
+Se guarda como tabla, con lo mínimo que hace falta para comparar después: por recurso, valor medio y p95 (el valor que el 95 % de las muestras no supera, para que un pico aislado no distorsione) en horario laboral, la media fuera de él y la hora que define la forma (pico de la mañana, batch nocturno). Y se guarda con fecha y con la versión de la aplicación desplegada en ese momento, porque una línea base tomada con la versión 1.4 no sirve para juzgar la 1.6 si el despliegue cambió el consumo.
 
-| Recurso | Métrica | Media laboral | p95 laboral | Máximo | Media nocturna | Hora del pico |
-|---|---|---|---|---|---|---|
-| CPU host | % uso | 22 | 48 | 71 | 6 | 09:15 |
-| CPU contenedor app | % de un núcleo | 35 | 80 | 140 | 4 | 09:15 |
-| Memoria app | working set / límite | 410 MB / 1 GB | 520 MB | 610 MB | 380 MB | 17:40 |
-| Disco vdb (datos) | %util, await ms | 12, 1.8 | 35, 4.1 | 88, 22 | 45 (02:00) | 02:10 |
-| Red ens18 | Mbit/s entrada/salida | 3 / 11 | 9 / 30 | 24 / 85 | 0.4 / 1 | 12:30 |
-| Peticiones | req/s, p95 latencia ms | 18, 120 | 45, 260 | 70, 410 | 2, 90 | 09:15 |
+| Recurso | Métrica | Media laboral | p95 laboral | Media nocturna | Hora del pico |
+|---|---|---|---|---|---|
+| CPU host | % uso | 22 | 48 | 6 | 09:15 |
+| CPU contenedor app | % de un núcleo | 35 | 80 | 4 | 09:15 |
+| Memoria app | working set / límite | 410 MB / 1 GB | 520 MB | 380 MB | 17:40 |
+| Disco vdb (datos) | %util, await ms | 12, 1.8 | 35, 4.1 | 45 (02:00) | 02:10 |
+| Red ens18 | Mbit/s entrada/salida | 3 / 11 | 9 / 30 | 0.4 / 1 | 12:30 |
+| Peticiones | req/s, p95 latencia ms | 18, 120 | 45, 260 | 2, 90 | 09:15 |
 
 #### USE por recurso: comandos y métricas
 
@@ -953,15 +960,15 @@ Se documenta con una tabla antes/después (línea base, periodo de carga, difere
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Autorización del tutor para consultar Prometheus y Grafana o, si no los hay, para activar `sysstat` en el equipo (`ENABLED="true"` en `/etc/default/sysstat`), que es un cambio y por tanto se acuerda. Empieza el primer día de estancia: la semana de datos no se recupera hacia atrás.
+- Autorización del tutor para consultar Prometheus y Grafana o, si no los hay, para activar `sysstat` en el equipo (`ENABLED="true"` en `/etc/default/sysstat` y `HISTORY=28` en `/etc/sysstat/sysstat`), que es un cambio y por tanto se acuerda. Empieza el primer día de estancia: la semana de datos no se recupera hacia atrás.
 - Acordar con el tutor cuál será el periodo de carga: cierre de mes, campaña, prueba de carga como las de UT4 o el día de más tráfico de la semana siguiente.
 - Leídos [Cómo se toma y se guarda la línea base](#como-se-toma-y-se-guarda-la-linea-base), [USE por recurso: comandos y métricas](#use-por-recurso-comandos-y-metricas) y [Señales de problema y acciones](#senales-de-problema-y-acciones).
 
 <span class="et et-pas">Pasos</span>
 
-1. Asegúrate de que se están grabando datos. Con Prometheus, `node_exporter` y cAdvisor en UP; sin él, `sar` cada 10 minutos en `/var/log/sysstat/`. Anota la versión de la aplicación desplegada ese día.
+1. Asegúrate de que se están grabando datos. Con Prometheus, `node_exporter` y cAdvisor en UP; sin él, `sar` cada 10 minutos en `/var/log/sysstat/`, y comprueba `HISTORY` en `/etc/sysstat/sysstat` antes de empezar a contar los días. Anota la versión de la aplicación desplegada ese día.
 
-2. Tras la semana, saca para cada recurso media, p95 y máximo en horario laboral y fuera de él, más la hora del pico. Con Prometheus:
+2. Tras la semana, saca para CPU, memoria, disco y red la media y el p95 en horario laboral, la media fuera de él y la hora del pico. Con Prometheus:
 
     ```text
     100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])))
@@ -973,7 +980,7 @@ Se documenta con una tabla antes/después (línea base, periodo de carga, difere
 
     Con `sar`: `sar -u -f /var/log/sysstat/sa04` (CPU), `sar -r` (memoria), `sar -d` (disco), `sar -n DEV` (red), un día por fichero.
 
-3. Rellena la tabla con el formato del apartado teórico (recurso, métrica, media laboral, p95 laboral, máximo, media nocturna, hora del pico), con fecha y versión de la aplicación.
+3. Rellena la tabla con el formato del apartado teórico (recurso, métrica, media laboral, p95 laboral, media nocturna, hora del pico), una fila por recurso (CPU, memoria, disco y red), con fecha y versión de la aplicación.
 
 4. En el periodo de carga, toma las mismas medidas y aplica USE a cada recurso con los comandos de la tabla del apartado: `vmstat 1 5` (columnas `r`, `si`/`so`, `wa`), `iostat -xz 1` (`%util`, `await`, `aqu-sz`), `ss -s` e `ip -s link`, `docker stats --no-stream`, y `%st` en `top` si es una VM.
 
@@ -995,20 +1002,20 @@ En esta unidad no hay una práctica de laboratorio aparte: la práctica evaluabl
 
 Entregables:
 
-- [ ] `a5.1-logs.md`: registro de cinco días e incidencia reportada
-- [ ] `a5.2-accesos.md`: extracto de log clasificado, configuración y prueba de bloqueo
-- [ ] `a5.3-fallos.md`: informe de análisis de una página
-- [ ] `a5.4-rendimiento.md`: tabla de línea base, comparación y propuesta
-- [ ] `rutina.md`: procedimiento diario y semanal de dos páginas
+- [ ] `a5.1-logs.md`: registro de cinco días (A5.1, paso 2) e incidencia reportada (A5.1, paso 4)
+- [ ] `a5.2-accesos.md`: extracto de log clasificado (A5.2, paso 3), configuración revisada (A5.2, paso 4) y prueba de bloqueo (A5.2, paso 5, o la negativa del tutor anotada)
+- [ ] `a5.3-fallos.md`: informe de análisis de una página (A5.3, pasos 1 a 6)
+- [ ] `a5.4-rendimiento.md`: tabla de línea base (A5.4, paso 3), comparación (A5.4, paso 5) y propuesta (A5.4, paso 6)
+- [ ] `rutina.md`: procedimiento diario y semanal de dos páginas (actividad de cierre)
 - [ ] `ficha-evidencias.pdf`: firmada por el tutor
 
 | Criterio | CE | Peso | Qué se valora |
 |---|---|---|---|
 | A5.1 Revisión de logs | 3a | 20 % | Registro completo y constante; incidencia con mensaje literal, frecuencia, impacto y fragmento; comandos o consultas adecuados al sistema |
-| A5.2 Accesos y fuerza bruta | 3b | 20 % | Patrón correctamente identificado y explicado; configuración coherente (`ignoreip`, tiempos, filtro si procede); bloqueo comprobado de extremo a extremo |
-| A5.3 Fallos y reinicios | 3c | 20 % | Datos completos del fallo; hipótesis razonada y alternativas descartadas; corrección del origen y verificación |
+| A5.2 Accesos y fuerza bruta | 3b | 20 % | Patrón correctamente identificado y explicado; configuración revisada (`ignoreip`, tiempos, backend); bloqueo comprobado de extremo a extremo, si el tutor autoriza la prueba |
+| A5.3 Fallos y reinicios | 3c | 20 % | Datos completos del fallo; hipótesis razonada y alternativas descartadas; corrección del origen, en pruebas o en el sistema real, y verificación |
 | A5.4 Rendimiento | 3d | 20 % | Línea base representativa y bien guardada; USE aplicado; propuesta justificada con coste y efecto esperado |
-| Procedimiento de cierre | a, b, c, d | 15 % | Reproducible por otra persona; comandos reales; criterios de normalidad y de escalado |
+| Procedimiento de cierre | a, b, c, d | 15 % | Revisado por otra persona y sin dudas pendientes; comandos reales; criterios de normalidad y de escalado |
 | Forma y anonimización | | 5 % | Evidencias legibles, con fecha, sin datos identificables; ficha firmada |
 
 Las observaciones del tutor de empresa en la ficha se tienen en cuenta en cada apartado. Una actividad sin firma del tutor no puntúa.
@@ -1027,9 +1034,9 @@ Las observaciones del tutor de empresa en la ficha se tienen en cuenta en cada a
 
 1. Para cada caja del diagrama (cuatro diarias, cuatro semanales) escribe una fila: qué se mira, herramienta, comando o consulta literal, tiempo estimado, qué se considera normal, qué dispara una incidencia.
 2. Añade al principio los accesos necesarios (usuario, hosts, paneles) y al final la plantilla de incidencia y a quién se escala.
-3. Pide a un compañero o al tutor que lo siga una mañana sin tu ayuda y anota lo que no entendió; corrígelo.
+3. Pide al tutor o a un compañero que lo lea con el sistema delante y marque lo que no sabría ejecutar sin preguntarte; corrígelo.
 
-<span class="et et-com">Comprobación</span> Dos páginas, todos los comandos son los que has usado de verdad, y otra persona ha podido ejecutar la rutina diaria con él.
+<span class="et et-com">Comprobación</span> Dos páginas, todos los comandos son los que has usado de verdad, y las dudas de quien lo ha revisado están resueltas en el texto.
 
 <span class="et et-ent">Entrega</span> `rutina.md` en `ut5/` del repositorio. Firma del tutor en la fila Cierre.
 
@@ -1052,12 +1059,12 @@ Aunque esta unidad se hace en la empresa, estos son los tropiezos que se repiten
 - `docker logs` sin `--since` tarda minutos y llena el terminal. Siempre con ventana de tiempo, y con `--tail 200` para un vistazo rápido.
 - `grep ERROR` no encuentra nada porque la aplicación escribe en JSON con `"level":"error"` en minúsculas. Conviene mirar primero cinco líneas del log para ver el formato y usar `grep -i` o `jq`: `docker logs --since 1h app | jq -r 'select(.level=="error") | .msg'`.
 - `journalctl _COMM=sshd` no devuelve nada en Debian 13 y parece que no hay ni un intento de acceso. Desde OpenSSH 9.8 cada conexión la atiende un hijo llamado `sshd-session`, y es él quien escribe `Failed password` e `Invalid user`. Se filtra por unidad, `journalctl -u ssh`, que recoge `sshd`, `sshd-session` y `sshd-auth` y funciona igual en Debian 12.
-- fail2ban activo pero `status sshd` da cero fallos. Dos causas, y conviene descartar las dos: el backend lee un `auth.log` que no existe porque el sistema no tiene rsyslog (`backend = systemd` en `jail.local` y reiniciar fail2ban, se comprueba con `fail2ban-client get sshd logpath` o mirando `/var/log/fail2ban.log`), o el `journalmatch` de fábrica del filtro `sshd` solo casa `_COMM=sshd` y en Debian 13 no ve a `sshd-session` (`journalmatch = _SYSTEMD_UNIT=ssh.service` en la jail).
-- Baneada la IP de la propia oficina o de la sonda de Blackbox de mon01. `ignoreip` antes de `enabled = true`, y si ya ha pasado, `fail2ban-client set sshd unbanip`.
+- fail2ban activo pero `status sshd` da cero fallos. Dos causas, y conviene descartar las dos: el backend lee un `auth.log` que no existe porque el sistema no tiene rsyslog (se ve con `fail2ban-client get sshd logpath`, que apunta a un fichero que no existe, o en `/var/log/fail2ban.log`; se arregla con `backend = systemd` en `jail.local` y reiniciando fail2ban), o el `journalmatch` de fábrica del filtro `sshd` solo casa `_COMM=sshd` y en Debian 13 no ve a `sshd-session` (`journalmatch = _SYSTEMD_UNIT=ssh.service` en la jail).
+- Baneada la IP de la propia oficina o de la sonda de monitorización. `ignoreip` antes de `enabled = true`, y si ya ha pasado, `fail2ban-client set sshd unbanip`.
 - fail2ban banea en `INPUT` pero el puerto publicado por Docker sigue accesible: el tráfico a contenedores pasa por `DOCKER-USER`/`forward`, no por `input`. Bloquear en el proxy, en OPNsense, o usar la acción con `chain = DOCKER-USER`.
 - El filtro propio banea al proxy nginx (10.10.1.10) en lugar de al cliente: la aplicación registra la IP del proxy. Configurar `X-Forwarded-For` en nginx y que la aplicación lo registre (con cuidado: solo confiar en esa cabecera cuando viene del proxy).
 - `OOMKilled=false` con código 137: no era memoria, era un `docker stop` sin tiempo de gracia suficiente. La aplicación no maneja `SIGTERM` y Docker la mata a los 10 s; arreglar la aplicación o subir `stop_grace_period`.
-- No hay core dump aunque `ulimit -c` es ilimitado en el contenedor: el `core_pattern` del host apunta a un directorio que no existe dentro del contenedor, o a `systemd-coredump` que no encuentra el binario. Montar `/var/crash` en la misma ruta y usar un patrón de fichero.
+- No hay core dump aunque `ulimit -c` es ilimitado en el contenedor. Tres causas: el `core_pattern` del host apunta a un directorio que no existe dentro del contenedor, o a `systemd-coredump` que no encuentra el binario (montar `/var/crash` en la misma ruta y usar un patrón de fichero); o la señal se mandó a mano al PID 1 del contenedor, que la ignora si no tiene manejador para ella (probar con un proceso hijo: `sh -c 'sleep 60 & kill -SEGV $!'`).
 - `RestartCount` a cero después de un `compose up -d` que recreó el contenedor. Los reinicios anteriores están en `docker events` o en el journal de dockerd (`journalctl -u docker | grep -i oom`), no en `inspect`.
 - Línea base tomada un festivo o en la semana de vacaciones de medio equipo. La línea base es una semana representativa; si no lo es, se anota y se toma otra.
 - `iostat` muestra `%util` al 100 % en un volumen virtual y se concluye que el disco está saturado, cuando en dispositivos con colas paralelas (NVMe, almacenamiento en red) `%util` deja de ser fiable a partir de cierto punto. En esos casos manda `await`.

@@ -6,7 +6,7 @@ Aquí están los apuntes de toda la asignatura, unidad por unidad, con las activ
 
 ## De qué va la asignatura
 
-En [Despliegue de plataformas de contenedores](https://victor-educ.github.io/apuntes-5166/) se monta la plataforma: hipervisor, red, cortafuegos, código de infraestructura, pipeline y monitorización básica. Esta asignatura empieza donde acaba aquella: el servicio ya está en producción y hay que mantenerlo vivo, seguro y bajo control durante meses. Vigilarlo, saber cuándo algo va mal antes de que lo digan los usuarios, probarlo, actualizarlo sin romper nada, tener copias que de verdad se puedan restaurar y, cuando llegue el momento, retirarlo sin dejar rastro.
+En [Despliegue de plataformas de contenedores](https://victor-educ.github.io/apuntes-5166/) se monta la plataforma: hipervisor, red, cortafuegos, código de infraestructura y pipeline. Esta asignatura trabaja sobre lo que aquella va construyendo y se ocupa de que el servicio que corre encima siga vivo, seguro y bajo control durante meses: vigilarlo, saber cuándo algo va mal antes de que lo digan los usuarios, probarlo, actualizarlo sin romper nada, tener copias que de verdad se puedan restaurar y, cuando llegue el momento, retirarlo sin dejar rastro. La monitorización es de esta asignatura: la pila de mon01 (Prometheus, Alertmanager, Grafana y Loki) se monta aquí desde octubre, y la asignatura de despliegue trabaja sobre ella en marzo para vigilar también la propia plataforma.
 
 Las dos asignaturas se cursan a la vez (esta los martes y jueves, la de despliegue los miércoles y viernes) y comparten laboratorio: la VPC dev de Proxmox, el servicio del curso en app01 y la pila de monitorización en mon01. Lo que aquí se llama "contenedor de referencia" es ese servicio.
 
@@ -15,7 +15,7 @@ Estos son los conceptos que vertebran el curso:
 - **Observabilidad.** Los cuatro flujos que salen de un contenedor (métricas de recursos, métricas de aplicación, logs y eventos), cómo se sacan fuera con cAdvisor, exporters, Promtail y Loki, y cómo se comprueba que llegan íntegros.
 - **Alarmas.** De la métrica al umbral, del umbral a la regla, de la regla a Alertmanager y de ahí a una incidencia con dueño. Recording rules, agrupación, inhibición, silencios y verificación de cada alarma.
 - **Seguridad de la monitorización.** Cada exporter es un puerto más. Auditar qué escucha, cerrar lo que sobra, cifrar y autenticar el tráfico de métricas y logs.
-- **Indicadores y pruebas.** Fichas de métricas, SLI y SLO, catálogo de alarmas con runbooks, y pruebas funcionales, de carga, de estrés y de seguridad con k6, newman y ZAP.
+- **Indicadores y pruebas.** Fichas de métricas, SLI y SLO, catálogo de alarmas con runbooks, y pruebas funcionales, de carga, de estrés y de seguridad con pytest, k6 y ZAP.
 - **Explotación del sistema en la empresa.** Revisión sistemática de logs, detección de fuerza bruta con fail2ban, análisis de reinicios y crashdumps, línea base de rendimiento.
 - **Copias de seguridad en la empresa.** Qué se copia, con qué frecuencia, a dónde, con qué retención y, sobre todo, la restauración de prueba que demuestra que la copia sirve.
 - **Actualización y vulnerabilidades.** Versiones y digests, Renovate, SBOM con Syft, escaneo con Trivy y Grype, decisiones justificadas por CVE y actualizaciones trazables de pre a producción.
@@ -68,7 +68,7 @@ flowchart LR
 
     ---
 
-    El entorno compartido con la asignatura de despliegue, qué se añade en esta (Loki, Promtail, restic, MinIO, herramientas de escaneo), convenciones y cómo recuperarlo.
+    El entorno compartido con la asignatura de despliegue, qué se añade en esta (la pila de monitorización de mon01 con Loki y Promtail, restic, herramientas de escaneo), convenciones y cómo recuperarlo.
 
 -   :material-console: **[Chuleta de comandos](chuleta.md)**
 
@@ -98,7 +98,7 @@ flowchart LR
 
     ---
 
-    La asignatura hermana. Ahí está cómo se construyó el laboratorio sobre el que se trabaja aquí: Proxmox, la VPC, el cortafuegos, OpenTofu, Jenkins y Prometheus.
+    La asignatura hermana. Ahí está cómo se construye, en paralelo a esta, el laboratorio sobre el que se trabaja aquí: Proxmox, la VPC, el cortafuegos, OpenTofu y Jenkins.
 
 </div>
 
@@ -113,9 +113,9 @@ flowchart LR
 | [UT5](ut/ut5-logs-accesos-rendimiento.md) | Explotación de logs, accesos y rendimiento | 14 | Empresa | RA3 a–d |
 | [UT6](ut/ut6-copias-seguridad.md) | Copias de seguridad y restauración | 14 | Empresa | RA4 a, b, c |
 | [UT7](ut/ut7-actualizacion-vulnerabilidades.md) | Actualización y gestión de vulnerabilidades | 14 | Centro | RA4 d–i |
-| [UT8](ut/ut8-terminacion-segura.md) | Terminación segura del contenedor | 12 | Centro | RA5 a–d |
+| [UT8](ut/ut8-terminacion-segura.md) | Terminación segura del contenedor | 10 | Centro | RA5 a–d |
 
-Las unidades del centro van seguidas de octubre a marzo: la UT8 cierra el 23 de marzo. Los exámenes de evaluación van después de la UT3 (primera evaluación, 10 de diciembre de 2026) y después de la UT8 (segunda evaluación, 8 de abril de 2027), y sus dos sesiones están contadas dentro de las 41 sesiones y las 82 h que el módulo tiene en el centro. Como las clases del curso terminan el 9 de abril, solo queda un día suelto, el 6 de abril, para recuperar entregas y repasar antes de la formación en empresa.
+Las unidades del centro van seguidas de octubre a marzo, y la teoría y los exámenes terminan antes de Pascua: la UT8 tiene su última sesión el 18 de marzo y su práctica evaluable, el acta de baja, se entrega por Aules antes del examen. Los exámenes de evaluación van después de la UT3 (primera evaluación, 10 de diciembre de 2026) y después de la UT8 (segunda evaluación, 23 de marzo de 2027), y sus dos sesiones están contadas dentro de las 41 sesiones y las 82 h que el módulo tiene en el centro. Después de Pascua (del 25 de marzo al 2 de abril) el 6 de abril queda sin clase, como margen del calendario, y la última sesión, la del 8 de abril, se dedica a un proyecto conjunto con el resto de asignaturas del curso, que se plantea aparte.
 
 ## Cómo usar estos apuntes
 

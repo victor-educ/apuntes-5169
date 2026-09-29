@@ -2,12 +2,12 @@
 
 <p class="ut-meta">14 h · Formación en empresa (19 abr a 9 jun 2027) · RA4 CE a, b, c</p>
 
-Hasta la UT5 todo el módulo ha transcurrido en el laboratorio del centro, sobre el servicio del curso (nginx en web01, API en app01, PostgreSQL en db01). Esta unidad y la UT5 se cursan durante la formación en empresa, y el objeto de trabajo pasa a ser un servicio real de la empresa de acogida: se revisan o se montan sus copias de seguridad, se comprueba que llegan a un medio externo y se restauran en un entorno de pruebas. Es la contraparte de lo que ya se hizo en el centro: en la UT7 la copia previa era el plan B de cada actualización, y en la UT8 el repositorio restic (la herramienta de copias del curso) que quedaba en MinIO (el almacenamiento de objetos del laboratorio) fue justo lo que hubo que destruir de forma controlada.
+Hasta la incorporación a la empresa todo el módulo ha transcurrido en el laboratorio del centro, sobre el servicio del curso (nginx en web01, API en app01, PostgreSQL en db01). Esta unidad y la UT5 se cursan durante la formación en empresa, y el objeto de trabajo pasa a ser un servicio real de la empresa de acogida: se revisan o se montan sus copias de seguridad, se comprueba que llegan a un medio externo y se restauran en un entorno de pruebas. Es la contraparte de lo que ya se hizo en el centro: en la UT7 la copia previa con restic (la herramienta de copias del curso) era el plan B de cada actualización, y en la UT8 las copias de pre que guardaba ese repositorio en MinIO (el almacenamiento de objetos del laboratorio) fueron justo lo que hubo que eliminar de forma controlada.
 
 Estas páginas son guía de referencia y lista de evidencias. No se sacan datos de la empresa: lo que se entrega son configuraciones, listados y capturas anonimizadas (nombres de host, rutas y buckets pueden cambiarse por genéricos; el contenido de un dump nunca sale de allí).
 
-!!! empresa "Punto de partida en el laboratorio"
-    Antes de la incorporación a la empresa ya hay un repositorio restic funcionando contra el MinIO del laboratorio, con la convención `s3:http://10.10.0.30:9000/backups` y la contraseña en `/etc/restic/pass`. Se monta en dos tiempos: el bucket `backups` y la credencial `restic` nacen con el propio MinIO el 18 de diciembre, en la A5.2 de Despliegue, y el repositorio se inicializa el 11 de febrero en la A7.4 de la UT7, que es la primera hoja que copia algo en él. Sirve como referencia para comparar: la empresa tendrá su propia herramienta, su propio destino y sus propias políticas, y parte del trabajo es entender por qué son distintas.
+!!! empresa "Lo que hubo en el laboratorio"
+    En el laboratorio hubo un repositorio restic contra el MinIO del curso, con la convención `s3:http://10.10.0.30:9000/backups`, la credencial `restic` y la contraseña en `/etc/restic/pass`. Se montó en dos tiempos: el bucket `backups` y la credencial nacieron con el propio MinIO el 18 de diciembre, en la A5.2 de Despliegue, y el repositorio se inicializó el 11 de febrero en la A7.4, que lo usó como plan B de la actualización. En la UT8 se eliminaron de él las copias de pre. Desde la red de la empresa no se alcanza (como el Gitea del centro), así que no sirve de destino: queda solo como referencia para comparar. La empresa tendrá su propia herramienta, su propio destino y sus propias políticas, y parte del trabajo es entender por qué son distintas.
 
 ## Introducción
 
@@ -42,15 +42,15 @@ Un lunes a las 9, en la empresa, alguien lanza `docker compose down -v` en el ho
 **Cómo está organizada la unidad.** La unidad sigue el orden de las tres actividades en la empresa, y cada bloque trae primero la teoría que necesita y después su hoja de actividad. En el bloque 1 se decide qué se copia y con qué RPO y RTO, se monta la copia con restic, se programa con un timer y se verifica con una alerta de ausencia (CE 4a). En el bloque 2 se comprueba el destino externo contra la política de la empresa: cifrado, ubicación, protección contra borrado, rotación y limpieza (CE 4b). En el bloque 3 se restaura la copia en una plataforma de pruebas con el cronómetro en marcha y se redacta el plan de copias que recoge todo lo anterior (CE 4c). Los errores frecuentes quedan al final como consulta.
 
 !!! otra "Lo que hace falta de la otra asignatura"
-    Esta unidad y la UT5 se hacen en la empresa, del 19 de abril al 9 de junio, a la vez que la [UT4 Nube pública de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut4-nube-publica/). Las dos trabajan sobre el mismo sitio: la nube o el CPD de la empresa es donde están los buckets a los que llegan las copias, y las cuentas, regiones y políticas de acceso que allí se explican son las que aquí se comprueban en la A6.2. Si el destino de la empresa es S3, Azure Blob o B2 de verdad, la parte de credenciales, ubicación de datos y coste de descarga está en esa unidad de 5166; aquí se da por sabida. Del laboratorio quedan el repositorio restic contra MinIO y la pila de mon01 (Prometheus y Alertmanager, de 5169 UT1 y UT2), que es donde va la alerta de ausencia si la empresa no tiene la suya.
+    Esta unidad y la UT5 se hacen en la empresa, del 19 de abril al 9 de junio, a la vez que la [UT4 Nube pública de 5166](https://victor-educ.github.io/apuntes-5166/ut/ut4-nube-publica/). Las dos trabajan sobre el mismo sitio: la nube o el CPD de la empresa es donde están los buckets a los que llegan las copias, y las cuentas, regiones y políticas de acceso que allí se explican son las que aquí se comprueban en la A6.2. Si el destino de la empresa es S3, Azure Blob o B2 de verdad, la parte de credenciales, ubicación de datos y coste de descarga está en esa unidad de 5166; aquí se da por sabida.
 
 ### Plan de trabajo
 
-Las tres actividades se hacen en la empresa, con el tutor, sobre un servicio real. Los plazos orientativos dentro del periodo (19 de abril a 9 de junio de 2027) son la primera quincena para A6.1, la segunda para A6.2 y la tercera para A6.3, dejando la última semana para el cierre. Cada actividad termina con la evidencia adjunta a la ficha y firmada por el tutor.
+Las tres actividades se hacen en la empresa, con el tutor, sobre un servicio real. Los plazos orientativos dentro del periodo (19 de abril a 9 de junio de 2027) son la primera quincena para A6.1, la segunda para A6.2 y la tercera para A6.3, dejando la última semana para el cierre. Cada actividad termina con la evidencia adjunta a la ficha y firmada por el tutor. Las evidencias se guardan, según se producen, en una carpeta `ut6/` del mismo repositorio local de la estancia que la UT5, porque el Gitea del centro no se alcanza desde la empresa (cómo se lleva ese repositorio, en el [plan de trabajo de la UT5](ut5-logs-accesos-rendimiento.md#plan-de-trabajo)).
 
 | Bloque | CE | Qué se hace | Evidencia |
 |---|---|---|---|
-| [Bloque 1 · Copias programadas](#bloque-1-copias-programadas-ce-4a) | 4a | Inventario de qué se copia, RPO y RTO, dump consistente, repositorio restic, script programado con timer o cron y alerta por ausencia probada | `a61/`: script, unit y timer, listado de snapshots, regla o check de alerta con captura; fila A6.1 de la ficha |
+| [Bloque 1 · Copias programadas](#bloque-1-copias-programadas-ce-4a) | 4a | Inventario de qué se copia, RPO y RTO, dump consistente, repositorio restic, script programado con timer o cron y alerta por ausencia probada | `a61/`: tabla de inventario, script, unit y timer, listado de snapshots, regla o check de alerta con captura; fila A6.1 de la ficha |
 | [Bloque 2 · Exportación y políticas](#bloque-2-exportacion-y-politicas-ce-4b) | 4b | Listado del destino externo y comprobación de cifrado, ubicación, protección contra borrado, rotación y limpieza contra la política escrita | `a62/`: listados del destino, política y tabla de cumplimiento; fila A6.2 de la ficha |
 | [Bloque 3 · Restauración de prueba](#bloque-3-restauracion-de-prueba-ce-4c) | 4c | Restauración completa en una plataforma de pruebas con tiempo por fase comparado con el RTO, fichero suelto y destrucción del entorno | `a63/`: registro de la restauración y propuesta de periodicidad; fila A6.3 de la ficha |
 | [Práctica evaluable](#practica-evaluable) | 4a, 4b, 4c | Plan de copias y restauración de dos páginas y ficha de evidencias firmada por el tutor | `plan-copias-servicio-X.pdf` y `ficha-evidencias.pdf` |
@@ -110,9 +110,19 @@ Los ficheros subidos por usuarios se copian tal cual; el único cuidado es que n
 
 Los secretos merecen aparte. El `.env` con la contraseña de la base de datos, las claves de API y los certificados privados tienen que estar en la copia (sin ellos no se restaura nada), pero no pueden viajar en claro a un bucket que gestiona otro equipo. Dos opciones válidas: cifrarlos antes con `age` o `sops` (dos herramientas de cifrado de ficheros) y copiar el fichero cifrado, o confiar en el cifrado del repositorio restic (todo lo que entra se cifra y se autentica antes de salir del host; el destino solo ve blobs). Lo habitual es combinar las dos: el repositorio cifra todo lo que sale del host y, además, los secretos viajan cifrados con una clave que custodia otra persona.
 
+Con `age` son tres órdenes. El par de claves lo genera quien vaya a custodiar la privada, fuera del host que copia; en el host solo queda la pública (la línea `age1...` que imprime `age-keygen`), en `/etc/restic/age.pub`:
+
+```bash
+age-keygen -o copias.key                                        # privada: nunca junto a la copia
+age -R /etc/restic/age.pub -o /opt/app/.env.enc /opt/app/.env   # cifrar, en el host, antes de cada copia
+age -d -i copias.key .env.enc > .env                            # descifrar, al restaurar
+```
+
+sops hace lo mismo cifrando campo a campo un YAML o un JSON; dónde encaja cada una, en la [gestión de secretos de 5166 UT5](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/#gestion-de-secretos).
+
 ### Regla 3-2-1, RPO y RTO
 
-Antes de tocar ninguna herramienta hay que saber con qué vara se mide una copia. Aquí se fijan tres números que decide la empresa, no el técnico, y con los que se justifica todo lo que viene después: frecuencia, destino y método de restauración.
+Una vez claro qué se copia, falta saber con qué vara se mide una copia. Aquí se fijan tres números que decide la empresa, no el técnico, y con los que se justifica todo lo que viene después: frecuencia, destino y método de restauración.
 
 La regla **3-2-1** es el mínimo defendible: tres copias de los datos (la de producción y dos más), en dos soportes distintos (disco local y almacenamiento de objetos, por ejemplo), y una fuera del sitio (otro centro de datos, otra región de la nube, una cinta en una caja fuerte). La variante **3-2-1-1-0**, que se ha extendido con el ransomware, añade una copia *offline* o inmutable (que nadie con credenciales del host pueda borrar) y cero errores en la verificación (las copias se comprueban y restauran, no se dan por buenas).
 
@@ -161,12 +171,12 @@ Aparte están los **snapshots del hipervisor** (Proxmox, `vzdump` con modo *snap
 
 Con restic se hace casi todo lo que sigue: copiar, retener, verificar y restaurar. Este apartado es su referencia; no hay que memorizar las opciones, sino saber que existen para reconocerlas en el script de la empresa. El bloque de comandos es lo mínimo; la lista de puntos, lo que separa una prueba de una copia en producción.
 
-restic (versión 0.18 en el laboratorio) es un programa de un solo binario, escrito en Go, que crea repositorios deduplicados y cifrados en local, SFTP, S3 y compatibles (MinIO, Backblaze B2), Azure, Google Cloud Storage o su propio `rest-server`. Todo lo que se configura son variables de entorno y flags.
+restic (versión 0.18 en el laboratorio) es un programa de un solo binario, escrito en Go, que crea repositorios deduplicados y cifrados en local, SFTP, S3 y compatibles (MinIO, Backblaze B2), Azure, Google Cloud Storage o su propio `rest-server`. Todo lo que se configura son variables de entorno y flags. Con los valores del laboratorio del curso (el repositorio de la A7.4) queda así; en la empresa cambian el destino y la credencial:
 
 ```bash
 export RESTIC_REPOSITORY=s3:http://10.10.0.30:9000/backups
 export RESTIC_PASSWORD_FILE=/etc/restic/pass        # chmod 600, propietario root
-export AWS_ACCESS_KEY_ID=backup-app
+export AWS_ACCESS_KEY_ID=restic                     # la credencial de MinIO para copias
 export AWS_SECRET_ACCESS_KEY='...'                  # mejor en /etc/restic/env con EnvironmentFile=
 export RESTIC_CACHE_DIR=/var/cache/restic           # índices locales; acelera todo
 export RESTIC_COMPRESSION=auto                      # off | auto | max
@@ -197,21 +207,22 @@ BorgBackup es el otro programa de copias deduplicadas y cifradas que se encuentr
 
 ### Programar la copia
 
-El script hace de orquestador: vuelca la base de datos, lanza restic, aplica retención y verifica, y al terminar escribe una métrica que node_exporter (el agente de Prometheus de la UT1) recoge. Lo que se ejecuta cada noche en el laboratorio del curso es este; conviene fijarse en el `set -euo pipefail` de la cabecera y en que la métrica se escribe solo al final:
+El script hace de orquestador: vuelca la base de datos, lanza restic, aplica retención y verifica, y al terminar escribe una métrica que node_exporter (el agente de métricas del host, de la [UT1](ut1-observabilidad.md#exporters-lo-que-no-se-puede-instrumentar)) recoge. Este es el script de referencia de la unidad, el que se adapta en la A6.1; conviene fijarse en el `set -euo pipefail` de la cabecera y en que la métrica se escribe solo al final. En el laboratorio no hubo copia programada: la de la A7.4 se lanzó a mano y, como PostgreSQL vivía en su propia VM, el volcado se pidió por SSH a esa máquina en vez de con `docker compose exec`. Si en la empresa la base tampoco está en el compose, las dos líneas del volcado cambian de la misma forma.
 
 ```bash
 #!/bin/bash
 # /usr/local/bin/backup-app.sh
 set -euo pipefail
-export RESTIC_REPOSITORY=s3:http://10.10.0.30:9000/backups
+export RESTIC_REPOSITORY=s3:https://<destino>/backups
 export RESTIC_PASSWORD_FILE=/etc/restic/pass
 export RESTIC_CACHE_DIR=/var/cache/restic
 # AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY llegan por EnvironmentFile= de la unit
 
-TS_FILE=/var/lib/node_exporter/textfile_collector/backup_app.prom
+TS_FILE=/var/lib/prometheus/node-exporter/backup_app.prom   # el directorio de textfile del node_exporter
 START=$(date +%s)
 
 cd /opt/app
+age -R /etc/restic/age.pub -o /opt/app/.env.enc /opt/app/.env   # el .env viaja cifrado
 docker compose images --format json > /var/backups/app-images.json
 docker compose exec -T db pg_dump -U app -Fc app > /var/backups/app.dump
 docker compose exec -T db pg_dumpall -U postgres --globals-only > /var/backups/globals.sql
@@ -223,11 +234,12 @@ restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --tag app
 restic check --read-data-subset=5%
 
 # Métrica para Prometheus: solo se escribe si todo lo anterior ha ido bien (set -e)
+# La etiqueta no se llama job: al leerla, Prometheus la renombraría a exported_job
 cat > "$TS_FILE.$$" <<EOF
 # HELP backup_last_success_timestamp_seconds Epoch de la última copia correcta
 # TYPE backup_last_success_timestamp_seconds gauge
-backup_last_success_timestamp_seconds{job="app"} $(date +%s)
-backup_last_duration_seconds{job="app"} $(( $(date +%s) - START ))
+backup_last_success_timestamp_seconds{backup="app"} $(date +%s)
+backup_last_duration_seconds{backup="app"} $(( $(date +%s) - START ))
 EOF
 mv "$TS_FILE.$$" "$TS_FILE"
 ```
@@ -244,7 +256,6 @@ Una unit de servicio `oneshot` (se ejecuta, termina y no queda residente) y un t
 Description=Copia de seguridad de app
 After=docker.service network-online.target
 Wants=network-online.target
-OnFailure=status-email@%n.service
 
 [Service]
 Type=oneshot
@@ -270,7 +281,7 @@ Unit=backup-app.service
 WantedBy=timers.target
 ```
 
-`OnCalendar` admite expresiones como `Mon..Fri 02:30`, `*-*-01 04:00` (el día 1 de cada mes) o `hourly`; `systemd-analyze calendar '*-*-* 02:30:00'` indica cuándo será la próxima ejecución. `Persistent=true` guarda en disco la última ejecución y, si el host estaba apagado a las 02:30, lanza la copia en cuanto arranca (cron no hace esto). `RandomizedDelaySec` reparte la carga cuando varios hosts comparten el mismo destino a la misma hora. `OnFailure` engancha una unit que avisa (correo, webhook a Alertmanager) cuando la de copia termina con error. Se activa con `systemctl enable --now backup-app.timer`; `systemctl list-timers` muestra la próxima y la última ejecución; `journalctl -u backup-app.service -n 50` es el log, sin gestionar rotación ni redirecciones.
+`OnCalendar` admite expresiones como `Mon..Fri 02:30`, `*-*-01 04:00` (el día 1 de cada mes) o `hourly`; `systemd-analyze calendar '*-*-* 02:30:00'` indica cuándo será la próxima ejecución. `Persistent=true` guarda en disco la última ejecución y, si el host estaba apagado a las 02:30, lanza la copia en cuanto arranca (cron no hace esto). `RandomizedDelaySec` reparte la carga cuando varios hosts comparten el mismo destino a la misma hora. Si la empresa ya tiene una unit que avisa por correo o webhook, una línea `OnFailure=` en `[Unit]` la engancha para que salte cuando la copia termine con error; aquí el aviso lo da la alerta por ausencia de [Verificar que se ha ejecutado](#verificar-que-se-ha-ejecutado), que cubre también el caso en que la copia ni siquiera arranca. Se activa con `systemctl enable --now backup-app.timer`; `systemctl list-timers` muestra la próxima y la última ejecución; `journalctl -u backup-app.service -n 50` es el log, sin gestionar rotación ni redirecciones.
 
 #### cron y contenedor programador
 
@@ -289,7 +300,7 @@ flowchart TB
     N["<b>node_exporter</b><br><small>textfile</small>"]:::pieza
     PR["<b>Prometheus</b>"]:::pieza
     A(["<b>Alertmanager</b><br><small>si no hay copia en 26 h</small>"]):::riesgo
-    O(["<b>OnFailure: aviso</b>"]):::riesgo
+    O(["<b>unit en failed</b><br><small>sin marca nueva: acaba saltando la alarma</small>"]):::riesgo
     T --> S --> D --> R --> M
     R --> F --> C
     C -->|todo OK| P --> N --> PR -->|sin copia en 26 h| A
@@ -308,12 +319,12 @@ flowchart TB
 
 Una copia programada que nadie mira deja de funcionar en silencio: caduca la credencial del bucket, se llena `/var/backups`, cambia la contraseña de la base de datos, y nadie lo descubre hasta que hace falta restaurar. La verificación tiene cuatro capas, de la más barata a la más fiable:
 
-1. **Código de salida.** El `set -e` del script y `Type=oneshot` hacen que systemd marque la unit como `failed`. `systemctl is-failed backup-app.service` lo consulta; `OnFailure` avisa.
+1. **Código de salida.** El `set -e` del script y `Type=oneshot` hacen que systemd marque la unit como `failed`. `systemctl is-failed backup-app.service` lo consulta.
 2. **Log.** `journalctl -u backup-app.service --since yesterday`. restic imprime al final de cada copia cuántos ficheros nuevos, cambiados y sin cambios, y cuántos datos se han añadido. Un "Added to the repository: 0 B" tres días seguidos en una aplicación viva es sospechoso aunque el código de salida sea 0.
 3. **El repositorio.** `restic snapshots --latest 1 --tag app` devuelve fecha, host, tags y rutas del último snapshot. Comprobar que la fecha es de hoy y que el tamaño (`restic stats latest`) está en el rango esperado. Es lo que mira quien audita.
 4. **Alerta por ausencia** (*dead man's switch*). Las tres anteriores fallan si el host que copia está apagado, si el timer se deshabilitó o si el script no llega ni a arrancar. La única forma de detectarlo es que otro sistema espere una señal y avise cuando no llega.
 
-Con la pila de monitorización de mon01 se hace con la métrica que escribe el script y el *textfile collector* de node_exporter (arrancado con `--collector.textfile.directory=/var/lib/node_exporter/textfile_collector`):
+Si la empresa tiene Prometheus, como la pila de mon01 del curso, se hace con la métrica que escribe el script y el *textfile collector* de node_exporter, que lee los ficheros `.prom` de un directorio. El paquete `prometheus-node-exporter` de Debian, el de las VM del laboratorio, lo lee de `/var/lib/prometheus/node-exporter`; otra instalación lo indica con `--collector.textfile.directory=<ruta>` en su línea de arranque, y sin ese flag no lee ninguno:
 
 ```yaml
 groups:
@@ -324,9 +335,9 @@ groups:
         for: 10m
         labels: {severity: critical}
         annotations:
-          summary: "Sin copia correcta de {{ $labels.job }} en más de 26 h"
+          summary: "Sin copia correcta de {{ $labels.backup }} en más de 26 h"
       - alert: BackupMetricAbsent
-        expr: absent(backup_last_success_timestamp_seconds{job="app"})
+        expr: absent(backup_last_success_timestamp_seconds{backup="app"})
         for: 30m
         labels: {severity: warning}
 ```
@@ -342,8 +353,9 @@ Si la empresa no tiene Prometheus, o el host que copia está fuera de su red de 
 <span class="et et-pre">Antes de empezar</span>
 
 - Autorización escrita del tutor para trabajar sobre la aplicación elegida (o para revisar su copia actual), y acuerdo sobre qué puedes ejecutar en producción y qué no.
-- Acceso al host de la aplicación (leer el `compose.yml`, `docker compose exec`, crear units o entradas de cron), o el tutor delante si no te lo dan.
-- Un destino aprobado por la empresa (bucket, NAS o, si no hay nada, el MinIO del laboratorio como prueba temporal).
+- Acceso al host de la aplicación (leer el `compose.yml`, `docker compose exec`, crear units o entradas de cron), o el tutor delante si no te lo dan, con `restic` y `age` instalados (paquetes de Debian del mismo nombre). Los comandos de la hoja van como root (`sudo -i`), porque la contraseña y las credenciales de restic son de root.
+- Un destino aprobado por la empresa: bucket o NAS o, si no hay nada, un MinIO en contenedor en un host de pruebas de la empresa, montado como el de la [A5.2 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/#a52-requisitos-y-variables-sesion-22), como prueba temporal. El MinIO del laboratorio no sirve: desde la red de la empresa no se alcanza.
+- La clave pública de `age` para cifrar el `.env`, que te da quien custodia la privada ([Ficheros, configuración y secretos](#ficheros-configuracion-y-secretos)).
 - Leído: [Qué se copia y qué no](#que-se-copia-y-que-no), [Regla 3-2-1, RPO y RTO](#regla-3-2-1-rpo-y-rto), [restic a fondo](#restic-a-fondo), [Programar la copia](#programar-la-copia) y [Verificar que se ha ejecutado](#verificar-que-se-ha-ejecutado).
 
 <span class="et et-pas">Pasos</span>
@@ -373,8 +385,8 @@ Si la empresa no tiene Prometheus, o el host que copia está fuera de su red de 
 
     ```bash
     # si el repositorio es nuevo, la contraseña antes que nada
-    sudo install -d -m 700 /etc/restic
-    openssl rand -base64 32 | sudo tee /etc/restic/pass > /dev/null && sudo chmod 600 /etc/restic/pass
+    install -d -m 700 /etc/restic
+    openssl rand -base64 32 > /etc/restic/pass && chmod 600 /etc/restic/pass
 
     export RESTIC_REPOSITORY=s3:https://<destino>/backups
     export RESTIC_PASSWORD_FILE=/etc/restic/pass        # chmod 600, propietario root
@@ -382,14 +394,24 @@ Si la empresa no tiene Prometheus, o el host que copia está fuera de su red de 
     export AWS_ACCESS_KEY_ID='<clave de acceso del bucket>'      # solo si el destino es S3 o MinIO
     export AWS_SECRET_ACCESS_KEY='<secreto del bucket>'          # después, en /etc/restic/env con EnvironmentFile=
     restic init                                          # solo si el repositorio es nuevo
+
+    # el .env, cifrado con la clave pública que te han dado (en /etc/restic/age.pub)
+    age -R /etc/restic/age.pub -o /opt/app/.env.enc /opt/app/.env
     restic backup /var/backups /opt/app/compose.yml /opt/app/.env.enc \
       /var/lib/docker/volumes/app_uploads/_data --tag app --one-file-system
     restic snapshots --latest 1 --tag app
     ```
 
-    La contraseña se guarda en el gestor de contraseñas de la empresa en el mismo momento en que se genera, y con constancia escrita de quién la tiene: un repositorio sin contraseña no se restaura, y eso convierte la copia en nada. Si el repositorio ya existe, no lo inicialices otra vez con otra contraseña: pide la que hay y escríbela en `/etc/restic/pass`, porque un repositorio restic solo se abre con la contraseña con la que se creó. El `.env` va cifrado (`age` o `sops`) antes de entrar en la copia; el fichero en claro no se incluye.
+    La contraseña se guarda en el gestor de contraseñas de la empresa en el mismo momento en que se genera, y con constancia escrita de quién la tiene: un repositorio sin contraseña no se restaura, y eso convierte la copia en nada. Si el repositorio ya existe, no lo inicialices otra vez con otra contraseña: pide la que hay y escríbela en `/etc/restic/pass`, porque un repositorio restic solo se abre con la contraseña con la que se creó. El `.env` en claro no entra nunca en la copia: solo el `.env.enc`.
 
-6. Escribe el script tomando como base el `backup-app.sh` de [Programar la copia](#programar-la-copia) (`set -euo pipefail`, dump, `restic backup`, `restic forget --keep-*` con la retención acordada, `restic check --read-data-subset=5%`, métrica al final), con rutas, usuario y destino de la empresa. Con otra herramienta (borg, borgmatic) el script cambia, las fases no.
+6. Escribe el script copiando el `backup-app.sh` de [Programar la copia](#programar-la-copia) y cambia rutas, usuario, destino y los `--keep-*` por la retención acordada. Antes, mira qué directorio de textfile lee el node_exporter del host, que es el que va en `TS_FILE`:
+
+    ```bash
+    pgrep -af node.exporter        # la línea de arranque del node_exporter
+    ```
+
+    Si lleva `--collector.textfile.directory`, esa es la ruta. Si es el paquete de Debian sin el flag, es `/var/lib/prometheus/node-exporter`, como en el script. Si no lee ninguno, añadir el flag es un cambio en producción que decide el tutor; si no lo autoriza, la alerta del paso 8 va por healthchecks.io. Con otra herramienta (borg, borgmatic) el script cambia, las fases no.
+
 7. Programa el script con el timer y la unit de [systemd timers](#systemd-timers) (`OnCalendar` a la hora acordada, `Persistent=true`, `EnvironmentFile=/etc/restic/env` con las credenciales) o con la entrada de cron si es lo que usa la empresa:
 
     ```bash
@@ -401,16 +423,16 @@ Si la empresa no tiene Prometheus, o el host que copia está fuera de su red de 
     ```
 
 8. Configura la alerta por ausencia: las reglas `BackupMissing` y `BackupMetricAbsent` de [Verificar que se ha ejecutado](#verificar-que-se-ha-ejecutado) si hay Prometheus, o un check de healthchecks.io (periodo 24 h, gracia 2 h) con el `curl` al final del script.
-9. Provoca la ausencia con el tutor al lado: para el timer (`systemctl stop backup-app.timer`), baja temporalmente el umbral (`> 5 * 60` en la regla, o periodo de 5 min en el check), espera a que dispare, captura y deja todo como estaba.
+9. Provoca la ausencia con el tutor al lado, sin esperar un día entero. Con Prometheus, baja en el fichero de reglas el umbral de `BackupMissing` a `> 300` y el `for` de las dos reglas a `1m`, valida con `promtool check rules` y recarga Prometheus como en [Reglas de alerta](ut2-alarmas.md#reglas-de-alerta) de la UT2. A los seis o siete minutos de la última copia salta `BackupMissing`: captúrala. Aprovecha el mismo cambio para la segunda regla: aparta el fichero (`mv <TS_FILE> /root/`) y a los dos o tres minutos salta `BackupMetricAbsent`. Después devuelve el fichero a su sitio, restaura los valores originales de las reglas, recarga y lanza una copia (`systemctl start backup-app.service`) para que las dos vuelvan a normal. Con healthchecks.io, baja el periodo del check a 5 min y la gracia a 1 min, espera a que avise sin lanzar ninguna copia, captura y restaura los valores.
 
 <span class="et et-com">Comprobación</span>
 
 - `systemctl list-timers` muestra el timer con próxima ejecución, y `journalctl -u backup-app.service` termina con el resumen de restic (ficheros nuevos, cambiados, datos añadidos) y sin errores.
 - `restic snapshots --latest 1 --tag app` devuelve un snapshot de hoy con las rutas esperadas; `restic ls latest | grep app.dump` lo localiza dentro.
 - El dump tiene tamaño coherente con la base (`ls -la /var/backups`), no 0 bytes.
-- La alerta ha saltado en la prueba de ausencia y ha vuelto a estado normal al reactivar el timer.
+- La alerta ha saltado en la prueba de ausencia y ha vuelto a estado normal tras una copia correcta.
 
-<span class="et et-ent">Entrega</span> En `a61/` del repositorio personal en Gitea: script o configuración anonimizados, unit y timer (o la línea de cron), salida de `restic snapshots` (o equivalente), la regla o el check de alerta y la captura de la alerta disparada, más la tabla de inventario del paso 1 y la lista de mejoras del paso 3 si había copias previas. Fila A6.1 de la ficha de evidencias firmada por el tutor.
+<span class="et et-ent">Entrega</span> En `ut6/a61/` del repositorio de la estancia: la tabla de inventario del paso 1 y la lista de mejoras del paso 3 si había copias previas, el script o la configuración anonimizados, unit y timer (o la línea de cron), salida de `restic snapshots` (o equivalente), la regla o el check de alerta y la captura de la alerta disparada. Fila A6.1 de la ficha de evidencias firmada por el tutor.
 
 ## Bloque 2 · Exportación y políticas (CE 4b)
 
@@ -490,7 +512,7 @@ La comprobación es siempre la misma: listar el destino (`restic snapshots`, `aw
         datos del servicio.
 
 4. Rotación: cuenta en la salida de `restic snapshots --group-by tags` cuántas diarias, semanales y mensuales hay de verdad y compáralo con los `--keep-*` del script y con lo que dice la política. Las tres cosas tienen que coincidir.
-5. Limpieza: localiza el `prune` (timer o cron separado, en otro host o con otras credenciales) y su última ejecución (`journalctl -u backup-prune.service` o el log de cron); compara el espacio ocupado con el previsto; y comprueba que las copias caducadas han desaparecido del destino. Con versionado activado, mira la regla de ciclo de vida (`mc ilm rule ls minio/backups`) y que no queden versiones no actuales más viejas que la retención (`mc ls --versions`).
+5. Limpieza: localiza el `prune` (timer o cron separado, en otro host o con otras credenciales) y su última ejecución (`journalctl -u backup-prune.service` o el log de cron), y compara el espacio ocupado del paso 2 con el previsto. Que las copias caducadas se han ido ya lo dice el recuento del paso 4. Con versionado activado, mira además la regla de ciclo de vida (`mc ilm rule ls minio/backups`).
 6. Rellena la tabla de cumplimiento, una fila por punto de la política: requisito, cómo se comprobó, resultado, acción correctora con fecha si procede. Lo que no cumple se propone al tutor y, si lo autoriza, se corrige y se vuelve a comprobar.
 
 <span class="et et-com">Comprobación</span>
@@ -499,7 +521,7 @@ La comprobación es siempre la misma: listar el destino (`restic snapshots`, `aw
 - El borrado del objeto (o del repositorio) de usar y tirar con la credencial del script ha fallado con `AccessDenied`, y las copias reales siguen intactas: `restic snapshots` devuelve las mismas de antes de la prueba.
 - La tabla de cumplimiento no tiene filas vacías y cada "no cumple" tiene acción y fecha.
 
-<span class="et et-ent">Entrega</span> En `a62/` del repositorio personal en Gitea: los listados del destino (anonimizados), la política (de la empresa o tu propuesta, indicando cuál) y la tabla de cumplimiento. Fila A6.2 de la ficha de evidencias firmada por el tutor.
+<span class="et et-ent">Entrega</span> En `ut6/a62/` del repositorio de la estancia: la política del paso 1 (de la empresa o tu propuesta, indicando cuál), los listados del destino del paso 2 (anonimizados) y la tabla de cumplimiento del paso 6. Fila A6.2 de la ficha de evidencias firmada por el tutor.
 
 ## Bloque 3 · Restauración de prueba (CE 4c)
 
@@ -515,7 +537,7 @@ Una copia que no se ha restaurado nunca no es una copia; es una esperanza. La re
 2. **Preparar la plataforma de pruebas.** Una VM limpia o un `docker compose` con proyecto distinto (`-p app_restore`) en un host que no sea producción. Comprobar que tiene Docker, restic, espacio en disco (el doble del tamaño del dump) y acceso al destino.
 3. **Restaurar.** `restic restore <id> --target /restore`. Anotar cuánto tarda; en un bucket remoto esta suele ser la fase larga.
 4. **Colocar la configuración y levantar la base de datos vacía** con la versión de imagen que dice `/restore/var/backups/app-images.json`. El `compose.yml` y el `.env` descifrado van en su sitio *antes* del primer `up`: la copia solo guarda el `.env.enc`, y sin el fichero en claro el contenedor de la base arranca sin contraseña ni nombre de base. Después se carga: `psql -U postgres -f /restore/var/backups/globals.sql` para los roles, y `pg_restore -U app -d app -j 4 /restore/var/backups/app.dump`. La ruta del dump va como argumento y no por redirección, porque `pg_restore` con `-j` abre el fichero varias veces y no puede hacerlo sobre la entrada estándar. Los errores de "role already exists" al cargar globals son normales si la imagen ya creó el rol.
-5. **Restaurar los volúmenes de ficheros** copiando `/restore/var/lib/docker/volumes/app_uploads/_data` al volumen nuevo.
+5. **Restaurar los volúmenes de ficheros** copiando `/restore/var/lib/docker/volumes/app_uploads/_data` al volumen nuevo con un contenedor auxiliar, como en la copia pero al revés, y ajustando el propietario al UID que use la imagen.
 6. **Levantar el servicio** y verificar: la aplicación arranca; los datos están (`SELECT count(*) FROM pedidos`, el último registro por fecha, un fichero subido que se abre); pruebas funcionales básicas (login, una búsqueda, generar un informe). Comparar los recuentos con los de producción a la hora de la copia si es posible.
 7. **Parar el cronómetro** y comparar con el RTO. Si ha tardado más, el plan tiene un problema y es preferible descubrirlo hoy.
 8. **Registrar**: fecha, snapshot usado, quién, tiempo por fase, resultado, incidencias encontradas y qué se corrigió. **Destruir** el entorno de pruebas (contiene datos reales de la empresa) y borrar `/restore`.
@@ -600,7 +622,7 @@ Lo que la empresa necesita al final no es el script, sino un documento que otra 
 
     ```bash
     cd /restore/opt/app                          # compose.yml, tal como se copió
-    sops -d .env.enc > .env                      # o age -d -i <clave> .env.enc > .env
+    age -d -i <clave privada> .env.enc > .env    # con sops: sops -d .env.enc > .env
     chmod 600 .env
     docker compose -p app_restore up -d db
     docker compose -p app_restore exec -T db psql -U postgres -f - < /restore/var/backups/globals.sql
@@ -610,7 +632,18 @@ Lo que la empresa necesita al final no es el script, sino un documento que otra 
 
     El dump se copia dentro del contenedor porque `pg_restore` con `-j` necesita la ruta del fichero como argumento, que es la forma que da [Restaurar: el mantenimiento preventivo](#restaurar-el-mantenimiento-preventivo): para trabajar en paralelo abre el fichero varias veces y no puede hacerlo sobre la entrada estándar, así que `pg_restore -j 4 < fichero` aborta. Los avisos de "role already exists" al cargar globals son normales. Anota la duración.
 
-4. Restaura los volúmenes de ficheros: copia `/restore/var/lib/docker/volumes/app_uploads/_data` al volumen nuevo del proyecto `app_restore` y ajusta el propietario al UID que use la imagen (`chown -R 1000:1000` o el que corresponda).
+4. Restaura los volúmenes de ficheros. Crea antes los volúmenes del proyecto `app_restore` sin arrancar nada más, confirma cómo se llama el de ficheros (compose antepone el nombre del proyecto) y copia en él con un contenedor auxiliar, ajustando el propietario al UID que use la imagen (1000 en el ejemplo):
+
+    ```bash
+    docker compose -p app_restore create                   # contenedores y volúmenes, sin arrancar
+    docker volume ls | grep app_restore                     # el de ficheros suele ser app_restore_uploads
+    docker run --rm -v app_restore_uploads:/data \
+      -v /restore/var/lib/docker/volumes/app_uploads/_data:/src:ro alpine \
+      sh -c 'cp -a /src/. /data/ && chown -R 1000:1000 /data'
+    ```
+
+    Anota la duración.
+
 5. Levanta el resto del servicio (`docker compose -p app_restore up -d`) y verifica: recuento de las tablas principales (`SELECT count(*) FROM pedidos;` y el último registro por fecha), un fichero subido que se abre, y las pruebas funcionales que acuerdes con el tutor. Si es posible, compara los recuentos con producción a la hora de la copia.
 6. Para el cronómetro total y compáralo con el RTO de la A6.1. Si has tardado más, la incidencia va al registro con lo que habría que cambiar.
 7. Restauración de un fichero suelto, con su propio tiempo:
@@ -640,7 +673,7 @@ Lo que la empresa necesita al final no es el script, sino un documento que otra 
 - El fichero suelto se ha recuperado y su tiempo está anotado aparte.
 - `docker compose -p app_restore ps` no devuelve nada y `/restore` no existe.
 
-<span class="et et-ent">Entrega</span> En `a63/` del repositorio personal en Gitea: el registro de la restauración (comandos ejecutados, tiempos por fase, resultado, incidencias, capturas anonimizadas de la aplicación restaurada) y la propuesta de periodicidad. Fila A6.3 de la ficha de evidencias firmada por el tutor.
+<span class="et et-ent">Entrega</span> En `ut6/a63/` del repositorio de la estancia: el registro de la restauración del paso 8 (comandos ejecutados, tiempos por fase y del fichero suelto, resultado, incidencias, capturas anonimizadas de la aplicación restaurada) y la propuesta de periodicidad del paso 9. Fila A6.3 de la ficha de evidencias firmada por el tutor.
 
 <span class="et et-ext">Si te sobra tiempo</span> Ensaya la restauración a un punto anterior: localiza con `restic snapshots` y `restic diff` la copia previa a un cambio conocido y recupera una sola tabla con `pg_restore -t <tabla>` en una base auxiliar.
 
@@ -648,27 +681,27 @@ Lo que la empresa necesita al final no es el script, sino un documento que otra 
 
 <p class="ut-meta">En la empresa · con el tutor</p>
 
-En esta unidad la práctica evaluable es el conjunto de las tres actividades más el plan de cierre, valoradas con la ficha de evidencias firmada por el tutor de empresa y revisadas por el profesor. Los pesos:
+En esta unidad la práctica evaluable es el conjunto de las tres actividades más el plan de cierre, valoradas con la ficha de evidencias firmada por el tutor de empresa y revisadas por el profesor. No pide nada que no salga de un paso de las hojas. Los pesos:
 
 | Criterio | Peso | Qué se valora |
 |---|---|---|
-| A6.1 Copias programadas (CE 4a) | 25 % | Selección justificada de qué se copia, consistencia del dump, programación correcta, verificación con alerta de ausencia funcionando |
-| A6.2 Exportación y políticas (CE 4b) | 25 % | Copia en medio externo, tabla de cumplimiento completa y honesta, protección contra borrado, rotación y limpieza comprobadas contra la política |
-| A6.3 Restauración de prueba (CE 4c) | 30 % | Procedimiento seguido en plataforma de pruebas, verificación de datos, tiempos medidos por fase, fichero suelto, registro completo, entorno destruido |
-| Plan de copias y restauración | 15 % | Dos páginas ejecutables por un tercero, RPO/RTO acordados y medidos, comandos literales, registro de pruebas |
+| A6.1 Copias programadas (CE 4a) | 25 % | Selección justificada de qué se copia (paso 1), consistencia del dump (paso 4), programación correcta (pasos 6 y 7), verificación con alerta de ausencia funcionando (pasos 8 y 9) |
+| A6.2 Exportación y políticas (CE 4b) | 25 % | Copia en medio externo (paso 2), protección contra borrado (paso 3), rotación y limpieza comprobadas contra la política (pasos 4 y 5), tabla de cumplimiento completa y honesta (paso 6) |
+| A6.3 Restauración de prueba (CE 4c) | 30 % | Procedimiento seguido en plataforma de pruebas con verificación de datos (pasos 2 a 5), tiempos medidos por fase (pasos 1 a 6), fichero suelto (paso 7), registro completo y entorno destruido (paso 8) |
+| Plan de copias y restauración | 15 % | Dos páginas ejecutables por un tercero, que recogen lo producido en las tres hojas: RPO y RTO acordados y medidos, comandos literales, registro de pruebas |
 | Ficha de evidencias y anonimización | 5 % | Ficha completa y firmada, evidencias sin datos de la empresa |
 
-Entregables, en la carpeta de la UT6 del repositorio personal en Gitea:
+Se entrega por Aules la carpeta `ut6/` del repositorio de la estancia antes del 11 de junio de 2027, junto con la de la UT5 y con las mismas reglas de anonimización. Tiene que contener:
 
-- [ ] `a61/` con script, unit, timer (o cron), listado de snapshots y regla o check de alerta con captura.
-- [ ] `a62/` con listado del destino, política y tabla de cumplimiento.
-- [ ] `a63/` con registro de restauración, tiempos y propuesta de periodicidad.
-- [ ] `plan-copias-servicio-X.pdf` (dos páginas).
+- [ ] `a61/`: tabla de inventario (A6.1, paso 1) y lista de mejoras si había copias previas (paso 3), script (paso 6), unit y timer o línea de cron (paso 7), listado de snapshots (pasos 5 y 7) y regla o check de alerta con la captura de la alerta disparada (pasos 8 y 9).
+- [ ] `a62/`: política (A6.2, paso 1), listados del destino (paso 2) y tabla de cumplimiento (paso 6).
+- [ ] `a63/`: registro de la restauración con tiempos por fase y del fichero suelto (A6.3, pasos 1 a 8) y propuesta de periodicidad (paso 9).
+- [ ] `plan-copias-servicio-X.pdf` (dos páginas, de la actividad de cierre).
 - [ ] `ficha-evidencias.pdf` firmada.
 
 ### Actividad de cierre
 
-Documento de dos páginas, "Plan de copias y restauración del servicio X", con los ocho apartados de [El plan de copias como documento](#el-plan-de-copias-como-documento): qué, cuándo, dónde, retención, verificación, procedimiento de restauración y RPO/RTO acordados y alcanzados. Se entrega al tutor de empresa y al profesor.
+Documento de dos páginas, "Plan de copias y restauración del servicio X", con los ocho apartados de [El plan de copias como documento](#el-plan-de-copias-como-documento). No se escribe desde cero: cada apartado resume una evidencia que ya está en `ut6/`. El alcance sale del inventario de la A6.1 (paso 1); los objetivos, del RPO y el RTO acordados (A6.1, paso 2) y del tiempo medido (A6.3, paso 6); qué y cuándo, del script y el timer (A6.1, pasos 6 y 7); dónde, retención y limpieza, de la política y la tabla de cumplimiento de la A6.2; la verificación, de la alerta (A6.1, pasos 8 y 9) y de la propuesta de periodicidad (A6.3, paso 9); y el procedimiento de restauración y el registro, del registro de la A6.3. Se entrega al tutor de empresa y al profesor.
 
 ### Ficha de evidencias
 
@@ -685,8 +718,8 @@ Documento de dos páginas, "Plan de copias y restauración del servicio X", con 
 - **`Fatal: unable to open config file ... repository does not exist`.** La variable `RESTIC_REPOSITORY` no llega al script (systemd no hereda el entorno de la sesión interactiva). O se exporta en el propio script o va en `EnvironmentFile=`. `systemctl show backup-app.service -p Environment` dice qué ve la unit. El mismo mensaje sale con el repositorio bien puesto cuando faltan `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`: restic llega al bucket pero no puede autenticarse, y no distingue las dos situaciones.
 - **`repository is already locked`.** Copia anterior interrumpida (reinicio, `kill`). `restic unlock` tras confirmar con `ps aux | grep restic` que no hay otro proceso.
 - **Copias de 0 B añadidos durante días.** La ruta copiada es un volumen que ya no usa la aplicación (se recreó con otro nombre tras un `docker compose down -v`). `docker volume ls` y `docker inspect` del contenedor para ver el volumen real.
-- **La alerta `BackupMissing` no salta aunque no haya copia.** La métrica desapareció (node_exporter reiniciado sin el directorio de textfile, fichero `.prom` borrado). Es el caso que cubre `absent()`; si no está la segunda regla, no hay aviso. `curl -s 10.10.2.10:9100/metrics | grep backup_` (la IP del host que hace la copia) desde mon01 lo confirma.
-- **`forget --prune` falla con `AccessDenied`.** Las credenciales son *append-only*, como debe ser. El `prune` se ejecuta desde el host de administración con otras credenciales, no desde producción.
+- **La alerta `BackupMissing` no salta aunque no haya copia.** La métrica desapareció (node_exporter reiniciado sin el directorio de textfile, fichero `.prom` borrado). Es el caso que cubre `absent()`; si no está la segunda regla, no hay aviso. La consulta `backup_last_success_timestamp_seconds` en Prometheus lo confirma sin depender de cómo esté protegido el exporter (si no devuelve nada, la métrica no llega), y un `ls -la` del directorio de textfile en el host que copia dice si el fichero existe.
+- **`forget --prune` falla con `AccessDenied` desde el host de producción.** Es lo esperado: la credencial del script va sin `s3:DeleteObject`, como debe ser, y el `prune` se ejecuta desde el host de administración con otras credenciales. En el laboratorio no pasaba porque la credencial `restic` era de lectura y escritura: el mismo host copiaba y limpiaba.
 - **El bucket no deja de crecer aunque `forget` borra snapshots.** Versionado activado sin regla de ciclo de vida: los objetos borrados por `prune` quedan como versiones no actuales. `mc ls --versions` lo muestra; `mc ilm rule add` lo arregla.
 - **`pg_restore` falla con "role app does not exist" o con errores de extensiones.** No se restauraron los globals (`pg_dumpall --globals-only`) o la imagen de PostgreSQL de pruebas no tiene la extensión (`pg_trgm`, `postgis`). Va en los metadatos del despliegue.
 - **La restauración arranca pero la aplicación falla al abrir un fichero subido.** Se restauró la base pero no el volumen de ficheros, o se restauró en otra ruta y los permisos (UID del contenedor) no coinciden. `chown -R 1000:1000` sobre el volumen restaurado, con el UID que use la imagen.

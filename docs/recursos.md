@@ -26,7 +26,7 @@ Los enlaces concretos de cada unidad están en la página [Para ampliar](ampliac
 | Renovate | [docs.renovatebot.com](https://docs.renovatebot.com/) | Configuración y reglas de paquetes |
 | NVD, OSV, KEV | [nvd.nist.gov](https://nvd.nist.gov/), [osv.dev](https://osv.dev/), [cisa.gov/kev](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) | Fichas de vulnerabilidades y prioridad |
 | PostgreSQL | [postgresql.org/docs](https://www.postgresql.org/docs/current/) | pg_dump, VACUUM, pg_stat |
-| NIST SP 800-88 | [csrc.nist.gov](https://csrc.nist.gov/pubs/sp/800/88/r2/final) | Borrado seguro de soportes |
+| NIST SP 800-88 rev. 1 | [csrc.nist.gov](https://csrc.nist.gov/pubs/sp/800/88/r1/final) | Borrado seguro de soportes |
 
 ## Libros
 
@@ -38,7 +38,7 @@ Los enlaces concretos de cada unidad están en la página [Para ampliar](ampliac
 
 ## Para practicar fuera del aula
 
-- [Prometheus playground de PromLabs](https://promlabs.com/promql-cheat-sheet/) y su [chuleta de PromQL](https://promlabs.com/promql-cheat-sheet/).
+- [Prometheus de demostración de PromLabs](https://demo.promlabs.com/), con datos reales para ejecutar consultas, y su [chuleta de PromQL](https://promlabs.com/promql-cheat-sheet/).
 - [Grafana Play](https://play.grafana.org/) para explorar dashboards, Loki y alertas sin instalar nada.
 - [k6 examples](https://grafana.com/docs/k6/latest/examples/) con scripts de todos los tipos de prueba.
 - [OWASP Juice Shop](https://owasp.org/www-project-juice-shop/) para probar ZAP contra una aplicación hecha para ser atacada.

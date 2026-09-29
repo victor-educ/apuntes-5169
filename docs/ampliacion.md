@@ -1,14 +1,84 @@
 # Para ampliar
 
-Esta página recoge, unidad por unidad, dos cosas que no caben en las sesiones: los apartados que van más allá de lo que se hace en clase (no se explican ni los necesita ninguna hoja de práctica, pero son lo que aparece en el día a día de una empresa) y los enlaces para seguir por cuenta propia. Las unidades quedan así con lo que se da en cada sesión, y esto está aquí para ir más lejos y para situar lo que suene durante la formación en empresa.
+Esta página recoge, unidad por unidad, dos cosas que no caben en las sesiones: los apartados que van más allá de lo que se hace en clase (no se explican en la sesión ni los necesita ningún paso obligatorio de una hoja de práctica, como mucho algún «Si te sobra tiempo», pero son lo que aparece en el día a día de una empresa) y los enlaces para seguir por cuenta propia. Las unidades quedan así con lo que se da en cada sesión, y en el sitio de donde sale cada apartado dejan una frase con enlace a él. Esto está aquí para ir más lejos y para situar lo que suene durante la formación en empresa.
 
 ## UT1 · Observabilidad de contenedores: métricas, logs y eventos
 
-Enlaces para ampliar de la [UT1](ut/ut1-observabilidad.md): la documentación de referencia de cgroups, cAdvisor, Prometheus, las librerías cliente, Promtail, Loki, remote_write y chrony. Se recoge además el reparto interno de Loki en componentes, que en clase se resume en una línea porque el laboratorio lo ejecuta todo dentro de un mismo proceso.
+Apartados y enlaces para ampliar de la [UT1](ut/ut1-observabilidad.md). Se recogen el reparto interno de Loki en componentes (el laboratorio lo ejecuta todo en un mismo proceso), otros drivers de logs de Docker, el relevo de Promtail por Grafana Alloy, el exporter de nginx y el Prometheus local con remote_write del «Si te sobra tiempo» de la A1.6. Después, la documentación de referencia de cgroups, cAdvisor, Prometheus, la librería cliente, Promtail, Loki, remote_write y chrony.
 
 ### El reparto interno de Loki en componentes
 
 Loki no es un solo programa: por dentro tiene componentes con papeles distintos y, en producción, cada uno corre en su propio proceso para poder escalarlos por separado. El *distributor* recibe los `push` de Promtail, valida las etiquetas y reparte cada stream. El *ingester* acumula las líneas en memoria y las escribe como chunks cuando se llenan o cuando vence el plazo. El *querier* resuelve las consultas leyendo lo reciente del ingester y lo antiguo del almacén. El *compactor* aplica la retención y compacta el índice, que va en formato TSDB, el mismo que usa Prometheus. En el laboratorio, y en muchas empresas pequeñas, se arranca con `-target=all` (el modo monolítico): los mismos componentes dentro de un único proceso y con el disco local como almacén. El salto de un modo al otro no cambia ni las consultas ni las etiquetas; solo cambia dónde corre cada pieza y qué se puede escalar sin tocar el resto.
+
+### Otros drivers de logs de Docker
+
+Además de `json-file`, estos son los drivers que aparecen a menudo:
+
+| Driver | Qué hace | Cuándo |
+|----|----|----|
+| `local` | Como json-file pero en formato binario propio, comprimido, con rotación por defecto (100 MB en 5 ficheros) | Cuando no hace falta que otro agente lea el fichero. Docker lo recomienda sobre json-file, pero Promtail y Fluent Bit leen json-file y no `local`, así que aquí no sirve |
+| `journald` | Envía las líneas al journal de systemd del host con metadatos del contenedor | Hosts donde el journal ya está centralizado; se consulta con `journalctl CONTAINER_NAME=app` |
+| `loki` | Plugin de Docker que empuja directamente a Loki sin agente intermedio | Tentador, pero si Loki no responde el plugin bloquea el demonio o pierde líneas según configuración; y si el plugin falla, `docker` entero se resiente. Es preferible el agente |
+| `none` | Descarta todo | Contenedores muy ruidosos cuya salida no importa |
+
+Desde Docker 20.10 existe el **dual logging**: aunque se use `journald` o `loki`, Docker guarda una copia local para que `docker logs` siga funcionando. No cambia la recomendación: `json-file` con límites y un agente que lea los ficheros, añada contexto, reintente y no toque el demonio.
+
+### Promtail y Grafana Alloy
+
+Promtail es el agente de Grafana Labs para enviar logs a Loki. Tiene una advertencia que hay que hacer en 2026: Grafana lo ha declarado **al final de su vida** (sin cambios desde febrero de 2025, fin de soporte en marzo de 2026) en favor de [Grafana Alloy](https://grafana.com/docs/alloy/latest/), que hace lo mismo y además métricas y trazas con una configuración en su propio lenguaje. Se usa igualmente porque su configuración es YAML corto, se entiende en una sesión y todos los conceptos (descubrimiento, relabel, pipeline, posiciones, reintentos) se trasladan uno a uno a Alloy; en empresa se encuentran las dos cosas. Para pasar de uno a otro existe `alloy convert --source-format=promtail`.
+
+### nginx-prometheus-exporter y stub_status
+
+**nginx-prometheus-exporter** (puerto 9113) lee el módulo `stub_status` de nginx, que hay que activar en el proxy y proteger para que solo lo consulte quien tiene que consultarlo. Hasta el 27 de noviembre el proxy es el contenedor `nginx` del compose del servicio y el fichero se monta dentro de ese contenedor; desde ese día, con el proxy en web01, es un fichero del host y solo lo ve la subred de gestión. Escucha en `127.0.0.1:8082`, no en el 8081: ese puerto es el que cAdvisor publica en el host de app01, y dos servicios no pueden compartirlo:
+
+```nginx
+# status.conf, en la configuración del nginx del servicio
+server {
+    listen 127.0.0.1:8082;
+    location = /stub_status {
+        stub_status;
+        allow 127.0.0.1;
+        deny all;
+    }
+}
+```
+
+```bash
+docker run -d --name nginx-exporter --network host \
+  nginx/nginx-prometheus-exporter:latest \
+  --nginx.scrape-uri=http://127.0.0.1:8082/stub_status
+```
+
+Lo que da `stub_status` es poco: `nginx_connections_active`, `nginx_connections_waiting`, `nginx_http_requests_total` y `nginx_up`. No hay códigos de respuesta ni latencias por ruta; para eso, en nginx de código abierto, la vía es el log de acceso en JSON parseado en Loki (se hace en la sección de logs) o un módulo de estadísticas de terceros. nginx Plus sí expone todo eso por API; la versión libre no.
+
+### Un Prometheus local con remote_write
+
+**remote_write** es la alternativa cuando el scrape no puede hacerse: el target está detrás de NAT (una red privada cuyas direcciones mon01 no puede alcanzar directamente), en una red que mon01 no alcanza, o se busca tolerancia a cortes. Se despliega un Prometheus pequeño junto al servicio (en app01, con retención de horas) que hace el scrape en local y **empuja** las muestras al central. Ese Prometheus local guarda un WAL (write-ahead log) en disco y una cola en memoria: si el central no responde, reintenta con backoff y, al volver, envía lo acumulado desde el WAL. Con dos horas de WAL aguanta cortes largos sin perder nada.
+
+```yaml
+# prometheus.yml del Prometheus local en app01
+global:
+  scrape_interval: 15s
+  external_labels: { host: app01, env: dev }
+scrape_configs:
+  - job_name: app
+    static_configs: [{ targets: ["app:9102"] }]
+  - job_name: cadvisor
+    static_configs: [{ targets: ["cadvisor:8080"] }]
+remote_write:
+  - url: http://<mon01>:9090/api/v1/write
+    queue_config:
+      capacity: 10000
+      max_shards: 4
+      max_samples_per_send: 2000
+      batch_send_deadline: 5s
+      min_backoff: 30ms
+      max_backoff: 5s
+```
+
+El Prometheus central tiene que arrancar con `--web.enable-remote-write-receiver` para aceptar escrituras en `/api/v1/write`. En Prometheus 3 el protocolo de remote write tiene versión 2.0 (más compacto, con metadatos); por defecto se sigue usando la 1.0 y no hace falta tocar nada. Las métricas del emisor que dicen si va bien: `prometheus_remote_storage_samples_pending` (cola), `prometheus_remote_storage_samples_retried_total`, `prometheus_remote_storage_samples_failed_total` (perdidas de verdad) y `prometheus_remote_storage_highest_timestamp_in_seconds` frente a `prometheus_remote_storage_queue_highest_sent_timestamp_seconds` (retraso en segundos).
+
+En el laboratorio la práctica se hace con scrape directo, que es lo que tiene cualquier empresa con una red plana; el remote_write solo se monta en el «Si te sobra tiempo» de la A1.6, para comparar el comportamiento ante el corte. Es el mismo mecanismo que usan los servicios gestionados (Grafana Cloud, Amazon Managed Prometheus, Thanos Receive).
 
 ### Enlaces
 
@@ -16,7 +86,7 @@ Loki no es un solo programa: por dentro tiene componentes con papeles distintos 
 - [Documentación de cgroup v2 del kernel](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html): explica `memory.stat` campo a campo, incluido `inactive_file` y por qué el working set se calcula así.
 - [Prometheus metrics for cAdvisor](https://github.com/google/cadvisor/blob/master/docs/storage/prometheus.md): lista completa de métricas `container_*` con su tipo y qué flag las activa.
 - [Metric and label naming](https://prometheus.io/docs/practices/naming/) e [Instrumentation](https://prometheus.io/docs/practices/instrumentation/): las convenciones que siguen estos apuntes y cuándo usar cada tipo de métrica.
-- [prometheus_client para Python](https://prometheus.github.io/client_python/) y [prom-client para Node](https://github.com/siimon/prom-client): documentación oficial de las dos librerías, con el modo multiproceso y las métricas por defecto.
+- [prometheus_client para Python](https://prometheus.github.io/client_python/): documentación oficial de la librería que usa la API del curso, con el modo multiproceso y las métricas por defecto.
 - [postgres_exporter](https://github.com/prometheus-community/postgres_exporter): variables de entorno, colectores disponibles y el formato de las consultas personalizadas.
 - [Configure logging drivers, Docker docs](https://docs.docker.com/engine/logging/configure/): todos los drivers, sus opciones y el dual logging.
 - [Promtail configuration](https://grafana.com/docs/loki/latest/send-data/promtail/configuration/): referencia de `docker_sd_configs`, `relabel_configs`, cada etapa del pipeline y `backoff_config`.
@@ -26,7 +96,7 @@ Loki no es un solo programa: por dentro tiene componentes con papeles distintos 
 
 ## UT2 · Umbrales, agregación y gestión de alarmas
 
-Apartados y enlaces de la unidad de alarmas que van más allá de lo que se hace en clase; vienen de [UT2](ut/ut2-alarmas.md).
+Apartados y enlaces de la unidad de alarmas que van más allá de lo que se hace en clase; vienen de [UT2](ut/ut2-alarmas.md). Se recogen Grafana Alerting, la medida de la fatiga de alertas, las piezas de Alertmanager que el laboratorio no usa (rutas por horario, Slack, ruta propia de incidencias) y otros gestores de incidencias.
 
 ### Grafana Alerting como alternativa
 
@@ -58,6 +128,90 @@ El 15 es el intervalo de evaluación en segundos y se ajusta al de cada instalac
 
 Las incidencias de Gitea que se crean en la UT2 son precisamente lo que permite calcular los tres últimos, porque Alertmanager solo guarda las alertas activas y olvida el pasado.
 
+### Rutas por horario, Slack y tickets en Alertmanager
+
+El `alertmanager.yml` que se monta en la UT2 tiene tres rutas y tres receptores. Alertmanager admite bastante más, y el fichero de partida de la unidad llevaba tres piezas que el laboratorio no usa: una ruta que se calla de noche con un intervalo de tiempo, un receptor de Slack y una ruta propia hacia el gestor de incidencias con su propio `repeat_interval`. Este era el fichero completo:
+
+```yaml
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: mailpit:1025
+  smtp_from: alertmanager@lab
+  smtp_require_tls: false
+
+templates:
+  - /etc/alertmanager/templates/*.tmpl
+
+route:
+  receiver: mail
+  group_by: [alertname, service]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: [severity="critical"]
+      receiver: critical
+      continue: true
+    - matchers: [team="dev"]
+      receiver: dev-chat
+      group_by: [alertname, service, env]
+    - matchers: [severity="info"]
+      receiver: "null"
+      mute_time_intervals: [noches]
+    - matchers: [service="db"]
+      receiver: tickets
+      repeat_interval: 12h
+
+time_intervals:
+  - name: noches
+    time_intervals:
+      - times: [{ start_time: "22:00", end_time: "08:00" }]
+        location: Europe/Madrid
+
+inhibit_rules:
+  - source_matchers: [alertname="HostDown"]
+    target_matchers: [severity=~"warning|critical"]
+    equal: [host]
+  - source_matchers: [alertname="AppDown"]
+    target_matchers: [service="app"]
+    equal: [env]
+
+receivers:
+  - name: mail
+    email_configs:
+      - to: ops@lab
+        send_resolved: true
+  - name: critical
+    telegram_configs:
+      - bot_token_file: /etc/alertmanager/secrets/tg_token
+        chat_id: -100123456789
+        parse_mode: HTML
+        send_resolved: true
+    webhook_configs:
+      - url: http://tickets:5000/alertmanager
+        send_resolved: true
+  - name: dev-chat
+    slack_configs:
+      - api_url_file: /etc/alertmanager/secrets/slack_url
+        channel: "#dev-alerts"
+        send_resolved: true
+  - name: tickets
+    webhook_configs:
+      - url: http://tickets:5000/alertmanager
+        send_resolved: true
+  - name: "null"
+```
+
+`time_intervals` define franjas con nombre (aquí, `noches`, de 22:00 a 08:00 en hora de Madrid) y `mute_time_intervals` en una ruta hace que esa ruta no notifique dentro de la franja: la alerta sigue existiendo y se ve en la interfaz. La ruta `service="db"` manda las alertas de la base de datos a un receptor de incidencias propio y sobrescribe `repeat_interval` para que no insista más de dos veces al día, igual que `dev-chat` sobrescribe `group_by`.
+
+Alertmanager 0.28 trae integraciones para correo, Slack, Telegram, Discord, Microsoft Teams, PagerDuty, OpsGenie, Pushover, VictorOps, WeChat, webhook genérico y alguna más. **Slack**: un webhook entrante de la aplicación de Slack, también en fichero (`api_url_file`). Todas las integraciones admiten `send_resolved`, y el valor por defecto cambia según la integración (en Slack es `false`), por eso conviene ponerlo explícito siempre.
+
+### Otros gestores de incidencias: GitLab, n8n, Zammad y GLPI
+
+El receptor de la UT2 abre y cierra issues en Gitea. Con GitLab el cambio es mínimo: `POST /api/v4/projects/:id/issues` con `labels: "critical,app,prometheus"` (ahí sí van por nombre), cabecera `PRIVATE-TOKEN`, y el cierre es `PUT /issues/:iid` con `state_event=close`.
+
+La alternativa sin código es n8n (o Node-RED), automatización visual encadenando cajas de "cuando llegue esto, haz aquello", con un nodo webhook y un nodo HTTP; hace lo mismo con clics y es lo que se encuentra en empresas que no quieren mantener scripts. Zammad y GLPI tienen API equivalentes si el gestor de incidencias es uno de esos.
+
 ### Enlaces
 
 - [Monitoring Distributed Systems, libro SRE de Google](https://sre.google/sre-book/monitoring-distributed-systems/): el capítulo del que sale la filosofía de síntomas frente a causas y las cuatro señales de oro. Gratuito y corto.
@@ -75,7 +229,15 @@ Las incidencias de Gitea que se crean en la UT2 son precisamente lo que permite 
 
 ## UT3 · Seguridad de las comunicaciones de monitorización
 
-Lista de enlaces de referencia de la [UT3](ut/ut3-seguridad-monitorizacion.md), la unidad que audita, cierra y cifra las comunicaciones de la pila de monitorización; todos los apartados de esa unidad se explican en clase o los necesita alguna hoja de práctica, así que aquí solo queda la lista de enlaces.
+Apartados y enlaces de la [UT3](ut/ut3-seguridad-monitorizacion.md), la unidad que audita, cierra y cifra las comunicaciones de la pila de monitorización. Se recogen los casos reales de pilas expuestas a Internet y el detalle de lo que dejan ver Prometheus, Alertmanager y Loki sin autenticación, que la unidad resume en dos líneas.
+
+### Casos reales de pilas de monitorización expuestas
+
+Esto no es teórico. En diciembre de 2024 el equipo de investigación de Aqua Security publicó un recuento hecho con Shodan y Censys (buscadores que indexan máquinas conectadas a Internet): alrededor de 296.000 instancias de node_exporter y 40.000 servidores Prometheus accesibles desde Internet sin ninguna autenticación, muchos de ellos con `/api/v1/status/config` mostrando credenciales de servicios en URLs y con la API de administración activa. Ya en 2021 JFrog había hecho un análisis parecido y había encontrado servidores Prometheus expuestos de empresas grandes cuya configuración incluía contraseñas de bases de datos y claves de proveedores de nube. Con Grafana el caso más conocido es la vulnerabilidad CVE-2021-43798 (versiones 8.0 a 8.3): un recorrido de directorios por la ruta de los plugins, sin autenticación, que permitía leer cualquier fichero del contenedor, incluido `grafana.db` con las credenciales cifradas de todos los datasources (las fuentes de datos conectadas), y el patrón de ataque era buscar Grafanas expuestos con Shodan y recorrer la lista. Y el error más repetido de todos: Grafana con `admin/admin` de fábrica, alcanzable desde fuera, sin cambiar. En un laboratorio pequeño parece que a nadie le importa; en la empresa donde se hacen las prácticas la pila de monitorización suele ser el servidor más viejo, con menos parches y con más información sobre el resto.
+
+### Lo que dejan ver Prometheus, Alertmanager y Loki sin autenticación
+
+Los propios servidores de la pila filtran todavía más. La API de Prometheus responde en `/api/v1/targets` con la lista de todo lo que se monitoriza (un mapa de la infraestructura, con IPs y puertos), y `/api/v1/status/config` devuelve la configuración cargada. Prometheus enmascara los campos marcados como secreto (`password: <secret>`), pero no puede saber que la URL de un `remote_write` o un `relabel_config` (dos opciones de configuración de Prometheus) lleva un token dentro. Si Prometheus arranca con `--web.enable-admin-api`, cualquiera puede borrar series con un `POST` a `/api/v1/admin/tsdb/delete_series`, y con `--web.enable-lifecycle` puede pararlo con un `POST` a `/-/quit`. Alertmanager acepta silencios sin autenticación por su API: un atacante silencia la alarma y después ataca. Loki sin autenticación es el caso más grave: cualquiera lee todos los logs por `/loki/api/v1/query_range` (y en los logs de la API están las peticiones completas, con IPs de clientes y a veces con parámetros que nadie debería haber registrado) y cualquiera inyecta líneas falsas por `/loki/api/v1/push`, lo que sirve para envenenar una investigación o disparar alarmas falsas hasta que el equipo deje de mirarlas.
 
 ### Enlaces
 
@@ -93,7 +255,7 @@ Lista de enlaces de referencia de la [UT3](ut/ut3-seguridad-monitorizacion.md), 
 
 ## UT4 · Indicadores, KPI y pruebas del servicio
 
-Enlaces de ampliación de la unidad [UT4](ut/ut4-kpi-pruebas.md): las referencias originales de las señales doradas, USE y RED, el burn rate, los histogramas de Prometheus y la documentación de k6, ZAP, trivy, newman y Jenkins. Se recoge además la colección de Postman entera de la que sale el fragmento de pruebas funcionales de la unidad.
+Enlaces de ampliación de la unidad [UT4](ut/ut4-kpi-pruebas.md): las referencias originales de las señales doradas, USE y RED, el burn rate, los histogramas de Prometheus y la documentación de k6, ZAP, trivy, newman y Jenkins. Se recogen además la colección de Postman entera de la que sale el fragmento de pruebas funcionales de la unidad y los informes automáticos de KPI, con un script que exporta el resumen semanal a Git.
 
 ### Una colección de Postman entera
 
@@ -136,6 +298,38 @@ El apartado de pruebas funcionales de la UT4 se queda con el bloque `event`, que
   ]
 }
 ```
+
+### Informes automáticos de KPI
+
+Grafana sabe programar informes (un dashboard convertido en PDF y enviado por correo cada lunes), pero en Grafana 12 esa función es de la edición Enterprise y no está en la edición libre que corre en mon01, así que en el laboratorio no se puede usar. Lo que sí trae la edición libre es el plugin `grafana-image-renderer`, que devuelve la imagen de un panel por su API (`/render/d-solo/<uid>/<slug>?panelId=2&from=now-7d&to=now&width=1000&height=500`); en el laboratorio no se instala, y las capturas de la A4.5 y la A4.6 se hacen a mano, con el rango de tiempo visible.
+
+La alternativa que no depende de la edición ni del correo es un script que consulte los KPI a Prometheus, escriba el resumen en Markdown y lo confirme en Git. Queda un histórico consultable y diferenciable. Se ejecuta en mon01, donde Prometheus escucha en `localhost`, sobre un clon del repositorio `operacion`:
+
+```bash
+#!/usr/bin/env bash
+# bin/kpi-semanal.sh (repositorio operacion): exporta los KPI de la semana a Markdown y lo guarda en Git
+set -euo pipefail
+PROM=http://localhost:9090
+q() { curl -sG "$PROM/api/v1/query" --data-urlencode "query=$1" | jq -r '.data.result[0].value[1] // "n/a"'; }
+
+SEMANA=$(date +%G-W%V)
+OUT="revisiones/$SEMANA-kpi.md"
+{
+  echo "# KPI $SEMANA ($(date -I))"
+  echo
+  echo "| Indicador | Valor |"
+  echo "|---|---|"
+  printf '| Disponibilidad 30 d | %.3f %% |\n' "$(echo "$(q 'app:availability:30d') * 100" | bc -l)"
+  printf '| p95 7 d (ms) | %.0f |\n'          "$(echo "$(q 'quantile_over_time(0.95, app:latency_p95:5m[7d])') * 1000" | bc -l)"
+  printf '| Errores 7 d | %.3f %% |\n'        "$(echo "$(q 'avg_over_time(app:errors:ratio5m[7d])') * 100" | bc -l)"
+  printf '| Disco /data usado | %.1f %% |\n'  "$(echo "(1 - $(q 'node_filesystem_avail_bytes{mountpoint="/data"} / node_filesystem_size_bytes{mountpoint="/data"}')) * 100" | bc -l)"
+  printf '| Conexiones BD (máx 7 d) | %s |\n' "$(q 'max_over_time(sum(pg_stat_activity_count)[7d:5m])')"
+  printf '| Alarmas disparadas 7 d | %s |\n'  "$(q 'sum(changes(ALERTS_FOR_STATE[7d]))')"
+} > "$OUT"
+git add "$OUT" && git commit -qm "kpi: $SEMANA" && git push -q
+```
+
+Se lanza los lunes a las 7:00 con un `cron` o un job de Jenkins, y la revisión semanal empieza leyendo ese fichero en vez de abriendo diez paneles. `ALERTS_FOR_STATE` es una serie interna de Prometheus que existe mientras una alerta está en `pending` o `firing`; contar sus cambios es una forma barata de saber cuántas veces ha saltado algo.
 
 ### Enlaces
 
@@ -219,7 +413,7 @@ Borgmatic es una capa encima que sustituye el script propio por un fichero YAML:
 
 ## UT7 · Actualización y gestión de vulnerabilidades
 
-Enlaces para ampliar de la unidad [UT7](ut/ut7-actualizacion-vulnerabilidades.md), Actualización y gestión de vulnerabilidades. Se recogen además las bases de imagen que hay por debajo de `slim` y `alpine` y la configuración de Dependabot, que no se usa en clase porque el repositorio del curso no está alojado en GitHub.
+Enlaces para ampliar de la unidad [UT7](ut/ut7-actualizacion-vulnerabilidades.md), Actualización y gestión de vulnerabilidades. Se recogen además las bases de imagen que hay por debajo de `slim` y `alpine`, la configuración de Dependabot (que no se usa en clase porque el repositorio del curso no está alojado en GitHub), un job de Jenkins que vigila versiones publicadas y las migraciones de esquema y actualizaciones de PostgreSQL.
 
 ### Bases mínimas: distroless y Chainguard
 
@@ -252,6 +446,36 @@ updates:
 
 Frente a Renovate cubre menos gestores, agrupa peor las actualizaciones relacionadas (no tiene un equivalente cómodo de `groupName`) y solo funciona en GitHub. A cambio no hay nada que instalar ni ningún token de robot que mantener: se activa desde la configuración del repositorio y las propuestas empiezan a llegar. Como el repositorio del curso está en Gitea, en clase se usa Renovate, pero las propuestas de Dependabot aparecen en cualquier proyecto alojado en GitHub, y sus avisos de seguridad, que salen de la GitHub Advisory Database, son la misma fuente que consulta Renovate en `vulnerabilityAlerts`.
 
+### Un job en el pipeline que vigila versiones
+
+La tercera vía para enterarse de las versiones nuevas, además de Renovate y Watchtower, es un job programado en Jenkins que compara lo desplegado con lo publicado y abre una incidencia. Es lo que hace Renovate pero a mano; sirve cuando no se puede instalar nada más o cuando la imagen viene de un registry que Renovate no entiende. Solo tiene sentido con imágenes que están en un registry, porque una imagen construida en local no tiene digest publicado con el que comparar. El ejemplo abre la incidencia con `tea`, el cliente de línea de comandos de Gitea:
+
+```bash
+DESPLEGADO=$(ssh ops@10.10.2.10 'docker image inspect --format "{{index .RepoDigests 0}}" $(docker compose -f /opt/servicio/compose.yml images -q app)' | cut -d@ -f2)
+PUBLICADO=$(docker manifest inspect registry.lab:5000/app:1.4.2 -v | jq -r '.[0].Descriptor.digest')
+if [ "$DESPLEGADO" != "$PUBLICADO" ]; then
+  tea issues create --repo ops/servicio --title "app:1.4.2 reconstruida" \
+    --labels actualizacion --description "Desplegado $DESPLEGADO, publicado $PUBLICADO"
+fi
+```
+
+### Migraciones y actualizaciones de PostgreSQL
+
+Cuando una actualización lleva migraciones de esquema, se leen las notas de la versión: unas se ejecutan solas al arrancar, otras requieren un comando (`alembic upgrade head`, `python manage.py migrate`, `flyway migrate`). Hay que comprobar que han terminado antes de dar la actualización por buena, y el rollback deja de ser solo la imagen: hay que saber si la migración es reversible (`alembic downgrade -1` en una aplicación con Alembic, el gestor de migraciones de SQLAlchemy) o si toca restaurar la copia. Eso se decide antes de empezar, no a mitad de la ventana de mantenimiento.
+
+Para comprobarlo, a las cinco consultas de `integridad.sql` de la unidad se añade una sexta que lee la tabla de versiones del gestor de migraciones:
+
+```sql
+-- 6. Migraciones aplicadas (según el ORM)
+SELECT version_num FROM alembic_version;        -- SQLAlchemy/Alembic
+-- SELECT app, name, applied FROM django_migrations ORDER BY applied DESC LIMIT 5;
+-- SELECT version, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 5;
+```
+
+Si la migración cambia columnas, el hash de la consulta 3 cambiará legítimamente: en ese caso se hace sobre las columnas que no cambian (`md5(string_agg(id || ':' || price, '|' ORDER BY id))`). En una tabla de millones de filas esa suma no es gratis; en el servicio del curso, con decenas de miles, son segundos.
+
+Para PostgreSQL, una versión menor (17.5 → 17.6) es parar y arrancar con la imagen nueva, o `apt-get install --only-upgrade` y reiniciar el servicio cuando PostgreSQL es un paquete del sistema, que es como está en `db01`; una mayor (17 → 18) requiere `pg_upgrade` o volcado y restauración, y eso es un proyecto aparte.
+
 ### Enlaces
 
 - [Semantic Versioning 2.0.0](https://semver.org/lang/es/): la especificación completa, corta, y la que citan todos los proyectos que dicen seguirla.
@@ -267,7 +491,7 @@ Frente a Renovate cubre menos gestores, agrupa peor las actualizaciones relacion
 
 ## UT8 · Terminación segura del contenedor
 
-Enlaces para ampliar de la [UT8](ut/ut8-terminacion-segura.md). Se recoge además el borrado físico de soportes por tipo, que en el laboratorio no llega a practicarse porque el disco de una máquina virtual es un fichero del hipervisor y no un soporte propio.
+Enlaces para ampliar de la [UT8](ut/ut8-terminacion-segura.md). Se recoge además el borrado físico de soportes por tipo, que en el laboratorio no llega a practicarse porque el disco de una máquina virtual es un fichero del hipervisor y no un soporte propio, y cinco apartados que la unidad resume: lo que Proxmox guarda fuera de la VM, OCSP y step-ca, el borrado criptográfico con borg, LUKS y KMS, el borrado de versiones con la CLI de AWS y pg_repack.
 
 ### Borrado físico de soportes por tipo
 
@@ -280,6 +504,62 @@ En el laboratorio no hay soportes propios que destruir: el disco de una VM de Pr
 - **Destrucción física.** Trituración o perforación con proveedor certificado, que devuelve un certificado de destrucción con el número de serie de cada soporte. Es lo que exigen los pliegos cuando la categoría del sistema es alta, cuando hay datos de salud o cuando el contrato lo especifica.
 
 La regla que ordena todo esto es la de siempre: si los datos estuvieron cifrados desde el principio y la clave se ha destruido, ninguno de estos métodos hace falta para que sean irrecuperables. El borrado físico es lo que queda cuando esa precaución no se tomó a tiempo.
+
+### Lo que Proxmox guarda fuera de la VM
+
+Destruir una VM con `qm destroy --purge` no se lleva todo lo que Proxmox guarda de ella. En el laboratorio del curso no hace falta ninguna de estas dos cosas, porque no hay Proxmox Backup Server y las direcciones de pre son fijas, pero en una instalación con copias y con el IPAM del SDN en uso sí.
+
+En Proxmox Backup Server, si está en uso, los snapshots del grupo `vm/210` se eliminan con `proxmox-backup-client forget` o desde la interfaz, y el espacio se libera en el siguiente garbage collect del datastore, que respeta un periodo de 24 horas y 5 minutos sobre los chunks. Hasta entonces, los datos están ahí.
+
+Con el SDN de Proxmox y el IPAM integrado (`pve`), las IP se asignan por vnet y las reservas se guardan en el IPAM y en la configuración de dnsmasq. Al destruir las vnets de pre se liberan las dos cosas; si alguna sigue porque es compartida, se liberan las IP una a una, cada una en la vnet de su zona:
+
+```bash
+pvesh delete /cluster/sdn/vnets/preback/ips --zone lab --vnet preback --ip 10.20.2.10
+pvesh delete /cluster/sdn/vnets/prefront/ips --zone lab --vnet prefront --ip 10.20.1.10
+pvesh delete /cluster/sdn/vnets/predata/ips --zone lab --vnet predata --ip 10.20.3.10
+pvesh set /cluster/sdn                       # aplicar
+pvesh get /cluster/sdn/ipams/pve/status --output-format json | jq '.[]|select(.ip|startswith("10.20."))'
+```
+
+### OCSP y step-ca
+
+La CRL es una lista que el cliente descarga y consulta; OCSP es la alternativa en línea: un respondedor que contesta si un certificado concreto está revocado. Para OCSP con OpenSSL basta un respondedor mínimo sobre el mismo `index.txt` de la CA del curso:
+
+```bash
+cd ~/ca
+openssl ocsp -index index.txt -CA ca.crt -rsigner ocsp.pem -rkey ocsp.key -port 2560 -text &
+openssl ocsp -issuer ca.crt -cert emitidos/<serie>.pem -url http://localhost:2560 -resp_text | grep 'Cert Status'
+# Cert Status: revoked
+```
+
+Si la CA es step-ca, es `step ca revoke --cert app01.pre.lab.pem --key app01.pre.lab.key --reason cessationOfOperation` y el propio step-ca responde OCSP. El certificado de la CA no se toca; lo que se revoca son los certificados que firmó. Y la clave privada del servicio se destruye con el resto del entorno, que es lo que hace innecesaria la revocación en la práctica pero no en la teoría: la revocación cubre las copias de la clave cuya existencia se desconoce.
+
+### Borrado criptográfico con borg, LUKS y KMS
+
+La unidad desarrolla el borrado criptográfico con restic y resume el resto en una tabla. Estos son los detalles de cada uno.
+
+Con borg, la clave está en el repositorio (modo `repokey`) o en `~/.config/borg/keys/` (modo `keyfile`): `borg key export` indica cuál y dónde, y se destruyen las copias de la clave y la passphrase. Con LUKS, `cryptsetup luksErase /dev/sdb1` borra todos los keyslots de la cabecera (queda la cabecera sin claves; `cryptsetup luksDump` muestra los slots vacíos) y la copia de la cabecera guardada con `luksHeaderBackup` hay que destruirla también. Con KMS (el servicio gestor de claves del proveedor) en la nube, `aws kms schedule-key-deletion --key-id <id> --pending-window-in-days 7`: el borrado es diferido a propósito y en esos siete días cualquier objeto cifrado con esa clave sigue siendo legible.
+
+Cuando el repositorio de borg se conserva y solo se borran las copias de un servicio, el equivalente al `forget --prune` de restic es `borg delete --glob-archives 'pre-*' repo` y luego `borg compact repo`; sin `compact` borg solo marca los segmentos y el espacio, y los datos, siguen.
+
+### Borrar versiones con la CLI de AWS
+
+En un bucket con versionado, `mc rm --versions` borra las versiones de un prefijo de una vez. Con la CLI de AWS se hace versión por versión: listar todas las versiones y marcadores del prefijo, borrarlos explícitamente por `VersionId`, quitar las reglas de ciclo de vida y comprobar que no hay replicación a otro bucket:
+
+```bash
+aws --endpoint-url http://10.10.0.30:9000 s3api list-object-versions --bucket backups --prefix pre/ \
+  --query '{Objects: [Versions[].{Key:Key,VersionId:VersionId}, DeleteMarkers[].{Key:Key,VersionId:VersionId}][]}' \
+  --output json > versiones.json
+aws --endpoint-url http://10.10.0.30:9000 s3api delete-objects --bucket backups --delete file://versiones.json
+aws --endpoint-url http://10.10.0.30:9000 s3api list-object-versions --bucket backups --prefix pre/   # vacío
+mc replicate ls lab/backups                                                                           # sin réplicas
+```
+
+`delete-objects` admite 1000 claves por llamada; con más, se trocea. Con Object Lock en modo *governance*, el borrado necesita `--bypass-governance-retention` y el permiso correspondiente; en modo *compliance* no hay forma de borrar antes de la fecha de retención.
+
+### pg_repack: reescribir sin bloquear
+
+`VACUUM FULL` bloquea la tabla en exclusiva mientras la reescribe, lo que en una tabla grande en producción puede ser una hora sin servicio. `pg_repack` hace lo mismo sin bloqueo largo (crea una copia, la sincroniza con triggers y cambia los ficheros al final): `pg_repack -d servicio -t usuarios`. En los dos casos el fichero antiguo se desvincula, no se sobrescribe, y necesita el doble del tamaño de la tabla mientras dura la copia.
 
 ### Enlaces
 
