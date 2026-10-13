@@ -4,68 +4,6 @@
 
 Hasta aquí el módulo ha tratado de mirar el servicio (UT1 a UT3) y de medirlo y probarlo (UT4). Todo eso da por hecho que el servicio no cambia. En esta unidad cambia: aparecen versiones nuevas de la imagen base, de las librerías y de la propia aplicación, aparecen vulnerabilidades en librerías que nadie sabía que llevaba el contenedor, y hay que decidir qué se actualiza, cuándo y cómo, sin romper nada y dejando rastro. Las pruebas de la UT4 se reutilizan tal cual como red de seguridad de cada actualización, y el plan B es una copia con restic contra el MinIO del laboratorio: el repositorio de copias del curso se inicializa en la sesión 31, que es la primera que lo necesita. Después de esta unidad viene la UT8, donde se da de baja el entorno pre que aquí se usa tanto. La práctica evaluable de la sesión 34 cierra la unidad el 23 de febrero y la UT8 arranca el 25, justo antes del parón de las fiestas de la Magdalena, del 1 al 5 de marzo.
 
-## Introducción
-
-Esta unidad va de mantener el servicio al día sin romperlo: saber con exactitud qué versión hay desplegada, enterarse de las nuevas, escanear lo que llevan los contenedores, actualizar con red de seguridad y dejar rastro de cada cambio. Este apartado reúne lo que hay que saber hacer al terminar, los conceptos que se usan y el plan de las siete sesiones.
-
-### Qué tienes que saber hacer al terminar
-
-- Inventariar las imágenes y dependencias del contenedor de referencia con versión y digest, fijar las etiquetas flotantes y seguir la aparición de versiones nuevas de forma automática (CE d).
-- Generar el SBOM de una imagen, escanear código, binarios y librerías con Trivy, Grype y las herramientas del lenguaje, leer un informe y proponer una solución justificada por hallazgo (CE e).
-- Actualizar el servicio desde el repositorio en pre, con copia previa, plan de vuelta atrás y verificación de integridad de los datos, y dejar escrito el plan de paso a producción (CE f y h).
-- Diagnosticar una actualización que falla, clasificarla, decidir rollback o parche dentro del plazo acordado y redactar el reporte para el equipo de desarrollo (CE g).
-- Dejar cada actualización registrada como incidencia en Gitea con enlaces a todo lo que la sustenta y actualizar el CHANGELOG (CE i).
-
-### Los conceptos de la unidad
-
-Un jueves a las cuatro de la tarde llega un aviso: la librería que la API usa para hablar con PostgreSQL tiene un fallo que permite ejecutar código desde fuera. Nadie en el aula sabe si el contenedor de `app01` lleva esa librería ni en qué versión, ni si la imagen de producción es la misma que se probó en pre, porque el Dockerfile dice `FROM python:3.13` y eso puede ser cualquier cosa. Alguien propone un `docker compose pull` "a ver qué pasa", que es justo lo que no se debe hacer: puede no arrancar o perder datos, y no hay forma de volver atrás. Al terminar la unidad hay que poder contestar en minutos a "¿afecta al servicio?", decidir qué se actualiza y cuándo, hacerlo sin perder datos y con vuelta atrás preparada, y dejarlo escrito para que otra persona lo reconstruya meses después.
-
-| Herramienta o concepto | Qué es, en una frase | Para qué se usa en esta unidad |
-|---|---|---|
-| Etiqueta y digest de una imagen | La etiqueta (`postgres:17.6`) es un nombre que el mantenedor puede mover; el digest (`sha256:…`) es la huella del contenido exacto. | Para saber sin dudas qué hay desplegado. |
-| Versionado semántico | Convención `MAYOR.MENOR.PARCHE` con la que un proyecto avisa de cuánto puede romperse al subir de versión. | Para decidir qué actualizaciones se aplican solas y cuáles hay que leer y planificar. |
-| Renovate, Dependabot y Watchtower | Robots que detectan versiones nuevas: los dos primeros abren una propuesta de cambio, el tercero actualiza por su cuenta. | Para detectar las versiones nuevas sin mirar veinte páginas a mano, y para saber cuál no usar en producción. |
-| CVE, CVSS, EPSS y KEV | El CVE nombra un fallo de seguridad; CVSS puntúa su gravedad de 0 a 10; EPSS estima si se explotará; KEV lista los que ya se explotan. | Para ordenar los hallazgos por urgencia real y no solo por la puntuación. |
-| SBOM (con Syft) | Lista de todo el software de una imagen con su versión, como los ingredientes de un envase; Syft la genera. | Para saber qué lleva cada imagen y responder rápido cuando sale un fallo nuevo. |
-| Trivy y Grype | Escáneres que comparan el contenido de una imagen con las bases de datos de vulnerabilidades. | Para encontrar los fallos de las imágenes propias y poner una puerta en el pipeline. |
-| pip-audit (y sus equivalentes en otros lenguajes, como npm audit u osv-scanner) | Escáner que lee el fichero de dependencias de Python en vez de la imagen. | Para revisar las librerías de la aplicación antes de construir la imagen. |
-| `.trivyignore` | Fichero del repositorio con los hallazgos aceptados, con motivo y fecha de caducidad. | Para que las excepciones queden escritas y no bloqueen el pipeline. |
-| Jenkins y el Jenkinsfile | El servidor de pipelines de la 5166 y el fichero que describe sus etapas. | Para añadir la etapa de escaneo y desplegar a través de él. |
-| Gitea (incidencias) y Keep a Changelog | El gestor de incidencias del curso y el formato estándar del `CHANGELOG.md`. | Para dejar rastro de cada actualización con enlaces a lo que la justifica. |
-| restic y las pruebas de la UT4 | El programa de copias del laboratorio, que guarda en el MinIO de `mon01`, y la suite funcional, k6 y ZAP de la UT4. | Plan B y red de seguridad de cada actualización. El repositorio de copias se crea en la sesión 31 con las órdenes escritas en la hoja; restic se estudia a fondo en la [UT6](ut6-copias-seguridad.md#restic-a-fondo). |
-
-**Cómo está organizada la unidad.** La unidad sigue las sesiones en orden y cada sesión trae primero la teoría que se explica y después su hoja de práctica. En la sesión 28 se inventaría lo desplegado con versión y digest, se fija la imagen base y se pone Renovate a vigilar el repositorio con una política escrita. En las sesiones 29 y 30 se genera el SBOM, se escanean la imagen y el código con Trivy, Grype y pip-audit y se investiga y decide qué hacer con cada hallazgo, incluida la reconstrucción con una base más pequeña, que queda desplegada en dev. En la sesión 31 pre entra en la monitorización y la aplicación se actualiza en pre con copia previa y verificación de integridad; en la 32 se diagnostica una versión que falla y se decide rollback o parche en plazo. La sesión 33 cierra el círculo con las incidencias, el CHANGELOG y la etapa de escaneo en el pipeline, y la sesión 34 es la práctica evaluable.
-
-!!! otra "Lo que hace falta de la otra asignatura"
-    Esta unidad va del 2 al 23 de febrero y coincide con la primera mitad de la [UT6 de Despliegue, integración continua con Jenkins](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), que va del 3 de febrero al 10 de marzo. Tres cosas dependen de Despliegue (Jenkins y sus credenciales se explican allí y aquí se dan por conocidos):
-
-    - El entorno pre que aquí se actualiza lo crea el repositorio IaC de la [UT5 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/): tres VM hechas con OpenTofu en la A5.3 (web01-pre 10.20.1.10, app01-pre 10.20.2.10 y db01-pre 10.20.3.10) y el servicio y PostgreSQL puestos con el playbook de la A5.5. A principios de febrero ya existe y no se monta a mano. En esta asignatura se estrena en la A7.4, y en las hojas se escribe siempre con su IP.
-    - Hasta el 19 de febrero no hay registry: la imagen del servicio es local, `app:<versión>`, construida en app01 desde `api/Dockerfile`. Se escanea en el puesto de administración sacándola a un fichero con `docker save`, viaja a pre con `docker save | docker load`, y Renovate vigila mientras tanto solo la imagen base y las librerías.
-    - La etapa de escaneo con Trivy de la sesión 33 (18 de febrero) tiene su hueco marcado en el Jenkinsfile de Despliegue, dentro de la etapa `Package`, entre `Construir` y `Subir`, y usa sus mismas variables, `IMAGEN` y `TAG`. `Package` se monta allí el 19 de febrero, un día después, así que la A7.6 prueba la etapa en un job aparte que solo construye y escanea; desde el 19 se pega tal cual en el hueco.
-
-### Dónde se trabaja en esta unidad
-
-| Dónde | Qué se hace ahí |
-|---|---|
-| Puesto de administración (`admin01`, 10.10.0.50) | La máquina de trabajo: el clon de `servicio` de la UT4 (donde van `seguridad/` y los scripts), Trivy, Syft y Grype, restic con el repositorio de copias, `iac-lab` con el playbook de pre, y el SSH a pre, que solo se alcanza desde gestión. Se entra con `ssh -A ops@<IP de aula de admin01>`, como en la A5.5 de Despliegue, para que desde él se llegue también a app01 con la clave del puesto del aula. |
-| app01 (10.10.2.10) | La copia de trabajo de `servicio` en `/opt/servicio`, donde se construye la imagen `app:<versión>`. No sale a Internet: la hoja que necesita descargar algo abre una fila temporal en OPNsense y la cierra en el mismo paso. |
-| mon01 (10.10.0.20) | Renovate, que necesita Docker y llegar a la vez a Docker Hub y a `gitea.lab`, y Prometheus, al que pre se añade en la A7.4. |
-| Jenkins (`jenkins01` y `agent01`) | La etapa de escaneo de la A7.6. |
-
-### Plan de sesiones
-
-Cada sesión son 110 minutos y empieza con una explicación corta antes del laboratorio. La columna «Se explica» recoge los apartados de teoría que se desarrollan en clase, con su duración aproximada; la columna «Se practica», el trabajo de laboratorio de esa sesión. Las sesiones marcadas solo como práctica no traen teoría nueva.
-
-| Sesión | Fecha | Tipo | Se explica | Se practica |
-|---:|-------|------|------------|-------------|
-| [28](#sesion-28-inventario-de-versiones-y-seguimiento-automatico) | 2 feb | Teoría y práctica | Etiquetas frente a digests, versionado semántico, variantes de imagen; Renovate y por qué no Watchtower (25 min). | Inventario con versión y digest, fijar la imagen base del Dockerfile; Renovate sobre el repositorio y política de actualización. |
-| [29](#sesion-29-escaneo) | 4 feb | Teoría y práctica | CVE, CVSS, EPSS y KEV; SBOM; qué hace cada escáner (20 min). | SBOM con Syft; Trivy y Grype sobre la imagen del servicio y la de un agente, pip-audit y trivy fs sobre el código; tabla de hallazgos. |
-| [30](#sesion-30-investigar-y-decidir) | 9 feb | Teoría y práctica | Cómo leer un informe de Trivy y las cuatro soluciones posibles (10 min). | Investigar cuatro hallazgos en NVD y OSV, decidir y justificar; reconstruir con base slim, comparar y desplegar en dev. |
-| [31](#sesion-31-actualizacion-en-pre) | 11 feb | Teoría y práctica | El ciclo de actualización, la vuelta atrás y la verificación de integridad con SQL (10 min). | Dar de alta pre en la monitorización y actualizar la aplicación en pre con copia previa en restic; recuentos y sumas de control antes y después, suite funcional de la UT4 y plan de paso a producción. |
-| [32](#sesion-32-fallo-provocado) | 16 feb | Práctica | Clasificación de fallos y plantilla de reporte (10 min). | Versión que falla al actualizar: analizar, clasificar, rollback o parche en 40 minutos y reporte a desarrollo. |
-| [33](#sesion-33-trazabilidad) | 18 feb | Teoría y práctica | Incidencias enlazadas, CHANGELOG y la etapa de escaneo en el pipeline (15 min). | Registrar las actualizaciones como incidencias con enlaces, actualizar el CHANGELOG y probar en un job de Jenkins la etapa Trivy que falla con CRITICAL. |
-| [34](#sesion-34-practica-evaluable) | 23 feb | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar inventario y política, informe de vulnerabilidades, evidencia de actualización en pre, reporte de fallo e incidencias. |
-
 ## Sesión 28 · Inventario de versiones y seguimiento automático
 
 <p class="ut-meta" markdown>2 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Versiones, etiquetas y digests · 15 min&#10;Seguir la aparición de versiones · 10 min&#10;A7.1 Inventario de versiones y seguimiento automático · 85 min" data-dur="Versiones, etiquetas y digests · 15 min&#10;Seguir la aparición de versiones · 10 min&#10;A7.1 Inventario de versiones y seguimiento automático · 85 min">:material-school:<i class="dur-barra" style="--teoria:23%"></i>:material-flask:</span></p>
@@ -273,74 +211,32 @@ Dos tareas encadenadas: primero el inventario y luego, sobre él, su vigilancia 
 
 <span class="et et-pre">Antes de empezar</span>
 
-- app01 con el servicio del curso arrancado y la copia de trabajo de `servicio` en `/opt/servicio`. app01 no sale a Internet desde el 27 de noviembre, y hoy no le hace falta: todo lo que se mira allí son imágenes que ya tiene descargadas.
-- El repositorio `ops/servicio` en el Gitea del laboratorio (`gitea.lab`, hoy el contenedor de `mon01` en el 3001, con el nombre que tiene desde la A2.6).
-
-    !!! ojo "El nombre no cambia, la dirección sí"
-        Se usa siempre `gitea.lab` y nunca la dirección de la máquina. El 12 de febrero, en la [A6.4 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), Gitea se muda a `gitea01` (10.10.0.11) con TLS delante, y ese día el único cambio es el host override y el endpoint, que pasa a `https://gitea.lab/api/v1`. Nada de lo que escribes hoy se reescribe.
-- Trabajo que se puede traer hecho, porque son clics y descargas que no enseñan nada. En Gitea, el usuario técnico `renovate-bot` con permiso de escritura en `ops/servicio` y un token suyo (Configuración, Aplicaciones) guardado en el gestor de contraseñas. En mon01, la imagen de Renovate con la versión mayor fijada, nunca `latest`: `docker pull renovate/renovate:41`, o la mayor vigente ese día. Pesa varios cientos de MB, y treinta descargas a la vez en el aula se comen media sesión.
+- app01 con el servicio arrancado y la copia de trabajo de `servicio` en `/opt/servicio`. No sale a Internet desde el 27 de noviembre, ni le hace falta hoy: solo se miran imágenes que ya tiene.
+- El repositorio `ops/servicio` en `gitea.lab` (hoy, el contenedor de mon01 en el 3001). Usa siempre ese nombre, nunca la dirección: el 12 de febrero Gitea se muda a `gitea01` y solo cambian el host override y el endpoint.
+- Trabajo que se puede traer hecho: en Gitea, el usuario técnico `renovate-bot` con permiso de escritura en `ops/servicio` y su token en el gestor de contraseñas; en mon01, la imagen `renovate/renovate:41` (o la mayor vigente, nunca `latest`), que pesa varios cientos de MB.
 - Explicado antes: [Versiones, etiquetas y digests](#versiones-etiquetas-y-digests), [Versionado semántico](#versionado-semantico), [Renovate a fondo](#renovate-a-fondo) y [La política escrita](#la-politica-escrita).
 
 <span class="et et-pas">Pasos</span>
 
-1. Inventario de imágenes, en app01. Para cada imagen que corre en la máquina apunta etiqueta, digest (o ID, en la del servicio) y fecha de creación:
+1. Inventaria en `docs/inventario.md`, en la copia de trabajo de app01, las imágenes que corren en la máquina (servicio y agentes) y la base del `FROM` de `api/Dockerfile`: una fila por imagen con componente, etiqueta, digest o ID, fecha de creación y si es flotante. Los paquetes de Python del contenedor `app`, con su versión, van aparte en `inventario-app.txt`.
 
-    ```bash
-    cd /opt/servicio
-    docker compose config --images                               # la del servicio: app:1.4.2
-    docker compose -f /opt/agentes/compose.yml config --images   # los agentes, imágenes de terceros
-    grep '^FROM' api/Dockerfile                                  # la imagen base de la aplicación
-    docker image inspect --format '{{index .RepoDigests 0}}  {{.Created}}' <imagen>   # la base y cada agente
-    docker image inspect --format '{{.Id}}  {{.Created}}' app:1.4.2                  # la del servicio es local: ID, no digest
-    ```
+    *Pista:* `app:1.4.2` se construyó en app01 y no tiene digest de registry: se identifica por su ID. Flotante es `latest`, solo la mayor (`python:3`) o sin sufijo de Debian.
 
-2. Dependencias de Python. Hoy basta la lista de paquetes del contenedor, que tarda un minuto; el SBOM completo con Syft se genera en la sesión siguiente:
+2. Fija la base de `api/Dockerfile` con versión, sufijo de Debian y digest, y lleva el Dockerfile y el inventario a `main` con un PR desde la rama `inventario` que fusionas tú mismo: Renovate tiene que encontrar la base ya fijada.
 
-    ```bash
-    docker compose exec app pip list --format=freeze > inventario-app.txt
-    ```
+    *Pista:* el digest sale del `RepoDigests` de la base, que app01 tiene porque con ella construyó la aplicación; el sufijo (`bookworm` o `trixie`), del `/etc/os-release` del contenedor `app`.
 
-3. Marca las flotantes (`latest`, solo mayor como `python:3`, sin sufijo de Debian): `grep -n "image:\|^FROM" compose.yml api/Dockerfile /opt/agentes/compose.yml`.
-4. Fija la imagen base con versión y digest. Está descargada en app01 porque con ella se construyó la aplicación, así que el digest sale sin conexión. El sufijo de Debian lo dice el propio contenedor:
+3. Pon Renovate a vigilar el repositorio: en la raíz de `main`, el `renovate.json` de [Renovate a fondo](#renovate-a-fondo) con `"schedule": ["at any time"]` mientras dura la práctica, y desde mon01 una pasada con el token de `renovate-bot` y `LOG_LEVEL=debug`, guardada en `renovate.log`. Guarda la captura del PR que abra con la etiqueta `actualizacion`.
 
-    ```bash
-    docker compose exec app grep VERSION_CODENAME /etc/os-release       # bookworm o trixie
-    docker image inspect --format '{{index .RepoDigests 0}}' python:3.13  # la etiqueta que diga tu FROM
-    # en api/Dockerfile:  FROM python:3.13-<debian>@sha256:<ese digest>
-    ```
+    *Pista:* a la orden del apartado le falta `--network host`, para que el contenedor resuelva `gitea.lab` como lo hace mon01.
 
-5. Escribe `docs/inventario.md` como tabla: componente, imagen, etiqueta, digest o ID, fecha y si era flotante. Súbelo con el Dockerfile en una rama, abre el PR en Gitea y fusiónalo tú mismo: la base fijada tiene que estar en `main` antes de que pase Renovate.
+4. Escribe en `main` `docs/politica-actualizacion.md`: los seis puntos de [La política escrita](#la-politica-escrita) como encabezados, cada uno con una o dos líneas decididas para tu servicio. Se cierra en la práctica evaluable de la sesión 34.
 
-    ```bash
-    git switch -c inventario
-    git add docs/inventario.md api/Dockerfile && git commit -m "Inventario y base fijada con digest"
-    git push -u origin inventario
-    ```
-
-6. Vuelve a `main` (`git switch main && git pull`) y crea en su raíz `renovate.json`: el del apartado [Renovate a fondo](#renovate-a-fondo), con una línea cambiada mientras dura la práctica, `"schedule": ["at any time"]`, porque fuera de su franja Renovate no abre nada. Commit y push.
-7. Lanza Renovate en mon01, la primera vez con `LOG_LEVEL=debug`. `--network host` hace que el contenedor llegue a `gitea.lab` como el propio mon01:
-
-    ```bash
-    export TOKEN_BOT=...                 # el token de renovate-bot
-    docker run --rm --network host \
-      -e RENOVATE_PLATFORM=gitea \
-      -e RENOVATE_ENDPOINT=http://gitea.lab:3001/api/v1 \
-      -e RENOVATE_TOKEN=$TOKEN_BOT \
-      -e RENOVATE_REPOSITORIES=ops/servicio \
-      -e LOG_LEVEL=debug \
-      renovate/renovate:41 2>&1 | tee renovate.log
-    ```
-
-    La base de app01 se descargó en otoño, así que el digest que acabas de fijar ya no es el que publica Docker Hub: la primera pasada tiene algo que proponer sin tocar nada más. Las credenciales del registry propio no hacen falta hasta que exista.
-
-8. Mira la pestaña de pull requests del repositorio: tiene que haber al menos uno de `renovate-bot` con la etiqueta `actualizacion`, el del digest nuevo de la base. Guarda la captura.
-9. Política de actualización: `docs/politica-actualizacion.md`, con los seis puntos del apartado [La política escrita](#la-politica-escrita) como encabezados y una o dos líneas en cada uno decididas para tu servicio (quién aprueba, en qué ventana, qué se fusiona solo). Commit en `main`; se cierra en la práctica evaluable de la sesión 34.
-
-<span class="et et-com">Comprobación</span> El `grep` del paso 3 ya no muestra etiquetas flotantes en `compose.yml` ni en `api/Dockerfile`; `docker image inspect python:3.13-<debian>@sha256:<digest>` encuentra la imagen en app01, así que el digest está bien copiado; en Gitea hay un PR de `renovate-bot` con la etiqueta `actualizacion` y las notas de la versión; en `renovate.log` la base del Dockerfile aparece entre las dependencias detectadas y `app` no da error de búsqueda.
+<span class="et et-com">Comprobación</span> Las líneas `image:` y `FROM` de `compose.yml` y `api/Dockerfile` ya no llevan etiquetas flotantes; `docker image inspect python:3.13-<debian>@sha256:<digest>` encuentra la imagen en app01, así que el digest está bien copiado; en Gitea hay un PR de `renovate-bot` con la etiqueta `actualizacion` y las notas de la versión; en `renovate.log` la base del Dockerfile aparece entre las dependencias detectadas y `app` no da error de búsqueda.
 
 <span class="et et-ent">Entrega</span> El PR fusionado con `docs/inventario.md` y el Dockerfile fijado; `renovate.json` y `docs/politica-actualizacion.md` en `main`; la captura del PR de Renovate y `renovate.log` en la carpeta de la práctica.
 
-<span class="et et-ext">Si te sobra tiempo</span> Fija también con digest las imágenes de `/opt/agentes/compose.yml` que el paso 3 marcó como flotantes, y añade un `packageRule` con `versioning` explícito para alguna imagen que no siga semver.
+<span class="et et-ext">Si te sobra tiempo</span> Fija también con digest las imágenes de `/opt/agentes/compose.yml` que el paso 1 marcó como flotantes, y añade un `packageRule` con `versioning` explícito para alguna imagen que no siga semver.
 
 ## Sesión 29 · Escaneo
 
@@ -473,98 +369,36 @@ Son dos filtros a distinta altura: pip-audit mira las dependencias declaradas an
 <span class="et et-pre">Antes de empezar</span>
 
 - Se trabaja en el puesto de administración, que tiene Trivy desde la A4.6, salida a Internet para las bases de datos de vulnerabilidades y tu clon de `servicio`. Entra con `ssh -A` para que desde él llegues a app01.
-- Trabajo que se puede traer hecho: Syft, Grype y pip-audit instalados en el puesto, con los instaladores oficiales de Anchore y con pipx:
-
-    ```bash
-    curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
-    curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
-    pipx install pip-audit
-    ```
-
-- Las bases de datos al día: `trivy image --download-db-only` y `grype db update`.
+- Trabajo que se puede traer hecho: Syft y Grype instalados con los instaladores oficiales de Anchore, pip-audit con `pipx`, y las bases de datos al día (`trivy image --download-db-only` y `grype db update`).
 - Explicado antes: [CVE, CVSS, EPSS y KEV](#cve-cvss-epss-y-kev), [SBOM: el inventario](#sbom-el-inventario), [Escanear con Trivy](#escanear-con-trivy) y [Grype, Docker Scout y los escáneres del lenguaje](#grype-docker-scout-y-los-escaneres-del-lenguaje).
 
 <span class="et et-pas">Pasos</span>
 
-1. Trae al puesto las dos imágenes tal como corren en app01: la del servicio y la de cAdvisor, que es de un tercero y el agente con más privilegios de la máquina (corre `privileged` y con el socket de Docker). Los ficheros se quedan fuera del repositorio, porque pesan cientos de MB:
+1. Saca a `~/imagenes/` del puesto, fuera del repositorio, la imagen del servicio (`app-1.4.2.tar`) y la de cAdvisor de tu inventario (`cadvisor.tar`), el agente con más privilegios de app01, y genera en `seguridad/` de tu clon el [SBOM](#sbom-el-inventario) en CycloneDX de cada una, con su número de componentes.
+
+2. Escanea las dos imágenes con Trivy y con Grype. De cada escáner, el informe completo en JSON (`trivy-<imagen>.json`, `grype-<imagen>.json`), sin filtros porque es el que se archiva, y una tabla con HIGH y CRITICAL.
+
+3. Escanea el código con pip-audit (`pip-audit.txt`) y con `trivy fs` para vulnerabilidades y secretos (`trivy-fs.json`), y anota en `hallazgos.md` cuántos hallazgos da cada uno y si pip-audit ve alguno que Trivy no.
+
+    *Pista:* excluye `seguridad/` con `--skip-dirs`, o `trivy fs` analizará también los informes que acabas de generar.
+
+4. Reúne en `hallazgos.tsv` las filas HIGH y CRITICAL de los tres JSON de Trivy y pasa a la tabla de `seguridad/hallazgos.md` **las ocho más graves**: las CRITICAL y, si no llegas a ocho, las HIGH con parche. Encima de la tabla, el recuento por severidad de `hallazgos.tsv`.
+
+    *Pista:* las filas, con CVE, objetivo, paquete, versión instalada, versión corregida y severidad, salen de los JSON con este `jq`:
 
     ```bash
-    mkdir -p ~/imagenes
-    ssh ops@10.10.2.10 docker save app:1.4.2 > ~/imagenes/app-1.4.2.tar
-    ssh ops@10.10.2.10 docker save gcr.io/cadvisor/cadvisor:v0.52.1 > ~/imagenes/cadvisor.tar   # la de tu inventario
-    cd <tu clon de servicio> && git pull && mkdir -p seguridad && cd seguridad
+    jq -r '.Results[] | .Target as $t | .Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")
+      | [.VulnerabilityID, $t, .PkgName, .InstalledVersion, (.FixedVersion // "sin parche"), .Severity] | @tsv' \
+      trivy-*.json | sort -u > hallazgos.tsv
     ```
 
-2. SBOM en CycloneDX de cada imagen y recuento de componentes:
+5. Rellena en esas ocho filas las dos columnas que no da ningún escáner: exploit conocido (KEV y EPSS) y alcanzable desde fuera (sí, no, no sé), que decides tú según el paquete esté en el camino que atiende peticiones o solo en la construcción.
 
-    ```bash
-    for i in app-1.4.2 cadvisor; do
-      syft docker-archive:$HOME/imagenes/$i.tar -o cyclonedx-json > sbom-$i.cdx.json
-    done
-    jq '.components | length' sbom-*.cdx.json
-    ```
+    *Pista:* el catálogo KEV se descarga una vez en JSON de la web de CISA y se consulta en local; el EPSS de cada CVE lo da `https://api.first.org/data/v1/epss?cve=<CVE>`.
 
-3. Trivy: informe completo en JSON (sin filtrar, es el que se archiva) y tabla legible con HIGH y CRITICAL:
+6. Compara Trivy y Grype sobre la imagen del servicio y anota en `hallazgos.md` los CVE que solo ve uno de los dos.
 
-    ```bash
-    for i in app-1.4.2 cadvisor; do
-      trivy image --input ~/imagenes/$i.tar --format json -o trivy-$i.json
-      trivy image --input ~/imagenes/$i.tar --severity HIGH,CRITICAL > trivy-$i.txt
-    done
-    ```
-
-4. Grype sobre los SBOM, también en JSON y en tabla:
-
-    ```bash
-    for s in sbom-*.cdx.json; do
-      grype sbom:$s -o json > grype-${s%.cdx.json}.json
-      grype sbom:$s -o table > grype-${s%.cdx.json}.txt
-    done
-    ```
-
-5. El código, con los dos escáneres que leen el repositorio y no la imagen. `--skip-dirs` evita que `trivy fs` analice los informes que acabas de generar:
-
-    ```bash
-    pip-audit -r ../api/requirements.txt > pip-audit.txt
-    trivy fs --scanners vuln,secret --skip-dirs seguridad --format json -o trivy-fs.json ..
-    ```
-
-    Anota en `hallazgos.md` cuántos hallazgos da cada uno y si pip-audit ve alguno que Trivy no.
-
-6. Extrae de los JSON de Trivy (las dos imágenes y el código) las filas HIGH y CRITICAL con las columnas que da el escáner:
-
-    ```bash
-    jq -r '.Results[] | .Target as $t | .Vulnerabilities[]?
-           | select(.Severity=="HIGH" or .Severity=="CRITICAL")
-           | [.VulnerabilityID, $t, .PkgName, .InstalledVersion, (.FixedVersion // "sin parche"), .Severity]
-           | @tsv' trivy-*.json | sort -u > hallazgos.tsv
-    ```
-
-7. Pasa a la tabla de `seguridad/hallazgos.md` **las ocho filas más graves** de `hallazgos.tsv`, no todas: dos imágenes pueden dar cientos de hallazgos y la tabla es para decidir, no para archivar. Primero las CRITICAL y, si no llegas a ocho, completa con las HIGH que tengan parche:
-
-    ```bash
-    { awk -F'\t' '$6=="CRITICAL"' hallazgos.tsv
-      awk -F'\t' '$6=="HIGH" && $5!="sin parche"' hallazgos.tsv; } | head -8 > top8.tsv
-    cut -f6 hallazgos.tsv | sort | uniq -c        # recuento por severidad: resume el resto
-    ```
-
-    Sobre esas ocho rellena las dos columnas que ningún escáner da. La primera, exploit conocido, sale de dos consultas por CVE: el catálogo KEV, que se descarga una vez y se consulta en local, y el EPSS:
-
-    ```bash
-    curl -s https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json -o kev.json
-    C=CVE-2024-12345
-    jq -r --arg c "$C" '.vulnerabilities[] | select(.cveID==$c) | "en KEV desde " + .dateAdded' kev.json
-    curl -s "https://api.first.org/data/v1/epss?cve=$C" | jq -r '.data[0].epss'
-    ```
-
-    La segunda, alcanzable desde fuera (sí, no, no sé), la decides tú: mira si el paquete afectado está en el camino que atiende peticiones o solo en una herramienta de construcción. El `hallazgos.tsv` completo se entrega igual como evidencia, y encima de la tabla va la línea con el recuento por severidad.
-8. Compara los escáneres sobre la imagen del servicio y anota las diferencias:
-
-    ```bash
-    jq -r '.Results[].Vulnerabilities[]?.VulnerabilityID' trivy-app-1.4.2.json | sort -u > t.txt
-    jq -r '.matches[].vulnerability.id' grype-sbom-app-1.4.2.json | sort -u > g.txt
-    comm -3 t.txt g.txt      # lo que solo ve uno de los dos
-    ```
+    *Pista:* `comm -3` sobre las dos listas ordenadas de identificadores: `.Results[].Vulnerabilities[]?.VulnerabilityID` en Trivy y `.matches[].vulnerability.id` en Grype.
 
 <span class="et et-com">Comprobación</span> La cabecera de cada informe de imagen de Trivy reconoce el sistema base (`(debian 12.x)` o `(debian 13.x)`); `hallazgos.tsv` no está vacío; la tabla tiene ocho filas (o todas las CRITICAL y las HIGH con parche, si salen menos de ocho) con las dos columnas manuales rellenas y el recuento por severidad encima; `pip-audit.txt` y `trivy-fs.json` existen y su resultado está resumido en `hallazgos.md`; hay al menos un CVE anotado que solo aparece en uno de los escáneres.
 
@@ -711,62 +545,35 @@ Al investigar un hallazgo en la actividad A7.3, el orden de lectura es: ficha NV
 <span class="et et-pre">Antes de empezar</span>
 
 - `seguridad/hallazgos.md` de la A7.2 y `~/imagenes/app-1.4.2.tar` en el puesto de administración, con acceso a NVD, OSV, GitHub Advisory y el catálogo KEV.
-- app01 con la copia de trabajo de `servicio` en `main` y al día (`git pull`).
-- La consola de OPNsense: app01 no sale a Internet, y construir la imagen nueva descarga la base y las librerías. El paso 5 abre una fila temporal y la cierra en el mismo paso.
+- app01 con la copia de trabajo de `servicio` en `main` y al día.
+- La consola de OPNsense: app01 no sale a Internet, y construir la imagen nueva descarga la base y las librerías. El paso 4 abre una fila temporal y la cierra en el mismo paso.
 - Explicado antes: [Leer un informe](#leer-un-informe) y [Las cuatro soluciones y el registro de excepciones](#las-cuatro-soluciones-y-el-registro-de-excepciones). Dónde se consulta cada CVE está en [Fuentes y cómo se leen](#fuentes-y-como-se-leen), el material de consulta de esta hoja.
 
 <span class="et et-pas">Pasos</span>
 
-1. En el puesto, crea la rama `base-slim` en tu clon de `servicio` y elige cuatro filas de la tabla: al menos una CRITICAL y una sin parche (`sin parche` o `will_not_fix`; si en tu tabla no hay ninguna, búscala en `hallazgos.tsv`).
-2. Por cada una, en este orden: ficha en NVD (`https://nvd.nist.gov/vuln/detail/CVE-AAAA-NNNN`) u OSV (`https://osv.dev/vulnerability/CVE-AAAA-NNNN`) para el vector y las versiones afectadas; aviso del proyecto (Security en GitHub, DSA en Debian) para saber si hay parche; issue tracker del componente por si hay mitigación; KEV y EPSS para la urgencia.
-3. Recorre el diagrama de decisión de [Leer un informe](#leer-un-informe) y escribe en `seguridad/decisiones.md`, por hallazgo: CVE, componente, ¿se ejecuta?, ¿alcanzable desde fuera?, KEV y EPSS, solución elegida y tres o cuatro líneas de justificación.
-4. Excepciones: `.trivyignore` en la raíz, con comentario (motivo, quién decide, fecha) y caducidad `exp:` por cada CVE aceptado. Comprueba desde la raíz del clon que Trivy lo respeta, y sube la rama:
+1. Crea la rama `base-slim` en tu clon de `servicio`, elige cuatro filas de la tabla (al menos una CRITICAL y una sin parche) e investígalas en el orden de [Fuentes y cómo se leen](#fuentes-y-como-se-leen).
 
-    ```bash
-    trivy image --input ~/imagenes/app-1.4.2.tar --severity HIGH,CRITICAL --ignorefile .trivyignore
-    git add .trivyignore seguridad/decisiones.md && git commit -m "Decisiones y excepciones" && git push -u origin base-slim
-    ```
+    *Pista:* si tu tabla no tiene ninguna sin parche, búscala en `hallazgos.tsv` (`sin parche` o `will_not_fix`).
 
-5. Reconstruye en app01 con base slim, ya como la versión 1.4.3. Antes, en OPNsense, abre la fila temporal en la pestaña DMZINT (Pass, origen `srv_app`, destino any, puertos `p_web`, descripción `TEMPORAL alta 09-02 baja 09-02 build en app01`):
+2. Escribe en `seguridad/decisiones.md`, por hallazgo, las respuestas del diagrama de [Leer un informe](#leer-un-informe): CVE y componente, ¿se ejecuta?, ¿alcanzable desde fuera?, KEV y EPSS, la solución elegida y tres o cuatro líneas de justificación con la fuente enlazada.
 
-    ```bash
-    cd /opt/servicio && git fetch && git switch base-slim
-    docker pull python:3.13-slim-<debian>        # la misma Debian que fijaste en la A7.1
-    docker image inspect --format '{{index .RepoDigests 0}}' python:3.13-slim-<debian>
-    # en api/Dockerfile:  FROM python:3.13-slim-<debian>@sha256:<ese digest>
-    docker build -t app:1.4.3 api/
-    docker run --rm app:1.4.3 pip check && docker run --rm app:1.4.3 python -c "import flask"
-    ```
+3. Registra en `.trivyignore`, en la raíz del clon, cada CVE aceptado con su comentario (motivo, quién decide, fecha) y su caducidad `exp:`. Comprueba que Trivy lo respeta sobre `app-1.4.2.tar` y sube la rama.
 
-    Si falla por librerías nativas, añade `apt-get install -y --no-install-recommends libpq5` al Dockerfile o usa la variante binaria del driver de PostgreSQL en `requirements.txt`. En cuanto termine el build, borra la fila temporal.
+4. Reconstruye en app01, desde `base-slim`, la imagen como `app:1.4.3` sobre `python:3.13-slim-<debian>` (la Debian de la A7.1) fijada con digest, y comprueba con `pip check` y un `import flask` que está sana. Para las descargas, abre antes en OPNsense la fila temporal de la pestaña DMZINT (Pass, origen `srv_app`, destino any, puertos `p_web`, descripción `TEMPORAL alta 09-02 baja 09-02 build en app01`) y bórrala al terminar el build.
 
-6. Despliega la 1.4.3 en dev, guardando antes el compose que corre, que es el plan B de dev:
+    *Pista:* la slim no trae las librerías de cliente de PostgreSQL: si el driver no compila o no carga, añade `libpq5` en el Dockerfile o usa la variante binaria del driver.
 
-    ```bash
-    cp compose.yml compose.anterior.yml            # la 1.4.2
-    sed -i 's/app:1.4.2/app:1.4.3/' compose.yml
-    docker compose up -d app && docker compose logs --tail 20 app
-    curl -s http://10.10.2.10:8080/health
-    git commit -am "Base slim: app 1.4.3" && git push
-    ```
+5. Despliega la 1.4.3 en dev guardando antes el compose que corre como `compose.anterior.yml`, el plan B de dev que usa la A7.4, y sube a la rama el cambio de `compose.yml`.
 
-7. Mide antes y después, tamaño y número de hallazgos, desde el puesto:
+6. Mide desde el puesto la 1.4.2 frente a la 1.4.3 (tamaño y hallazgos HIGH y CRITICAL), añade a `seguridad/decisiones.md` la tabla de comparación (base, tamaño, hallazgos, qué hubo que tocar) y abre el PR de `base-slim`.
 
-    ```bash
-    ssh ops@10.10.2.10 docker images app --format '{{.Tag}}  {{.Size}}'
-    ssh ops@10.10.2.10 docker save app:1.4.3 > ~/imagenes/app-1.4.3.tar
-    for i in app-1.4.2 app-1.4.3; do
-      echo -n "$i: "; trivy image --input ~/imagenes/$i.tar --severity HIGH,CRITICAL --format json | jq '[.Results[].Vulnerabilities[]?] | length'
-    done
-    ```
-
-8. Añade a `seguridad/decisiones.md` la tabla de comparación (base, tamaño, hallazgos, qué hubo que tocar), haz `git pull` para traer el commit de app01, sube y abre el PR de `base-slim`.
+    *Pista:* trae antes a tu clon el commit que hiciste en app01, o la rama divergirá.
 
 <span class="et et-com">Comprobación</span> Cuatro entradas con las preguntas del diagrama respondidas y la fuente enlazada; Trivy con `--ignorefile` muestra menos filas que sin él y ninguna línea del `.trivyignore` va sin comentario ni fecha; la fila temporal ya no está en OPNsense; `app:1.4.3` responde en el `/health` de app01 y tiene menos hallazgos que la 1.4.2.
 
 <span class="et et-ent">Entrega</span> PR de `base-slim` con `seguridad/decisiones.md`, `.trivyignore`, el Dockerfile con la base nueva y `compose.yml` en la 1.4.3. No lo fusiones todavía: se fusiona al empezar la A7.4, después de dos días de la 1.4.3 en dev y antes de llevarla a pre.
 
-<span class="et et-ext">Si te sobra tiempo</span> Repite los pasos 5 y 7 con `python:3.13-alpine` (con la fila temporal abierta solo mientras dura el build) y anota qué se rompió. O quita `setuptools` de la imagen final y comprueba si desaparece una fila del informe.
+<span class="et et-ext">Si te sobra tiempo</span> Repite la reconstrucción del paso 4 y la medida del paso 6 con `python:3.13-alpine` (con la fila temporal abierta solo mientras dura el build) y anota qué se rompió. O quita `setuptools` de la imagen final y comprueba si desaparece una fila del informe.
 
 ## Sesión 31 · Actualización en pre
 
@@ -874,157 +681,39 @@ La ventana es un compromiso con los usuarios: en ese rato puede haber cortes y f
 
 <span class="et et-pre">Antes de empezar</span>
 
-- pre, creado por el IaC de la 5166 UT5 en la A5.3 y con el servicio en app01-pre y PostgreSQL en db01-pre desde la A5.5: web01-pre 10.20.1.10, app01-pre 10.20.2.10 y db01-pre 10.20.3.10. No lo montes a mano. El puesto de administración llega a pre por su `ruta-lab.service`; mon01 todavía no, y el paso 3 le pone la ruta.
-- El PR `base-slim` de la A7.3, que se fusiona ahora, antes del paso 1: fusiónalo en Gitea y devuelve app01 a `main` (`git switch main && git pull` en `/opt/servicio`).
-- En el puesto de administración: `~/iac-lab`, el repositorio de Despliegue con el playbook de la A5.5; la suite funcional de la A4.4 en tu clon de `servicio`; y el secreto de la credencial `restic` de MinIO, que nació el 18 de diciembre en el paso 1 de la [A5.2 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/) y está en tu gestor de contraseñas.
-- Trabajo que se puede traer hecho: restic instalado en el puesto de administración (`sudo apt-get install -y restic`; `restic version`, 0.18 o superior).
+- pre, creado por el IaC de la 5166 UT5 (A5.3 y A5.5) y sin montar a mano: web01-pre 10.20.1.10, app01-pre 10.20.2.10 con el servicio y db01-pre 10.20.3.10 con PostgreSQL. El puesto de administración llega a pre por su `ruta-lab.service`; mon01 todavía no.
+- El PR `base-slim` de la A7.3: fusiónalo en Gitea antes del paso 1 y devuelve a `main` la copia de trabajo de app01.
+- En el puesto: `~/iac-lab` con el playbook de la A5.5, la suite funcional de la A4.4 en tu clon de `servicio` y, en el gestor de contraseñas, el secreto de la credencial `restic` de MinIO, que nació en el paso 1 de la [A5.2 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/).
+- restic 0.18 o superior instalado en el puesto, que se puede traer hecho. No se ha explicado todavía: lo necesario está en el paso 3, y su referencia, en [restic a fondo](ut6-copias-seguridad.md#restic-a-fondo) de la UT6.
 - Explicado antes: [El ciclo](#el-ciclo), [Paso a paso](#paso-a-paso), [Verificación de integridad de datos](#verificacion-de-integridad-de-datos) y [Ventanas de mantenimiento](#ventanas-de-mantenimiento).
 
 <span class="et et-pas">Pasos</span>
 
-1. Abre la incidencia en Gitea antes de tocar nada: título `Actualizar app 1.4.2 → 1.4.3 (pre)`, etiquetas `actualizacion` y `seguridad`, y en el cuerpo las versiones origen y destino con su ID de imagen (`ssh ops@10.10.2.10 docker image inspect --format '{{.Id}}' app:1.4.3`), el motivo (los CVE de la A7.3), el responsable y el plan de vuelta atrás.
-2. Copia las cinco consultas del apartado [Verificación de integridad de datos](#verificacion-de-integridad-de-datos) a `scripts/integridad.sql` en tu clon de `servicio` del puesto. Están escritas para el esquema del curso: solo cambias algo si tu API tiene más tablas que `items`.
-3. Da de alta pre en la monitorización. En mon01, primero la ruta hacia pre por `router-pre`, en una unidad igual que la `ruta-lab.service` del puesto (mira con `ip -br a` cómo se llama la tarjeta de mon01; en las VM del curso, `ens18`):
+1. Abre la incidencia en Gitea antes de tocar nada: título `Actualizar app 1.4.2 → 1.4.3 (pre)`, etiquetas `actualizacion` y `seguridad`, y en el cuerpo las versiones origen y destino con su ID de imagen, el motivo (los CVE de la A7.3), el responsable y el plan de vuelta atrás.
 
-    ```bash
-    sudo tee /etc/systemd/system/ruta-pre.service > /dev/null <<'EOF'
-    [Unit]
-    Description=Ruta hacia pre por router-pre
-    After=network-online.target
-    Wants=network-online.target
+2. Da de alta pre en la monitorización: en mon01, la ruta a `10.20.0.0/16` por `router-pre` (10.10.0.2) en una unidad `ruta-pre.service`, y en el job `node` de Prometheus un grupo nuevo con las tres VM de pre, cada una con su `host` (`web01-pre`, `app01-pre`, `db01-pre`) y la etiqueta `env: pre`. Sube el cambio a `monitoring`.
 
-    [Service]
-    Type=oneshot
-    RemainAfterExit=yes
-    ExecStart=/sbin/ip route replace 10.20.0.0/16 via 10.10.0.2 dev ens18
+    *Pista:* la unidad es la `ruta-lab.service` del puesto con solo la línea de `10.20.0.0/16` y la tarjeta de mon01, `ens18`. La UT8 retira pre por `env="pre"`: escríbela exactamente así.
 
-    [Install]
-    WantedBy=multi-user.target
-    EOF
-    sudo systemctl enable --now ruta-pre.service
-    ip route get 10.20.2.10                         # via 10.10.0.2
-    ```
-
-    Después, en `/opt/monitoring/prometheus.yml`, añade al job `node` las tres VM de pre con la etiqueta `env: pre` (node_exporter viene en la plantilla), reinicia Prometheus y comprueba que las tres responden:
-
-    ```yaml
-      - job_name: node
-        static_configs:
-          # ... los targets que ya tenía se quedan como están
-          - targets: ["10.20.1.10:9100"]
-            labels: { host: web01-pre, env: pre }
-          - targets: ["10.20.2.10:9100"]
-            labels: { host: app01-pre, env: pre }
-          - targets: ["10.20.3.10:9100"]
-            labels: { host: db01-pre, env: pre }
-    ```
-
-    ```bash
-    cd /opt/monitoring && docker compose restart prometheus
-    curl -s http://localhost:9090/api/v1/query --data-urlencode 'query=up{env="pre"}' \
-      | jq -r '.data.result[] | "\(.metric.host) \(.value[1])"'     # las tres con 1
-    git commit -am "pre en el job node" && git push
-    ```
-
-    Es lo que la UT8 retira cuando da de baja pre.
-
-4. Prepara en el puesto de administración el repositorio de copias del laboratorio y haz la copia previa de pre. El repositorio es el de las convenciones, `s3:http://10.10.0.30:9000/backups`, se inicializa **una sola vez en todo el curso**, y el puesto llega a él directamente porque MinIO está en su misma subred.
-
-    !!! consulta "restic todavía no se ha explicado"
-        El programa de copias del laboratorio se estudia a fondo en la [UT6](ut6-copias-seguridad.md#restic-a-fondo),
-        que se cursa ya en la empresa. Aquí hacen falta tres órdenes suyas y van escritas enteras: crear el
-        repositorio, copiar con una etiqueta y listar la copia.
-
-    !!! ojo "Si el repositorio ya existe"
-        Si lo inicializaste tú en otra máquina, o lo ha creado el profesor para toda el aula, salta la
-        letra c: `restic init` responde `config file already exists`. Lo que no puedes hacer es
-        inicializarlo otra vez con otra contraseña, porque un repositorio restic solo se abre con la
-        contraseña con la que se creó, y perderías las copias anteriores. Pide la contraseña y el secreto
-        de acceso y ponlos en los ficheros de la letra a y la letra b.
-
-    a. La contraseña del repositorio, en un directorio del usuario `ops` que nadie más puede leer:
-
-    ```bash
-    sudo install -d -o ops -g ops -m 700 /etc/restic
-    openssl rand -base64 32 > /etc/restic/pass && chmod 600 /etc/restic/pass
-    cat /etc/restic/pass                        # cópiala ahora al gestor de contraseñas
-    ```
-
-    !!! ojo "Sin esta contraseña no hay copias"
-        Si `/etc/restic/pass` se pierde y no está en el gestor de contraseñas, todas las copias del
-        repositorio se vuelven ilegibles, y no hay forma de recuperarla. Guárdala antes de seguir.
-
-    b. Escribe `/etc/restic/env` con las cuatro variables: las dos primeras son el destino y la contraseña, las dos últimas la credencial `restic` de MinIO:
-
-    ```bash
-    cat > /etc/restic/env <<'EOF'
-    RESTIC_REPOSITORY=s3:http://10.10.0.30:9000/backups
-    RESTIC_PASSWORD_FILE=/etc/restic/pass
-    AWS_ACCESS_KEY_ID=restic
-    AWS_SECRET_ACCESS_KEY=<el secreto de la credencial restic>
-    EOF
-    chmod 600 /etc/restic/env
-    ```
-
-    Sin las dos últimas, `restic init` falla con `Fatal: unable to open config file` aunque el bucket exista: restic no sabe con qué credencial hablar con MinIO.
-
-    c. Inicializa el repositorio y comprueba que abre:
-
-    ```bash
-    set -a; . /etc/restic/env; set +a
-    restic init
-    restic cat config                           # devuelve el JSON del repositorio
-    ```
-
-    d. La copia previa y la foto de integridad. Las dos se piden desde el puesto a db01-pre por SSH, que es como llega a pre todo lo que sale de gestión: pre contesta, pero no puede abrir conexiones hacia gestión. Desde la raíz de tu clon de `servicio`, y apunta el id del snapshot en la incidencia:
+3. Crea en el puesto el repositorio de copias del laboratorio, `s3:http://10.10.0.30:9000/backups`, con `restic init`, **una sola vez en todo el curso**. Su configuración va en `/etc/restic/`, del usuario `ops` y con permisos 700: `pass`, una contraseña aleatoria que copias al gestor de contraseñas antes de seguir, porque sin ella las copias son ilegibles; y `env`, con las cuatro variables (el repositorio, `RESTIC_PASSWORD_FILE` y la credencial `restic` de MinIO en `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`); los dos ficheros, en 600. Después, desde la raíz de tu clon, haz la copia previa con la etiqueta `pre`, apunta el id del snapshot en la incidencia y toma la foto de integridad con las consultas de [Verificación de integridad de datos](#verificacion-de-integridad-de-datos) en `scripts/integridad.sql`. Las dos se piden desde el puesto, porque pre no abre conexiones hacia gestión:
 
     ```bash
     ssh ops@10.20.3.10 'sudo -u postgres pg_dump -Fc servicio' \
       | restic backup --stdin --stdin-filename servicio-pre.dump --tag pre
-    restic snapshots --tag pre --latest 1
     ssh ops@10.20.3.10 'sudo -u postgres psql -d servicio' < scripts/integridad.sql > integridad-antes.txt
     ```
 
-5. Lleva la 1.4.3 a pre. El registry no existe hasta el 19 de febrero, así que la imagen viaja de app01 a app01-pre por una tubería que pasa por el puesto, y se comprueba que llega la misma:
+    *Pista:* restic solo ve las variables de `env` si se exportan al cargar el fichero: `set -a; . /etc/restic/env; set +a`.
 
-    ```bash
-    ssh ops@10.10.2.10 docker save app:1.4.3 | ssh ops@10.20.2.10 sudo docker load
-    ssh ops@10.10.2.10 docker image inspect --format '{{.Id}}' app:1.4.3
-    ssh ops@10.20.2.10 sudo docker image inspect --format '{{.Id}}' app:1.4.3     # el mismo ID
-    ```
+4. Lleva la 1.4.3 a pre cambiando la versión en el repositorio, no en la máquina. La imagen pasa de app01 a app01-pre con `docker save | docker load` a través del puesto y tiene que llegar con el mismo ID. Guarda antes el `.env` de app01-pre como `/opt/servicio/.env.anterior`, que es el plan B; después cambia `app_image` en `ansible/group_vars/all.yml` de `iac-lab`, súbelo y pasa el playbook de la A5.5 limitado a `app`.
 
-    Guarda el `.env` que usa app01-pre, que es el plan B, y cambia la versión en el repositorio, no en la máquina. En pre la imagen no está escrita en el compose: el playbook de la A5.5 la toma de `app_image`, en `ansible/group_vars/all.yml` de `iac-lab`, y la escribe como `APP_IMAGE` en el `.env` de app01-pre.
+    *Pista:* en pre la imagen no está en el compose: el playbook la escribe como `APP_IMAGE` en el `.env` de app01-pre. La API responde en el 8080, sin nginx delante.
 
-    ```bash
-    ssh ops@10.20.2.10 sudo cp /opt/servicio/.env /opt/servicio/.env.anterior
-    cd ~/iac-lab
-    sed -i 's/app:1.4.2/app:1.4.3/' ansible/group_vars/all.yml
-    git commit -am "pre: app 1.4.3" && git push
-    ansible-playbook -i ansible/inventory.ini ansible/site.yml --limit app
-    ssh ops@10.20.2.10 sudo docker compose -f /opt/servicio/compose.yml ps
-    curl -s http://10.20.2.10:8080/health
-    ```
+5. Toma la foto de integridad después (`integridad-despues.txt`) y compárala con la de antes; luego pasa contra pre la suite funcional de la A4.4 con `API_URL=http://10.20.2.10:8080`. La suite va al final porque escribe en la base.
 
-6. Foto de integridad después y comparación, desde la raíz de tu clon de `servicio`:
+6. Completa la incidencia. Enlaza el PR de la A7.3, el commit de `iac-lab`, el snapshot, las dos salidas de integridad y el resultado de la suite. Escribe la vuelta atrás con sus órdenes exactas, la de la imagen y la de los datos, con el plan B comprobado: `compose.anterior.yml` en app01, `.env.anterior` en app01-pre y el id del snapshot. Y añade el plan de paso a producción, que en el laboratorio no existe como entorno: cinco o seis líneas con el orden de [Ventanas de mantenimiento](#ventanas-de-mantenimiento) aplicado a esta actualización (ventana, aviso, silencio en Alertmanager con fecha de fin, copia, despliegue, la misma verificación que en pre y el reloj de 20 minutos). Se queda abierta hasta la A7.6.
 
-    ```bash
-    ssh ops@10.20.3.10 'sudo -u postgres psql -d servicio' < scripts/integridad.sql > integridad-despues.txt
-    diff integridad-antes.txt integridad-despues.txt
-    ```
-
-    Debe salir vacío: la 1.4.3 cambia la base de la imagen, no los datos.
-
-7. La suite funcional de la A4.4 contra pre, después del `diff` porque escribe en la base: la misma orden que usaste contra dev, cambiando la URL por `API_URL=http://10.20.2.10:8080`. En pre no hay nginx, así que la API se prueba en su puerto.
-8. Enlaza en la incidencia el PR de la A7.3, el commit de `iac-lab`, el snapshot, las dos salidas de integridad y el resultado de la suite. Comprueba que el plan B está completo: `compose.anterior.yml` en app01 (de la A7.3), `.env.anterior` en app01-pre, el id del snapshot apuntado y la vuelta atrás escrita en el cuerpo con sus órdenes exactas:
-
-    ```bash
-    ssh ops@10.20.2.10 sudo docker compose --env-file /opt/servicio/.env.anterior -f /opt/servicio/compose.yml up -d app   # la imagen anterior
-    restic dump <id> /servicio-pre.dump | ssh ops@10.20.3.10 'sudo -u postgres pg_restore --clean -d servicio'   # los datos, si hiciera falta
-    ```
-
-    En la A7.5 se ejecuta la primera de verdad y con reloj.
-
-9. Escribe en la incidencia el plan de paso a producción, que en el laboratorio no existe como entorno: cinco o seis líneas con el orden del apartado [Ventanas de mantenimiento](#ventanas-de-mantenimiento) aplicado a esta actualización (ventana, aviso, silencio en Alertmanager con fecha de fin, copia, despliegue, la misma verificación que en pre y el reloj de 20 minutos). La incidencia se queda abierta: se cierra en la A7.6.
+    *Pista:* la vuelta atrás de la imagen en pre está en [Paso a paso](#paso-a-paso); la de los datos es el camino inverso de la copia, de `restic dump` del snapshot a `pg_restore --clean` en db01-pre.
 
 <span class="et et-com">Comprobación</span> `up{env="pre"}` da las tres VM de pre a 1; `restic snapshots --tag pre` lista la copia previa; app01-pre corre `app:1.4.3` con el mismo ID de imagen que app01 y responde en `http://10.20.2.10:8080/health`; el `diff` de integridad sale vacío; la suite funcional pasa contra pre; la incidencia lleva todos los enlaces, la vuelta atrás y el plan de paso a producción.
 
@@ -1096,50 +785,34 @@ Con eso, quien lo lea reproduce el fallo sin preguntar nada; si falta un bloque,
 
 ### A7.5 Fallo provocado (sesión 32)
 
-El profesor entrega una versión de la aplicación que falla al actualizar (cambio de formato de configuración).
+El profesor entrega una versión de la aplicación que falla al actualizar.
 
 <span class="et et-obj">Objetivo</span> Diagnosticar en pre una actualización que falla, tomar la decisión (rollback o parche) dentro de los 40 minutos y entregar un reporte reproducible al equipo de desarrollo.
 
 <span class="et et-pre">Antes de empezar</span>
 
 - Pre en la 1.4.3 de la A7.4, con el repositorio de copias listo en el puesto de administración.
-- La imagen `app:1.5.0` del profesor. El registry no existe hasta el 19 de febrero, así que llega como fichero (`app-1.5.0.tar`, en Aules): cópialo al puesto, cárgalo en app01-pre y comprueba que su ID es el que publica el profesor:
-
-    ```bash
-    ssh ops@10.20.2.10 sudo docker load < app-1.5.0.tar
-    ssh ops@10.20.2.10 sudo docker image inspect --format '{{.Id}}' app:1.5.0
-    ```
-
+- La imagen `app:1.5.0` del profesor. El registry no existe hasta el 19 de febrero, así que llega como fichero (`app-1.5.0.tar`, en Aules): cópialo al puesto, cárgalo en app01-pre y comprueba que su ID es el que publica el profesor.
 - Un reloj a la vista y una incidencia abierta: `Actualizar app 1.4.3 → 1.5.0 (pre)`, con el plan de vuelta atrás.
 - Explicado antes: [Cuando algo falla](#cuando-algo-falla), con la tabla de clasificación y la plantilla de reporte.
 
 <span class="et et-pas">Pasos</span>
 
-1. Apunta la hora de inicio en la incidencia. Copia previa y foto de integridad como en la letra d del paso 4 de la A7.4, con `/etc/restic/env` cargado (snapshot e `integridad-antes.txt`), y guarda el `.env` que usa, que ahora apunta a la 1.4.3: `ssh ops@10.20.2.10 sudo cp /opt/servicio/.env /opt/servicio/.env.anterior`.
-2. Despliega la 1.5.0 como en el paso 5 de la A7.4: en `~/iac-lab`, `sed -i 's/app:1.4.3/app:1.5.0/' ansible/group_vars/all.yml`, commit y push, y `ansible-playbook -i ansible/inventory.ini ansible/site.yml --limit app`.
-3. Observa y guarda lo que ves. La API escucha en el 8080 de app01-pre: en pre no hay proxy delante.
+1. Apunta la hora de inicio en la incidencia y actualiza pre a la 1.5.0 con la disciplina de la A7.4: copia previa e `integridad-antes.txt` como en el paso 3 de la A7.4, el `.env` de app01-pre (que ahora apunta a la 1.4.3) guardado como `.env.anterior`, y el cambio de `app_image` con su pasada del playbook como en el paso 4 de la A7.4.
 
-    ```bash
-    ssh ops@10.20.2.10 sudo docker compose -f /opt/servicio/compose.yml ps     # ¿se reinicia?
-    ssh ops@10.20.2.10 sudo docker compose -f /opt/servicio/compose.yml logs --tail 200 app | tee fallo-logs.txt
-    curl -i http://10.20.2.10:8080/health
-    ```
+2. Antes de tocar nada más, guarda las evidencias del fallo: si `app` se reinicia, sus últimas 200 líneas de log en `fallo-logs.txt` y la respuesta completa de `/health` en el 8080 de app01-pre.
 
-4. Diagnóstico por orden de probabilidad: notas de la versión, primeras diez líneas del log, dependencias, permisos, formato de configuración. Anota la causa probable con la línea de log que la delata.
-5. Clasifica con la tabla del apartado: bloqueante, degradación o cosmético.
-6. Decide y ejecuta antes del minuto 40, apuntando la hora:
+    *Pista:* pídelo todo desde el puesto por SSH, con `sudo` y el compose en `/opt/servicio/compose.yml`; así `fallo-logs.txt` queda en el puesto.
 
-    ```bash
-    # rollback: primero el servicio, y después el repositorio, para que el playbook no vuelva a poner la 1.5.0
-    ssh ops@10.20.2.10 sudo docker compose --env-file /opt/servicio/.env.anterior -f /opt/servicio/compose.yml up -d app
-    cd ~/iac-lab && git revert --no-edit HEAD && git push
-    ```
+3. Diagnostica y clasifica el fallo con [Cuando algo falla](#cuando-algo-falla): anota la causa probable con la línea de log que la delata, y si es bloqueante, degradación o cosmético.
 
-    O parche, si es evidente y cabe en plazo: por ejemplo, la variable nueva en la tarea del playbook que escribe el `.env` de pre, y otra pasada del playbook.
+4. Decide y ejecuta antes del minuto 40, apuntando la hora: rollback, primero del servicio con el `.env.anterior` como en [Paso a paso](#paso-a-paso) y después de `iac-lab`, para que el playbook no vuelva a poner la 1.5.0; o parche, si es evidente y cabe en plazo.
 
-7. Verifica lo que quede desplegado: `curl -s http://10.20.2.10:8080/health`, `integridad.sql` después (como en el paso 6 de la A7.4) y la suite funcional.
-8. Redacta el reporte en `docs/reportes/2027-02-16-app-1.5.0.md` con la plantilla del apartado, con todos sus bloques y los minutos de la decisión.
-9. Cierra la incidencia con la etiqueta `revertida` (sin ella si parcheaste) y el enlace al reporte.
+    *Pista:* en `iac-lab` el cambio se deshace con `git revert`, sin reescribir la historia. Si la causa es una variable de entorno, el parche va en la tarea del playbook que escribe el `.env` de pre.
+
+5. Verifica lo que haya quedado desplegado: `/health`, la foto de integridad después y la suite funcional.
+
+6. Redacta el reporte en `docs/reportes/2027-02-16-app-1.5.0.md` con todos los bloques de la plantilla y los minutos de la decisión, y cierra la incidencia con la etiqueta `revertida` (sin ella si parcheaste) y el enlace al reporte.
 
 <span class="et et-com">Comprobación</span> `curl http://10.20.2.10:8080/health` responde con la versión que hayas dejado; alguien que no estuvo en clase puede reproducir el fallo con el reporte; la decisión consta con hora y dentro del plazo; `app_image` en `ansible/group_vars/all.yml` de `iac-lab` dice la misma versión que corre en app01-pre.
 
@@ -1249,20 +922,19 @@ pipeline {
 
 <span class="et et-pas">Pasos</span>
 
-1. Revisa las dos incidencias contra la lista del apartado: título con versiones, etiquetas (`actualizacion` más `seguridad` o `ciclo`, y `revertida` en la de A7.5), cuerpo con IDs de imagen, motivo y plan de vuelta atrás, y enlaces al PR, al commit que desplegó, al escaneo antes y después, a las pruebas, a la integridad y a la copia. Completa lo que falte y cierra la de A7.4 como verificada en pre, con su plan de paso a producción escrito; la de A7.5 ya está cerrada.
-2. `CHANGELOG.md` en formato Keep a Changelog: sección `[1.4.3]` con fecha, `Security` (base nueva y CVE corregidos, con `#incidencia`) y `Changed` (el cambio de base, con el tamaño antes y después de la A7.3). La 1.5.0 revertida no lleva sección porque no está desplegada.
-3. Trivy en `agent01`. Es un binario único, así que basta copiar el del puesto de administración:
+1. Revisa las dos incidencias contra la lista de [Trazabilidad](#trazabilidad) y completa lo que falte: título con versiones, etiquetas (y `revertida` en la de A7.5), cuerpo con IDs de imagen, motivo y vuelta atrás, y todos los enlaces. Cierra la de A7.4 como verificada en pre, con su plan de paso a producción escrito; la de A7.5 ya está cerrada.
 
-    ```bash
-    scp "$(command -v trivy)" ops@10.10.0.12:/tmp/trivy
-    ssh ops@10.10.0.12 'sudo install -m 755 /tmp/trivy /usr/local/bin/trivy && trivy --version'
-    ```
+2. Escribe `CHANGELOG.md` en formato Keep a Changelog: sección `[1.4.3]` con fecha, `Security` (base nueva y CVE corregidos, con `#incidencia`) y `Changed` (el cambio de base, con el tamaño antes y después de la A7.3). La 1.5.0 revertida no lleva sección porque no está desplegada.
 
-4. El job aparte. Copia el `Jenkinsfile.escaneo` del apartado en la raíz del repositorio, con la etapa de escaneo pegada en su sitio, y haz commit y push. Después crea en la carpeta `servicio` de Jenkins un job de tipo Pipeline llamado `escaneo`, con ese mismo contenido en Pipeline script.
-5. Pipeline en rojo. Crea la rama `escaneo-rojo` con el `FROM` de la base completa de la 1.4.2 (el digest de otoño de tu inventario de la A7.1) y el `.trivyignore` vacío, súbela y lanza el job con `RAMA=escaneo-rojo`. Guarda la captura y comprueba que `trivy-*.json` y `trivy-*.sarif` están en los artefactos aunque haya fallado. Si ni con esa base sale ningún CRITICAL corregible, cambia en el job `--severity CRITICAL` por `HIGH,CRITICAL` solo para esta ejecución y anótalo.
-6. Pipeline en verde: lanza el job con `RAMA=main`, que lleva la 1.4.3 con base slim y el `.trivyignore` de A7.3. Captura y artefactos.
-7. Enlaza los dos builds desde la incidencia de A7.4.
-8. Deja el repositorio de incidencias en condiciones de contestar a una auditoría. Comprueba que existen las seis etiquetas del apartado (`actualizacion`, `seguridad`, `funcionalidad`, `ciclo`, `mayor`, `revertida`), crea las que falten con su color y su descripción, y repasa que las dos incidencias llevan las suyas. Después contesta con una búsqueda, no de memoria, a estas tres preguntas, y guarda cada captura con la búsqueda a la vista: cuántas actualizaciones de seguridad ha habido, cuántas ha habido que deshacer (`label:actualizacion label:revertida`) y cuál fue la última actualización verificada.
+3. Monta el job aparte: Trivy en `agent01` (10.10.0.12), el `Jenkinsfile.escaneo` del apartado en la raíz del repositorio con la etapa de escaneo pegada en su sitio, y en la carpeta `servicio` de Jenkins un job de tipo Pipeline llamado `escaneo` con ese mismo contenido en Pipeline script.
+
+    *Pista:* Trivy es un binario único: basta copiar el del puesto a `/usr/local/bin` de `agent01`.
+
+4. Lanza el job en rojo y en verde, y guarda la captura de cada build con sus artefactos `trivy-*.json` y `trivy-*.sarif`, que tienen que estar también en el que falla. El rojo, con `RAMA=escaneo-rojo`, una rama nueva con el `FROM` de la base completa de la 1.4.2 (el digest de otoño de tu inventario de la A7.1) y el `.trivyignore` vacío; el verde, con `RAMA=main`. Enlaza los dos builds desde la incidencia de A7.4.
+
+    *Pista:* si ni con la base completa sale ningún CRITICAL corregible, cambia en el job `--severity CRITICAL` por `HIGH,CRITICAL` solo para esa ejecución y anótalo.
+
+5. Prepara el repositorio de incidencias para una auditoría: las seis etiquetas del apartado (`actualizacion`, `seguridad`, `funcionalidad`, `ciclo`, `mayor`, `revertida`) creadas con color y descripción, y las dos incidencias con las suyas. Contesta después con una búsqueda, no de memoria, a tres preguntas, con la búsqueda a la vista en cada captura: cuántas actualizaciones de seguridad ha habido, cuántas se han deshecho y cuál fue la última verificada.
 
 <span class="et et-com">Comprobación</span> En Gitea, `label:actualizacion` lista las dos incidencias y sus enlaces abren; `CHANGELOG.md` tiene versión, fecha y solo las categorías fijas; en el job `escaneo` hay un build rojo con `bloqueada por CRITICAL` y uno verde, ambos con JSON y SARIF archivados; las tres búsquedas de auditoría devuelven lo que esperabas.
 
@@ -1276,13 +948,13 @@ pipeline {
 
 Sobre el servicio del curso, entrega en el repositorio de `gitea01` y en la carpeta de la práctica lo que han ido dejando las hojas A7.1 a A7.6. La sesión es para completar y ordenar esas evidencias, no para hacer nada nuevo: cada casilla dice de qué paso sale.
 
-- [ ] Inventario de versiones con digests y política de actualización escrita (A7.1, pasos 5 y 9).
-- [ ] `renovate.json` funcionando, con captura del PR de Renovate (A7.1, pasos 6 a 8).
-- [ ] SBOM e informes de Trivy y Grype de las dos imágenes, escaneo del código y tabla de hallazgos (A7.2, pasos 2 a 7).
-- [ ] Decisión justificada por hallazgo, `.trivyignore` documentado y comparación de bases (A7.3, pasos 3, 4 y 8).
-- [ ] Evidencia de la actualización en pre: incidencia, copia previa, salida de `integridad.sql` antes y después, suite funcional de la UT4 y plan de paso a producción (A7.4, pasos 1, 4, 6, 7 y 9).
-- [ ] Reporte del fallo provocado con la plantilla de la unidad y la decisión tomada en plazo (A7.5, pasos 6 y 8).
-- [ ] Incidencias trazables en Gitea con etiquetas y enlaces, CHANGELOG actualizado y etapa de Trivy con un build en rojo y otro en verde (A7.6, pasos 1, 2, 5, 6 y 8).
+- [ ] Inventario de versiones con digests y política de actualización escrita (A7.1, pasos 1, 2 y 4).
+- [ ] `renovate.json` funcionando, con captura del PR de Renovate (A7.1, paso 3).
+- [ ] SBOM e informes de Trivy y Grype de las dos imágenes, escaneo del código y tabla de hallazgos (A7.2, pasos 1 a 5).
+- [ ] Decisión justificada por hallazgo, `.trivyignore` documentado y comparación de bases (A7.3, pasos 2, 3 y 6).
+- [ ] Evidencia de la actualización en pre: incidencia, copia previa, salida de `integridad.sql` antes y después, suite funcional de la UT4 y plan de paso a producción (A7.4, pasos 1, 3, 5 y 6).
+- [ ] Reporte del fallo provocado con la plantilla de la unidad y la decisión tomada en plazo (A7.5, pasos 4 y 6).
+- [ ] Incidencias trazables en Gitea con etiquetas y enlaces, CHANGELOG actualizado y etapa de Trivy con un build en rojo y otro en verde (A7.6, pasos 1, 2, 4 y 5).
 
 | Criterio | RA4 | Peso |
 |----|----|----|
@@ -1300,6 +972,8 @@ Sobre el servicio del curso, entrega en el repositorio de `gitea01` y en la carp
 - **Trivy devuelve 0 hallazgos en una imagen que sí los tiene.** Base de datos sin descargar (sin salida a Internet desde la máquina; hay que bajarla en otra con `trivy image --download-db-only` y copiar `~/.cache/trivy`), o se está escaneando una imagen distroless donde Trivy no detecta el SO. Se comprueba la línea de cabecera del informe: si no dice `(debian 12.x)` o `(debian 13.x)`, no ha reconocido la base.
 - **Trivy y Grype dan números muy distintos.** Normal: bases de datos y heurísticas diferentes. Solo interesan los hallazgos HIGH y CRITICAL que aparezcan en uno y no en otro, y la ficha decide quién tiene razón.
 - **`md5(string_agg(...))` da distinto antes y después sin que haya cambiado nada.** Falta el `ORDER BY` dentro del `string_agg`, así que el orden de las filas depende del plan de ejecución. O la migración ha añadido una columna y `p::text` ahora incluye un campo más.
+- **`restic init` falla con `Fatal: unable to open config file` aunque el bucket existe.** A `/etc/restic/env` le faltan las dos variables de la credencial de MinIO, `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`, o se ha cargado sin exportarlas: restic no sabe con qué credencial hablar con MinIO.
+- **`restic init` responde `config file already exists`.** El repositorio ya existe: se inicializó desde otra máquina o lo creó el profesor para toda el aula. No se vuelve a crear con otra contraseña, porque un repositorio restic solo se abre con la contraseña con la que se creó y se perderían las copias anteriores: se piden la contraseña y el secreto de acceso y se ponen en `/etc/restic/pass` y `/etc/restic/env`.
 - **PostgreSQL no arranca tras subir de 17 a 18: "database files are incompatible with server".** Es un cambio de versión mayor sobre un directorio de datos con formato antiguo. No es un fallo de la imagen: hace falta `pg_upgrade` o volcado y restauración. Y con `postgres:latest`, esto ocurre sin que nadie lo haya pedido.
 - **El contenedor nuevo no puede escribir en el volumen.** La imagen ha cambiado el usuario con el que corre (por ejemplo de root a `uid 1000`). Se ve en los logs como `Permission denied` en el arranque. Se ajusta el propietario del volumen o se fija `user:` en el compose, y se anota en la incidencia porque en producción pasará igual.
 - **La etapa de Trivy falla en Jenkins pero en local pasa.** En Jenkins no se está leyendo `.trivyignore` (el fichero está en otro directorio o falta `--ignorefile`), o la base de datos del agente está más nueva y ya conoce un CVE de ayer. Lo segundo es correcto y es la razón de tener la etapa. Si lo que sale es `trivy: not found`, el agente no tiene Trivy: es el paso 3 de la A7.6.

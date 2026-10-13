@@ -163,7 +163,7 @@ ps aux --sort=-%mem | head
 set -a; . /etc/restic/env; set +a                           # las cuatro variables de la A7.4, que son estas:
 # RESTIC_REPOSITORY=s3:http://10.10.0.30:9000/backups   RESTIC_PASSWORD_FILE=/etc/restic/pass
 # AWS_ACCESS_KEY_ID=restic   AWS_SECRET_ACCESS_KEY=...    # sin estas dos, restic ni siquiera abre el repositorio
-restic init                                                 # una sola vez en todo el curso: paso 4 de la A7.4
+restic init                                                 # una sola vez en todo el curso: paso 3 de la A7.4
 ssh ops@10.20.3.10 'sudo -u postgres pg_dump -Fc servicio' | restic backup --stdin --stdin-filename servicio-pre.dump --tag pre
 restic snapshots --tag pre
 restic forget --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune

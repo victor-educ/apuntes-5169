@@ -3,80 +3,6 @@
 <p class="ut-meta">16 h · Sesiones 20 a 27 · RA2 CE a, b, c, d, e, f</p>
 
 La UT1 puso el contenedor de referencia a exponer métricas, logs y eventos; la UT2 convirtió algunas de esas métricas en alarmas con Alertmanager; la UT3 protegió la pila de monitorización. Ahora toca ordenar todo eso para que sirva a alguien ajeno al trabajo: documentar qué mide cada contador, definir con fórmula y umbral los indicadores que de verdad describen el servicio, escribir el runbook de cada alarma (la guía de qué hacer cuando salta) y, sobre todo, probar el servicio de forma repetible (funcional, carga, estrés, seguridad) y dejar evidencia de cada prueba. Lo que salga de aquí es el dossier de operación que pide cualquier empresa antes de pasar un servicio a producción. En la UT7 estas mismas pruebas serán la verificación de cada actualización. La primera evaluación se cerró en diciembre con las UT1, UT2 y UT3, así que esta unidad abre la segunda: buena parte de lo que se hace aquí entra en su examen, el 23 de marzo de 2027, junto con la UT7 y la UT8.
-## Introducción
-
-Esta unidad se lee en el orden en que se da: primero los conceptos y el plan de sesiones, y después cada sesión con la teoría que se explica seguida de su hoja de práctica. Lo que va más allá de lo que se hace en clase está en la página de ampliación enlazada al final.
-
-### Qué tienes que saber hacer al terminar
-
-- Documentar una métrica con su ficha (contador, tipo, unidad, etiquetas, referencia al código o al exporter) y clasificarla en capacidad, rendimiento o calidad (CE a).
-- Definir indicadores con fórmula PromQL, categoría, umbral de aviso y umbral crítico, y justificar cada umbral con datos (CE b).
-- Mantener un catálogo de alarmas donde cada una tenga origen, posible fallo, impacto, pasos de análisis, resolución y escalado (CE c).
-- Ejecutar pruebas funcionales, de calidad de servicio, de rendimiento, de estrés y de seguridad contra el servicio desplegado en dev, con herramientas que devuelvan un código de salida utilizable en un pipeline (CE d).
-- Documentar cada prueba con una ficha de caso y evidencias archivadas junto a la versión (CE e).
-- Diseñar y ejecutar un ciclo de revisión periódica de indicadores frente a umbrales, dejando registro (CE f).
-
-### Los conceptos de la unidad
-
-Un martes a las 10, con la carga de primera hora, la API empieza a tardar tres segundos. La alarma `AppHighLatency` de la UT2 salta, y ahí se acaba lo bueno: quien la recibe no sabe si un p95 de 300 ms es normal, no encuentra escrito qué mirar primero, y nadie sabe si la versión desplegada el viernes ya iba lenta, porque nadie la probó con carga. Lo que falta no es más monitorización, sino la documentación que la acompaña y las pruebas que se adelantan al problema. Al terminar la unidad el resultado es un dossier, repartido entre el repositorio `operacion` (métricas, indicadores, alarmas y revisiones) y el del servicio (pruebas y evidencias), con el que alguien que no conoce el servicio sabe qué se mide, qué valores son aceptables, qué hacer cuando salta cada alarma y qué pruebas ha pasado cada versión antes de producción.
-
-Las herramientas de monitorización vienen de la UT1 y la UT2; las de pruebas son nuevas.
-
-| Herramienta o concepto | Qué es, en una frase | Para qué se usa en esta unidad |
-|---|---|---|
-| Prometheus y PromQL | La base de datos de métricas de `mon01` y su lenguaje de consulta | Escribir y calcular las fórmulas de los indicadores |
-| Recording rules (reglas grabadas) | Consultas que Prometheus evalúa cada poco y guarda como una serie nueva con nombre propio | Que panel, alerta e informe usen el mismo número |
-| Exporters (cAdvisor, node_exporter, postgres_exporter) | Programas que traducen el estado de un contenedor, una máquina o PostgreSQL a métricas legibles por Prometheus | Origen de casi todas las métricas que se documentan aquí |
-| SLI, SLO y presupuesto de error | La medida de calidad de un servicio, el objetivo comprometido y el margen de fallo que ese objetivo deja | Fijar umbrales con criterio y decidir cuándo se puede desplegar |
-| Runbook | La guía paso a paso, con comandos exactos, para quien recibe una alarma | Que cualquiera resuelva una alarma sin preguntar |
-| Grafana | El visor de paneles conectado a Prometheus | Ver qué le pasa al servidor durante una prueba y capturar la evidencia |
-| pytest y requests | El ejecutor de pruebas de Python y su librería de peticiones HTTP | Pruebas funcionales: llamar a la API y comprobar la respuesta |
-| Postman y newman | Un editor gráfico de peticiones HTTP y su ejecutor de línea de comandos | Alternativa a pytest para las pruebas funcionales |
-| k6 | Un generador de carga que simula muchos usuarios y comprueba si se cumplen los objetivos de latencia y errores | Pruebas de calidad de servicio, rendimiento y estrés |
-| OWASP ZAP | Un escáner de seguridad web; en modo baseline solo observa, no ataca | Detectar cabeceras y cookies mal configuradas en el servicio publicado |
-| Trivy | Un escáner de vulnerabilidades de imágenes de contenedor | Saber si la imagen lleva paquetes con fallos conocidos |
-| Jenkins e informe JUnit | El servidor de automatización de 5166 y el XML en que las herramientas de pruebas le entregan resultados | Que las pruebas se lancen solas en cada versión y frenen el despliegue si fallan |
-
-Cómo está organizada la unidad. Sigue las sesiones en orden, y cada sesión trae primero la teoría que se explica y después su hoja de práctica. En las tres primeras se construye el bloque de monitorización: se decide qué medir y se documentan las métricas (sesión 20), se definen los nueve indicadores con fórmula y umbrales (sesión 21) y se escribe el catálogo de alarmas con sus runbooks (sesión 22). Las tres siguientes son las pruebas: funcionales con pytest (sesión 23), calidad de servicio y rendimiento con k6 leídas junto a Grafana (sesión 24), y estrés y seguridad con ZAP y Trivy (sesión 25). La sesión 26 documenta las pruebas, deja preparada su entrada en el pipeline y monta el ciclo de revisión periódica; la 27 cierra el dossier en la práctica evaluable. Los errores frecuentes quedan al final como material de consulta.
-
-!!! otra "Lo que hace falta de la otra asignatura"
-    Esta unidad va del 15 de diciembre al 28 de enero, en paralelo con la UT5 de 5166 (infraestructura como código con OpenTofu y Ansible, del 16 de diciembre al 29 de enero): [https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/).
-    Todo se hace contra **dev**: la API publicada en `https://api.dev.lab` por el nginx de web01, con app01 y db01 detrás de OPNsense desde la [A3.3 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/), del 27 de noviembre. El entorno `pre` que la UT5 de Despliegue crea en enero no se toca en esta unidad: en Mantenimiento se estrena en la A7.4, el 11 de febrero, y es el que la UT8 da de baja.
-    Jenkins **no existe hasta el 5 de febrero**, con la UT6 de Despliegue ([https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/), del 3 de febrero al 10 de marzo), es decir, después de la práctica evaluable de esta unidad. Por eso aquí no se monta ningún job: se deja la integración **preparada y documentada** (el fragmento de `Jenkinsfile`, las credenciales que hará falta crear y los comandos exactos ya probados a mano, con su código de salida), y las pruebas de las hojas se lanzan a mano.
-
-#### Dónde se trabaja en esta unidad
-
-Desde la práctica evaluable de la UT3 (3 de diciembre), la pila de mon01 solo publica Grafana (443, detrás de nginx), Loki (3100, con certificado de cliente) y la Gitea provisional (3001, para gestión y app01); Prometheus, Alertmanager y Mailpit escuchan únicamente en el `127.0.0.1` de mon01. Con eso, la unidad se reparte entre tres sitios:
-
-| Dónde | Qué se hace ahí |
-|---|---|
-| Puesto de administración (10.10.0.50) | Es la máquina de trabajo. Guarda la CA del curso en `~/ca/`, el repositorio `operacion` (nace en la A4.1) y un clon del repositorio `servicio` para las pruebas, y desde él se lanzan pytest, k6 y Trivy contra `https://api.dev.lab`. No es uno de los hosts vigilados, así que la carga que genera no falsea sus métricas. |
-| mon01 (10.10.0.20) | El repositorio `alerting` en `/opt/alerting`, con la validación y la recarga de reglas (`curl http://localhost:9090/...` desde una shell en mon01), y el contenedor de ZAP, que necesita Docker. |
-| El navegador del puesto del aula | Grafana y la interfaz de Prometheus, por túnel SSH a través del puesto de administración. |
-
-Los dos túneles se abren desde el puesto del aula; `<admin01>` es la IP de aula del puesto de administración, y la primera orden deja además una shell abierta en mon01:
-
-```bash
-ssh -L 9090:127.0.0.1:9090 -L 9093:127.0.0.1:9093 -L 8025:127.0.0.1:8025 -J ops@<admin01> ops@10.10.0.20
-ssh -L 8443:10.10.0.20:443 ops@<admin01>
-```
-
-Con ellos, Prometheus está en `http://localhost:9090` y Grafana en `https://grafana.lab:8443`, con la línea `127.0.0.1 grafana.lab` en el fichero hosts del puesto del aula y la CA del curso importada en el navegador. Los repositorios `servicio`, `monitoring` y `alerting` tienen remoto en la Gitea de mon01 desde la A2.6, con la forma `http://gitea.lab:3001/ops/<repositorio>.git`.
-
-### Plan de sesiones
-
-Cada sesión de 110 minutos empieza con una explicación corta y sigue con laboratorio. La columna «Se explica» recoge los apartados de teoría que se desarrollan en clase, con su duración aproximada; la columna «Se practica», el trabajo de laboratorio de esa sesión. Las sesiones marcadas solo como práctica no traen teoría nueva.
-
-| Sesión | Fecha | Tipo | Se explica | Se practica |
-|---:|-------|------|------------|-------------|
-| [20](#sesion-20-fichas-de-metricas) | 15 dic | Teoría y práctica | Señales doradas, USE y RED; la ficha de métrica y las tres categorías (25 min). | Crear el repositorio operacion y documentar en él al menos diez métricas del contenedor de referencia, clasificadas en capacidad, rendimiento y calidad. |
-| [21](#sesion-21-indicadores) | 17 dic | Teoría y práctica | SLI, SLO y presupuesto de error; los nueve indicadores y sus trampas (25 min). | Implementar los nueve indicadores como recording rules y panel de KPI con umbrales justificados con el histórico de Prometheus. |
-| [22](#sesion-22-catalogo-de-alarmas) | 12 ene | Teoría y práctica | Qué hace un buen runbook (15 min). | Catálogo con todas las alarmas y runbook completo para cinco de ellas, enlazados desde la anotación runbook. |
-| [23](#sesion-23-pruebas-funcionales) | 14 ene | Teoría y práctica | Tipos de prueba y qué comprueba cada una; pytest, con newman como alternativa (20 min). | Suite de ocho casos funcionales con pytest contra dev e informe JUnit. |
-| [24](#sesion-24-calidad-de-servicio-y-rendimiento) | 19 ene | Teoría y práctica | Carga, rendimiento y estrés (5 min); k6: options, stages, thresholds, checks (15 min); leer resultados junto a Grafana (5 min). | Script k6 con umbrales de los SLO; rampas de 10, 50 y 100 usuarios contra dev; capturas del panel. |
-| [25](#sesion-25-estres-y-seguridad) | 21 ene | Teoría y práctica | ZAP baseline y Trivy: qué detecta cada uno, códigos de salida y qué informe se archiva (15 min). | Rampa hasta el fallo y tiempo de recuperación; ZAP y Trivy sobre la imagen; lista de hallazgos. |
-| [26](#sesion-26-documentacion-de-pruebas-y-seguimiento) | 26 ene | Teoría y práctica | La ficha de caso de prueba y el informe de versión (10 min); el ciclo de revisión diario, semanal y mensual (10 min). | Cinco fichas de caso con evidencias, informe de la versión, puerta de pruebas comprobada a mano y una revisión semanal que termina en un pull request de ajuste de umbral. |
-| [27](#sesion-27-practica-evaluable) | 28 ene | Práctica evaluable | Aclaración del enunciado (10 min). | Cerrar el dossier de operación: fichas, indicadores, catálogo, informe de pruebas y registro de revisión. |
 
 ## Sesión 20 · Fichas de métricas
 
@@ -186,50 +112,25 @@ La última fila es deliberada. Ninguna herramienta da la calidad del dato: si un
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Los dos túneles de [Dónde se trabaja en esta unidad](#donde-se-trabaja-en-esta-unidad) abiertos: Prometheus en `http://localhost:9090` del puesto del aula y una shell en mon01.
-- Una shell en el puesto de administración, que es donde vive `operacion`.
-- El código de la API a mano para las referencias: `api/metrics.py` del repositorio `servicio` (en app01, `/opt/servicio/api/metrics.py`).
-- El usuario administrador de la Gitea de mon01, el de la A2.6.
+- Los túneles de [Cómo se llega a la pila](../laboratorio.md#como-se-llega-a-la-pila-desde-el-3-de-diciembre) abiertos y una shell en el puesto de administración, donde nace hoy `operacion`.
+- `api/metrics.py` del repositorio `servicio`, para las referencias, y tu usuario de la Gitea de mon01.
 - Lo explicado al principio de la sesión: [las señales doradas, USE y RED](#elegir-que-medir-antes-de-documentarlo) y [la ficha de métrica con sus categorías](#documentar-las-metricas).
 
 <span class="et et-pas">Pasos</span>
 
-1. Crea el repositorio `operacion` en el puesto de administración y dale remoto en la Gitea de mon01, dentro de la organización `ops` de la A2.6. `curl -u` pide la contraseña del usuario:
+1. Crea en el puesto de administración el repositorio `operacion`, con la rama `main` y el remoto `http://gitea.lab:3001/ops/operacion.git`. Recoge la documentación de operación de toda la unidad.
 
-    ```bash
-    mkdir ~/operacion && cd ~/operacion && git init -b main
-    curl -u <usuario> -X POST -H 'Content-Type: application/json' \
-      -d '{"name": "operacion"}' http://gitea.lab:3001/api/v1/orgs/ops/repos
-    git remote add origin http://gitea.lab:3001/ops/operacion.git
-    ```
+    *Pista:* Gitea no crea el repositorio con el primer `push`. Créalo antes, vacío, desde la web o con un `POST` a `/api/v1/orgs/ops/repos`.
 
-    Aquí va la documentación de operación de toda la unidad: métricas, indicadores, catálogo de alarmas y revisiones.
+2. Saca de Prometheus las métricas `app_`, `container_`, `pg_` y `node_filesystem` con su tipo y su descripción, y comprueba que cada una llega con las etiquetas que crees.
 
-2. Saca la lista de métricas con su tipo y su descripción. Prometheus guarda el `# TYPE` y el `# HELP` de todo lo que recoge, así que no hace falta llegar a cada exporter. En la shell de mon01 (si no tiene `jq`, `sudo apt install -y jq`):
+    *Pista:* Prometheus sirve el `# TYPE` y el `# HELP` de todo lo que recoge en `/api/v1/metadata`. De cAdvisor solo llegan las diez métricas del `keep` de la UT1: si necesitas otra, amplía el `keep` y recarga.
 
-    ```bash
-    curl -s http://localhost:9090/api/v1/metadata \
-      | jq -r 'to_entries[] | [.key, .value[0].type, .value[0].help] | @tsv' \
-      | grep -E '^(app_|container_|pg_|node_filesystem)' | sort
-    ```
+3. Escribe en `metricas.md` diez fichas o más con los ocho campos de [Documentar las métricas](#documentar-las-metricas), empezando por las de las tres tablas de categorías, menos `app_items_invalid`, que no existe. En Referencia va el fichero y la función para la API, y la página y la versión para un exporter.
 
-    La segunda columna es el campo Tipo de la ficha.
+4. Comprueba que hay tres fichas o más por categoría, cierra con una tabla resumen (nombre, categoría y en qué indicador o alarma se usa; la columna Uso se completa en la A4.2) y publica `operacion`.
 
-3. Comprueba en `http://localhost:9090/graph` que cada métrica llega con las etiquetas que crees. Las de cAdvisor identifican el contenedor con `service` (en app01 solo queda `app` desde el 27 de noviembre), que es el renombre que hace el job de la UT1, y ese mismo job trae solo las diez métricas de su bloque `keep`: si alguna ficha necesita una que no esté en la lista (`container_spec_cpu_quota`, `container_start_time_seconds`), amplía el `keep` y recarga antes de documentarla.
-
-    ```promql
-    app_http_request_duration_seconds_bucket{route="/items"}
-    container_memory_working_set_bytes{service="app"}
-    pg_stat_activity_count{datname="servicio"}
-    ```
-
-    Si una consulta no devuelve nada, la métrica no existe con ese nombre o esa etiqueta: corrige la ficha, no la consulta.
-
-4. Crea `metricas.md` en `operacion` con una ficha por métrica (Nombre, Tipo, Unidad, Etiquetas, Qué mide, Referencia, Categoría, Uso). Empieza por las de las tres tablas de categorías del apartado, menos `app_items_invalid`, que no existe, y añade las tuyas hasta llegar a diez o más. En Referencia, para la API pon fichero y función (`api/metrics.py`); para un exporter, su página y la versión que corre.
-
-5. Clasifica cada ficha y cuenta cuántas hay por categoría. Si no llegas a tres de calidad, mira los códigos de estado de la API (`app_http_requests_total{status=~"5.."}`, `{status=~"4.."}`) y el estado de los targets (`up`, `pg_up`). Si no llegas a tres de rendimiento, recorre RED sobre la API y las transacciones de PostgreSQL. Cierra con una tabla resumen: nombre, categoría y en qué indicador o alarma se usa (la columna Uso se completa en la A4.2).
-
-6. Confirma y publica: `git add metricas.md && git commit -m "Fichas de métricas" && git push -u origin main`.
+    *Pista:* la que suele quedarse corta es calidad. Los códigos de estado de la API, `up` y `pg_up` dan tres sin programar nada.
 
 <span class="et et-com">Comprobación</span> Diez fichas o más con las ocho filas rellenas; tres o más por categoría; todas devuelven datos en Prometheus; el tipo coincide con el de `/api/v1/metadata`; `git ls-remote origin` muestra la rama `main` de `operacion`.
 
@@ -355,58 +256,38 @@ Y una regla práctica: ningún umbral se fija sin haber mirado antes la distribu
 
 <span class="et et-pre">Antes de empezar</span>
 
-- El repositorio `alerting` en mon01 (`/opt/alerting`), con las recording rules de la A2.3 en `prometheus/rules.yml` y la recarga de Prometheus que montaste entonces.
-- Prometheus guardando 45 días, que es lo que pide la disponibilidad mensual. En la shell de mon01, `curl -s http://localhost:9090/api/v1/status/flags | jq -r '."storage.tsdb.retention.time"'` tiene que decir `45d`; si dice otra cosa, pon `--storage.tsdb.retention.time=45d` en el `command` de Prometheus del compose de la pila y `docker compose up -d prometheus`.
-- Límites `cpus` y `mem_limit` en el servicio `app` de `/opt/servicio/compose.yml`, en app01; sin ellos los indicadores de saturación dan `+Inf` y 0 %. La saturación de CPU necesita además `container_spec_cpu_quota` y `container_spec_cpu_period`, que el bloque `keep` del job `cadvisor` no deja pasar: añade `spec_cpu_quota|spec_cpu_period` a su lista y recarga, como en el paso 3 de la A4.1.
-- `db01` con su disco de datos en `/data`, su node_exporter (viene de la plantilla) y su postgres_exporter (lo instala la [A3.3 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/) el 27 de noviembre), los dos recogidos por Prometheus: de ahí salen tres de los nueve indicadores. Compruébalo en `http://localhost:9090/graph` con `node_filesystem_avail_bytes{mountpoint="/data"}` y con `pg_up`. Si no devuelven nada, falta el target de db01 en `prometheus.yml` o su regla en OPNsense, que se abrió en la [A3.2](ut3-seguridad-monitorizacion.md#a32-red-firewall-y-tls-sesion-17).
-- Tráfico en la API mientras trabajas, para que los cocientes no den `NaN`: el bucle de la A2.1, ahora contra `https://api.dev.lab/items`, en una terminal del puesto de administración. El bucle lleva `-s` y falla en silencio si `curl` no confía en la CA del curso: comprueba antes que `curl -s -o /dev/null -w '%{http_code}\n' https://api.dev.lab/items` da 200 y, si se queja del certificado, instala la CA en el sistema: `sudo cp ~/ca/ca.crt /usr/local/share/ca-certificates/lab5166.crt && sudo update-ca-certificates`. El histórico de días anteriores ya está en Prometheus.
+- `alerting` en mon01, con las recording rules de la A2.3 en `prometheus/rules.yml`.
+- Prometheus guardando 45 días, que es lo que pide la disponibilidad mensual: compruébalo en `http://localhost:9090/flags` (`storage.tsdb.retention.time`) y, si no, ajústalo en el `command` de Prometheus.
+- `cpus` y `mem_limit` en el servicio `app` de app01. El `keep` de cAdvisor no deja pasar `container_spec_cpu_quota` ni `container_spec_cpu_period`: añádelas como en la A4.1. Sin todo eso, la CPU y la memoria dan `+Inf`, 0 % o nada.
+- db01 con su disco de datos en `/data`, node_exporter y postgres_exporter (de la [A3.3 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/)), recogidos por Prometheus: de ahí salen tres indicadores.
+- El bucle de tráfico de la A2.1 contra `https://api.dev.lab/items` en el puesto de administración, para que los cocientes no den `NaN`. Por su `-s`, falla en silencio si `curl` no confía en la CA del curso: compruébalo antes e instala `~/ca/ca.crt` en el sistema si hace falta.
 - Lo explicado al principio de la sesión: [SLI, SLO y presupuesto de error](#indicadores-formulas-y-umbrales), [los nueve indicadores](#los-nueve-indicadores-del-servicio) y [cómo fijar umbrales](#como-fijar-umbrales).
 
 <span class="et et-pas">Pasos</span>
 
-1. Añade al final de `prometheus/rules.yml`, dentro de `groups:`, el grupo de los indicadores nuevos. Las cinco reglas de la A2.3 (`app:requests:rate5m`, `app:errors:ratio5m`, `app:latency_p95:5m`, `app:memory:ratio` y `db:connections:ratio`) ya existen y no se repiten: una regla grabada dos veces con el mismo nombre y las mismas etiquetas choca consigo misma. Copia el bloque tal cual:
+1. Graba en `prometheus/rules.yml`, en un grupo `app-kpi` con `interval: 30s`, las seis reglas que faltan para los [nueve indicadores](#los-nueve-indicadores-del-servicio), con los nombres que usan la A4.3 y la A4.7: `app:errors:rate5m`, `app:errors:ratio1h`, `app:availability:30d`, `app:cpu:ratio5m`, `db:disk_avail:ratio` y `db:disk_full:predict30d`. Valida, recarga y comprueba en `http://localhost:9090/rules` que se evalúan sin errores.
 
-    ```yaml
-      - name: app-kpi
-        interval: 30s
-        rules:
-          - record: app:errors:rate5m
-            expr: sum(rate(app_http_requests_total{status=~"5.."}[5m]))
-          - record: app:errors:ratio1h
-            expr: sum(rate(app_http_requests_total{status=~"5.."}[1h])) / sum(rate(app_http_requests_total[1h]))
-          - record: app:availability:30d
-            expr: 1 - (sum_over_time(app:errors:rate5m[30d]) / sum_over_time(app:requests:rate5m[30d]))
-          - record: app:cpu:ratio5m
-            expr: rate(container_cpu_usage_seconds_total{service="app"}[5m]) / (container_spec_cpu_quota{service="app"} / container_spec_cpu_period{service="app"})
-          - record: db:disk_avail:ratio
-            expr: node_filesystem_avail_bytes{mountpoint="/data"} / node_filesystem_size_bytes{mountpoint="/data"}
-          - record: db:disk_full:predict30d
-            expr: predict_linear(node_filesystem_avail_bytes{mountpoint="/data"}[7d], 30*86400)
-    ```
+    *Pista:* la disponibilidad no es un `rate(...[30d])`, sino `1 -` el cociente de los `sum_over_time(...[30d])` de `app:errors:rate5m` y `app:requests:rate5m`. La predicción se graba sin el `< 0`.
 
-2. Valida y recarga, en la shell de mon01:
+2. Monta en Grafana el dashboard "KPI app", con un panel Stat por indicador sobre su regla grabada, su unidad y los umbrales como colores de fondo.
 
-    ```bash
-    cd /opt/alerting/prometheus
-    docker run --rm -v "$PWD:/w" --entrypoint promtool prom/prometheus check rules /w/rules.yml
-    curl -X POST http://localhost:9090/-/reload
-    ```
+    *Pista:* haz uno y duplícalo: solo cambian la consulta, la unidad (`percent (0.0-1.0)`, `seconds`, `bytes`) y los umbrales.
 
-    Comprueba en `http://localhost:9090/rules` que el grupo `app-kpi` aparece sin errores y que cada regla tiene "last evaluation" reciente.
+3. Anota mínimo, máximo y valor habitual del histórico de cada indicador, y con eso escribe `indicadores.md` en `operacion`: indicador, regla, categoría y umbrales, y una línea por umbral con lo que has visto y por qué ese valor.
 
-3. Monta en Grafana un dashboard "KPI app" con un panel Stat por indicador que lea su regla grabada (las cinco de la A2.3 y las de hoy), con la unidad correcta (percent 0.0-1.0, seconds, bytes) y los umbrales como colores de fondo. Haz el primero y duplícalo: de un panel a otro solo cambian la consulta, la unidad y los umbrales.
+    *Pista:* una recording rule no tiene datos de antes de cargarse, así que el histórico de las de hoy se mira con la expresión completa de la tabla.
 
-4. Mira el histórico de cada indicador en Grafana y anota mínimo, máximo y valor habitual con tráfico. Para las reglas de hoy usa la expresión completa de la tabla, no la regla grabada: una recording rule solo tiene datos desde que se carga, y Prometheus no la rellena hacia atrás (de la disponibilidad basta el valor de hoy, que ya es una media de 30 días). Con eso escribe `indicadores.md` en `operacion`: tabla con indicador, regla, categoría y umbrales, y debajo una línea por umbral con lo que has visto y por qué ese valor. Si el servicio vive al 75 % de CPU con tráfico, un aviso al 70 % es una alarma permanente.
+4. Calcula el presupuesto de error mensual con tu SLO y el tráfico medio de los dos últimos días, en minutos y en peticiones, y añádelo a `indicadores.md` con las cuentas a la vista.
 
-5. Calcula el presupuesto de error mensual con tu SLO y tu tráfico medio (`avg_over_time(app:requests:rate5m[2d])`), en minutos y en peticiones, y añádelo a `indicadores.md` con las cuentas a la vista.
+5. Exporta el dashboard a `grafana/kpi.json` de `operacion` y empuja `alerting` y `operacion`.
 
-6. Exporta el dashboard (Share, Export, Save to file) y cópialo desde el puesto del aula a `operacion`: `ssh ops@<admin01> mkdir -p operacion/grafana` y `scp <el JSON descargado> ops@<admin01>:operacion/grafana/kpi.json`. Confirma y empuja `rules.yml` en `alerting` y los dos ficheros nuevos en `operacion`.
+    *Pista:* el JSON se descarga en el puesto del aula, y `operacion` está en el puesto de administración.
 
 <span class="et et-com">Comprobación</span> `promtool check rules` sin errores; los nueve indicadores devuelven valor (ninguno `NaN` ni `+Inf`); el panel los muestra con colores según umbral; cada umbral tiene su justificación con datos.
 
 <span class="et et-ent">Entrega</span> `prometheus/rules.yml` en `alerting`, e `indicadores.md` y `grafana/kpi.json` en `operacion`, empujados a la Gitea del laboratorio. Forma parte del dossier de la práctica evaluable.
 
-<span class="et et-ext">Si te sobra tiempo</span> Añade a `alerts.yml` la alerta de burn rate en dos ventanas del apartado y fuérzala parando PostgreSQL un par de minutos (`sudo systemctl stop postgresql` en db01, y `start` al terminar).
+<span class="et et-ext">Si te sobra tiempo</span> Añade a `alerts.yml` la alerta de burn rate en dos ventanas del apartado y fuérzala parando PostgreSQL en db01 un par de minutos.
 
 ## Sesión 22 · Catálogo de alarmas
 
@@ -469,82 +350,34 @@ El catálogo es la tabla de todas las alarmas, versionada junto a sus runbooks y
 
 <span class="et et-pre">Antes de empezar</span>
 
-- El repositorio `alerting` en mon01 con las alarmas de la A2.4 (`AppHighErrorRate`, `AppHighLatency`, `AppDown`, `AppMemoryHigh`, `AppRestarting`, `DbConnectionsHigh` y `HostDown` en Prometheus; `AppLogErrorsBurst`, `AppDbTimeout` y `ContainerOOM` en el ruler de Loki) y las reglas grabadas de la A4.2 cargadas.
-- El repositorio `operacion` de la A4.1 en el puesto de administración, y los túneles de [Dónde se trabaja en esta unidad](#donde-se-trabaja-en-esta-unidad).
+- `alerting` en mon01, con las diez alarmas de la A2.4 (siete en `prometheus/alerts.yml` y tres en `loki/loki-alerts.yml`) y las reglas grabadas de la A4.2.
+- `operacion` en el puesto de administración y los túneles de [Cómo se llega a la pila](../laboratorio.md#como-se-llega-a-la-pila-desde-el-3-de-diciembre).
 - Lo explicado al principio de la sesión: [la ficha de alarma](#catalogo-de-alarmas-y-runbooks), [qué hace bueno a un runbook](#que-hace-bueno-a-un-runbook) y [los dos ejemplos completos](#dos-runbooks-mas).
 
 <span class="et et-pas">Pasos</span>
 
-1. Añade a `prometheus/alerts.yml`, en mon01, las cinco alarmas nuevas de esta unidad: la caída de PostgreSQL y una por indicador nuevo de la A4.2, con las cinco etiquetas de la A2.4. Copia el bloque al final de la lista de reglas y ajusta los umbrales a los de tu `indicadores.md`:
+1. Añade a `prometheus/alerts.yml` las cinco alarmas nuevas, con las etiquetas de la A2.4 y los umbrales de tu `indicadores.md`:
 
-    ```yaml
-          - alert: PgDown
-            expr: pg_up == 0
-            for: 1m
-            labels: { severity: critical, team: ops, service: db, origen: prometheus, env: dev }
-            annotations:
-              summary: "postgres_exporter no consigue conectar con PostgreSQL en db01"
-          - alert: AppLowAvailability
-            expr: app:availability:30d < 0.995
-            for: 15m
-            labels: { severity: critical, team: ops, service: app, origen: prometheus, env: dev }
-            annotations:
-              summary: "Disponibilidad a 30 días de {{ $value | humanizePercentage }}, por debajo del SLO"
-          - alert: AppCpuSaturated
-            expr: app:cpu:ratio5m > 0.9
-            for: 10m
-            labels: { severity: critical, team: dev, service: app, origen: cadvisor, env: dev }
-            annotations:
-              summary: "app al {{ $value | humanizePercentage }} de su cuota de CPU"
-          - alert: DbDiskLow
-            expr: db:disk_avail:ratio < 0.2
-            for: 5m
-            labels: { severity: warning, team: ops, service: db, origen: prometheus, env: dev }
-            annotations:
-              summary: "Queda un {{ $value | humanizePercentage }} libre en /data de db01"
-          - alert: DiskWillFillIn7d
-            expr: predict_linear(node_filesystem_avail_bytes{mountpoint="/data"}[7d], 7*86400) < 0
-            for: 1h
-            labels: { severity: warning, team: ops, service: db, origen: prometheus, env: dev }
-            annotations:
-              summary: "Al ritmo actual, /data de db01 se llena en menos de 7 días"
-    ```
+    - `AppLowAvailability`, crítica: `app:availability:30d` por debajo del SLO durante 15 min.
+    - `AppCpuSaturated`, crítica: `app:cpu:ratio5m` por encima del umbral crítico durante 10 min.
+    - `DbDiskLow`, aviso: `db:disk_avail:ratio` por debajo del umbral de aviso durante 5 min.
+    - `PgDown`, crítica, y `DiskWillFillIn7d`, aviso: el Origen de sus fichas en [Dos runbooks más](#dos-runbooks-mas).
 
-    Valida y recarga con las dos órdenes del paso 2 de la A4.2, cambiando `rules.yml` por `alerts.yml` en la primera.
+    *Pista:* `AppCpuSaturated` lleva `team: dev` y `origen: cadvisor`, como `AppMemoryHigh`; las otras cuatro, `team: ops` y `origen: prometheus`.
 
-2. Escribe el catálogo en `alarmas/README.md` de `operacion`: una fila por alarma (las diez de la UT2 y las cinco de hoy) con las columnas Alarma, Origen, Posible fallo, Impacto y Runbook. El Origen es la `expr` con su `for`, copiada de la regla; para verlas todas de golpe, en mon01, `grep -A2 -- '- alert:' /opt/alerting/prometheus/alerts.yml /opt/alerting/loki/loki-alerts.yml`. Posible fallo e Impacto van en una frase cada uno, y la columna Runbook se rellena en el paso 4.
+2. Escribe el catálogo en `alarmas/README.md` de `operacion`: una fila por alarma, las diez de la UT2 y las cinco de hoy, con Alarma, Origen (la `expr` con su `for`), Posible fallo e Impacto (una frase cada uno) y Runbook, que se rellena en el paso 4.
 
-3. Escribe cinco runbooks completos, uno por fichero en `alarmas/<Alarma>.md`, con las seis filas del esquema (Origen, Posible fallo, Impacto, Análisis, Resolución, Escalado): `AppHighErrorRate`, `PgDown` y `DiskWillFillIn7d` a partir de los ejemplos del apartado, y dos de la UT2 a tu elección (por ejemplo `AppHighLatency` y `HostDown`). En Análisis, cada paso lleva el comando exacto, el host desde el que se lanza y qué significa el resultado. Ejecuta una vez los comandos de Análisis de las dos que escribes desde cero; en las tres del apartado, revisa que hosts, rutas y nombres son los de tu laboratorio. Los de Resolución no se ejecutan: se ordenan de menos a más destructivo. En Escalado, tiempo y rol concreto, no "avisar a alguien". La forma esperada del Análisis:
+3. Escribe cinco runbooks, uno por fichero en `alarmas/<Alarma>.md`, con las seis filas del esquema y las cinco propiedades de [Qué hace bueno a un runbook](#que-hace-bueno-a-un-runbook): `AppHighErrorRate`, `PgDown` y `DiskWillFillIn7d` a partir de los ejemplos del apartado, y dos de la UT2 a tu elección. En los tres primeros, revisa que hosts, rutas y nombres son los de tu laboratorio; en los dos tuyos, ejecuta una vez los comandos de Análisis. Los de Resolución no se ejecutan.
 
-    ```text
-    1. Desde app01: nc -zv 10.10.3.10 5432  (si falla, red o proceso caído: salta a PgDown)
-    2. En app01: docker compose -f /opt/servicio/compose.yml logs --since 10m app | grep -ci error  (más de 0: mira el primero)
-    ```
+4. Enlaza cada regla de `alerts.yml` y `loki-alerts.yml` desde su anotación `runbook`, las cinco del paso 3 a su fichero y el resto al catálogo, con URL como `http://gitea.lab:3001/ops/operacion/src/branch/main/alarmas/AppHighErrorRate.md`. Rellena la columna Runbook, empuja los dos repositorios y recarga.
 
-4. Enlaza cada regla desde su anotación `runbook`, en `alerts.yml` y en `loki/loki-alerts.yml`: las cinco del paso 3, a su fichero; el resto, al catálogo (`.../alarmas/README.md`). La URL es la del fichero en la Gitea del laboratorio:
-
-    ```yaml
-            annotations:
-              summary: "Errores 5xx al {{ $value | humanizePercentage }} en {{ $labels.service }}"
-              runbook: "http://gitea.lab:3001/ops/operacion/src/branch/main/alarmas/AppHighErrorRate.md"
-    ```
-
-    El `runbook` de `AppHighErrorRate` también está en `prometheus/tests/alerts_test.yml` de la A2.4: cambia allí la URL esperada, o `promtool test rules` dejará de pasar.
-
-    Rellena la columna Runbook del catálogo, confirma y empuja `operacion` y `alerting`, valida, recarga y comprueba en `http://localhost:9090/alerts` que la anotación aparece en cada alarma. Desde el puesto de administración, `curl -s -o /dev/null -w '%{http_code}\n' <una de las URL>` tiene que dar `200`.
-
-    !!! otra "Cuando llegue gitea01"
-        El 12 de febrero, en la [A6.4 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut6-ci/),
-        Gitea se muda a su máquina, `gitea01` (10.10.0.11), con nginx delante terminando TLS, y el nombre
-        `gitea.lab` pasa a apuntar allí. Ese día solo hay que quitar el `:3001` de las anotaciones, en mon01:
-        `sed -i 's|http://gitea.lab:3001|https://gitea.lab|' /opt/alerting/prometheus/alerts.yml /opt/alerting/prometheus/tests/alerts_test.yml /opt/alerting/loki/loki-alerts.yml`.
-        Ningún runbook se reescribe, y por eso hoy se usa el nombre `gitea.lab` y no la dirección de `mon01`.
+    *Pista:* usa `gitea.lab` y no la IP de mon01: el 12 de febrero Gitea se muda a gitea01, y ese día solo cambia el principio de la URL, de `http://gitea.lab:3001` a `https://gitea.lab`. Cambia también la URL esperada en `prometheus/tests/alerts_test.yml` de la A2.4, o `promtool test rules` dejará de pasar.
 
 <span class="et et-com">Comprobación</span> `promtool check rules` sin errores con las cinco alarmas nuevas; el catálogo tiene una fila por cada regla de `alerts.yml` y `loki-alerts.yml`; cinco runbooks con las seis filas; cada regla tiene anotación `runbook` con una URL que responde.
 
 <span class="et et-ent">Entrega</span> `alarmas/` en `operacion`, y `alerts.yml` y `loki-alerts.yml` en `alerting`, empujados a la Gitea del laboratorio. Forma parte del dossier de la práctica evaluable.
 
-<span class="et et-ext">Si te sobra tiempo</span> Prueba cruzada: dale uno de tus runbooks a un compañero que no lo haya escrito y provoca su alarma (`sudo systemctl stop postgresql` en db01 para `PgDown`, o `sudo fallocate -l 4G /data/relleno` para `DbDiskLow`, que con el disco de 5 GB de db01 deja un 13 % disponible sin llenarlo; bórralo con `sudo rm /data/relleno` en cuanto salte). Cada pregunta que te haga el compañero es una línea que falta en la ficha.
+<span class="et et-ext">Si te sobra tiempo</span> Prueba cruzada: dale uno de tus runbooks a un compañero que no lo haya escrito y provoca su alarma (parando PostgreSQL en db01 para `PgDown`, o con `sudo fallocate -l 4G /data/relleno` para `DbDiskLow`, que con el disco de 5 GB de db01 deja un 13 % disponible sin llenarlo; bórralo en cuanto salte). Cada pregunta que te haga el compañero es una línea que falta en la ficha.
 
 ## Sesión 23 · Pruebas funcionales
 
@@ -676,42 +509,21 @@ El criterio para elegir es sencillo: si el equipo ya documenta la API en Postman
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Una shell en el puesto de administración, que llega a `https://api.dev.lab` por el cortafuegos. Comprueba que responde con `curl -s https://api.dev.lab/health`; si `curl` se queja del certificado, instala la CA del curso en el sistema: `sudo cp ~/ca/ca.crt /usr/local/share/ca-certificates/lab5166.crt && sudo update-ca-certificates`.
-- Un clon del repositorio `servicio` en el puesto de administración, que es donde se escriben las pruebas y se guardan sus evidencias: `git clone http://gitea.lab:3001/ops/servicio.git ~/servicio`. La copia de app01 sigue siendo la del despliegue.
-- pytest y requests: `sudo apt install -y python3-pytest python3-requests`.
-- La contraseña del usuario de prueba `test` de la API en la variable `API_TEST_PASS` (`read -s API_TEST_PASS && export API_TEST_PASS`), nunca en el repositorio.
-- Nada de Jenkins: `jenkins01` se monta en la UT6 de Despliegue, a partir del 5 de febrero. Hoy la suite se ejecuta a mano y el trabajo de pipeline se deja escrito.
+- Una shell en el puesto de administración, que llega a `https://api.dev.lab` y confía en la CA del curso desde la A4.2.
+- Un clon de `servicio` en `~/servicio` del puesto de administración, donde se escriben las pruebas y se guardan sus evidencias. La copia de app01 sigue siendo la del despliegue.
+- pytest y requests (`python3-pytest` y `python3-requests`), y la contraseña del usuario `test` de la API en `API_TEST_PASS`, nunca en el repositorio.
+- Nada de Jenkins hasta el 5 de febrero, con la UT6 de Despliegue: hoy la suite se lanza a mano y el pipeline se deja escrito.
 - Lo explicado al principio de la sesión: [los tipos de prueba](#pruebas-del-servicio) y [pytest](#pruebas-funcionales-con-pytest).
 
 <span class="et et-pas">Pasos</span>
 
-1. Crea `tests/functional/test_items.py` en `~/servicio` copiando el fichero del apartado, que ya trae cinco casos, y añade tres hasta llegar a ocho, repartidos en tres grupos: correctos (salud, listar, crear y leer lo creado), errores esperados (401 sin token, 401 con contraseña equivocada, 404 con id inexistente) y validación (422 con precio negativo, 400 con un cuerpo que no es JSON). El de crear y leer queda así:
+1. Escribe `tests/functional/test_items.py` con ocho casos a partir del de [pytest](#pruebas-funcionales-con-pytest), que trae cinco, en tres grupos: correctos (salud, listar, crear y leer lo creado), errores esperados (401 sin token, 401 con contraseña equivocada, 404 con id inexistente) y validación (422 con precio negativo y con un cuerpo que no es JSON).
 
-    ```python
-    def test_create_and_read_item(token):
-        h = {"Authorization": f"Bearer {token}"}
-        r = requests.post(f"{BASE}/items", json={"name": "prueba", "price": 9.5}, headers=h, timeout=5)
-        assert r.status_code == 201
-        item_id = r.json()["id"]
-        r = requests.get(f"{BASE}/items/{item_id}", headers=h, timeout=5)
-        assert r.status_code == 200
-        assert r.json()["name"] == "prueba"
-    ```
+    *Pista:* crear devuelve 201 con el `id` nuevo en el JSON. La API trata un cuerpo que no es JSON como vacío, y lo rechaza la validación.
 
-2. Ejecuta con informe JUnit y mira el código de salida:
+2. Ejecuta la suite contra dev con el comando de [pytest](#pruebas-funcionales-con-pytest), que deja el informe JUnit en `reports/`, y copia el de esa ejecución a `tests/evidence/1.4.2/pytest.xml`, la carpeta de la versión que corre en app01 (en estos apuntes, la 1.4.2). Después rompe un caso, comprueba que el código de salida pasa a 1 y que el XML trae un `<failure>`, y deshazlo.
 
-    ```bash
-    cd ~/servicio && mkdir -p reports
-    export REQUESTS_CA_BUNDLE=~/ca/ca.crt
-    API_URL=https://api.dev.lab python3 -m pytest tests/functional -v --junitxml=reports/pytest.xml
-    echo "código de salida: $?"
-    ```
-
-    Si todos los casos fallan con `SSLError`, falta `REQUESTS_CA_BUNDLE`.
-
-3. Rompe un caso a propósito (cambia el `422` esperado por `200`) y vuelve a ejecutar: el código de salida tiene que ser 1 y el XML tiene que contener un `<failure>`. Deshaz el cambio.
-
-4. Deja preparada la integración en el pipeline. Jenkins no existe todavía (llega el 5 de febrero con la UT6 de Despliegue), así que lo que se entrega hoy es el fichero, no una ejecución: guarda en `ci/Jenkinsfile.pruebas` este `Jenkinsfile` mínimo y, junto a él, `ci/README.md` con lo que habrá que hacer el día que haya controlador (crear la credencial `api-test-pass` como Secret text, dejar la CA del curso en el agente, crear el job Pipeline "app-pruebas-funcionales" y apuntarlo a este fichero):
+3. Guarda en `ci/Jenkinsfile.pruebas` este `Jenkinsfile` mínimo, con el `sh` idéntico al comando que has lanzado a mano, y en `ci/README.md` lo que habrá que hacer cuando haya Jenkins: la credencial `api-test-pass` como Secret text, la CA del curso en el agente y el job Pipeline "app-pruebas-funcionales" apuntando a este fichero. Empuja `tests/` y `ci/`.
 
     ```groovy
     pipeline {
@@ -729,10 +541,6 @@ El criterio para elegir es sencillo: si el equipo ya documenta la API en Postman
       post { always { junit 'reports/*.xml' } }
     }
     ```
-
-    Comprueba que el `sh` del fichero es exactamente el comando que acabas de ejecutar a mano en el paso 2, con las mismas variables: esa es la única parte que se puede verificar hoy, y es la que más falla después.
-
-5. Copia el informe de la ejecución buena a la carpeta de evidencias de la versión que corre en app01 (en estos apuntes, la 1.4.2): `mkdir -p tests/evidence/1.4.2 && cp reports/pytest.xml tests/evidence/1.4.2/`. Confirma y empuja `tests/` y `ci/`.
 
 <span class="et et-com">Comprobación</span> Ocho casos que pasan contra dev, repartidos en los tres grupos; con un caso roto, código de salida 1 y `<failure>` en el XML; `ci/Jenkinsfile.pruebas` y `ci/README.md` escritos, con el comando idéntico al que has ejecutado.
 
@@ -773,7 +581,7 @@ flowchart LR
 
 - La prueba de carga o de calidad de servicio somete al servicio a la carga esperada (los 50 usuarios del script básico del apartado siguiente) y responde a una pregunta binaria: ¿cumple los SLO o no? Es la que va en el pipeline y la que en la UT7 verificará cada actualización. Su resultado es el veredicto de los `thresholds`.
 - La prueba de rendimiento sube la carga por escalones (10, 50, 100 usuarios en la A4.5) y busca la curva: cómo crece la latencia con la carga y a partir de qué punto se incumple el SLO. Su resultado es un número ("el SLO se incumple a partir de 80 usuarios") y una gráfica. Sirve para planificar capacidad y para comparar versiones (si la 1.4.2 aguanta 80 y la 1.5.0 aguanta 60, alguien tiene que explicar por qué).
-- La prueba de estrés sube hasta romper y luego baja. Busca tres datos: el punto de rotura (errores > 10 % o timeouts), el modo de fallo (¿la API devuelve 503 limpios o se cuelga? ¿muere PostgreSQL por conexiones o la API por memoria?) y el tiempo de recuperación al retirar la carga. Un servicio que se rompe a 300 usuarios pero se recupera solo en 20 s es mejor que uno que aguanta 400 y luego necesita un reinicio manual. Para el estrés no se usan `thresholds` que aborten: interesa ver el fallo entero. El script de estrés, `estres.js`, está completo en la A4.6.
+- La prueba de estrés sube hasta romper y luego baja. Busca tres datos: el punto de rotura (errores > 10 % o timeouts), el modo de fallo (¿la API devuelve 503 limpios o se cuelga? ¿muere PostgreSQL por conexiones o la API por memoria?) y el tiempo de recuperación al retirar la carga. Un servicio que se rompe a 300 usuarios pero se recupera solo en 20 s es mejor que uno que aguanta 400 y luego necesita un reinicio manual. Para el estrés no se usan `thresholds` que aborten: interesa ver el fallo entero. El script de estrés, `estres.js`, se escribe en la A4.6 a partir del básico del apartado siguiente, cambiando la rampa.
 
 ### Calidad de servicio y rendimiento con k6
 
@@ -909,58 +717,24 @@ La captura del panel es evidencia obligatoria en la A4.5 y la A4.6, y tiene que 
 
 <span class="et et-pre">Antes de empezar</span>
 
-- k6 y `jq` en el puesto de administración. k6 es un binario único; pon en `V` la última versión de su [página de versiones](https://github.com/grafana/k6/releases):
-
-    ```bash
-    sudo apt install -y jq
-    V=1.3.0
-    curl -sSL https://github.com/grafana/k6/releases/download/v$V/k6-v$V-linux-amd64.tar.gz | tar xz
-    sudo install k6-v$V-linux-amd64/k6 /usr/local/bin/ && k6 version
-    ```
-
-- El clon de `servicio` de la A4.4 y la contraseña de `test` en `API_TEST_PASS`, como entonces.
-- `app` con `cpus` y `mem_limit` en `/opt/servicio/compose.yml` de app01, los de la A4.2.
-- El panel de KPI de la A4.2 abierto en el navegador del puesto del aula, por el túnel de Grafana.
+- k6 y `jq` en el puesto de administración. k6 es un binario único, de su [página de versiones](https://github.com/grafana/k6/releases).
+- El clon de `servicio` y `API_TEST_PASS`, como en la A4.4.
+- `app` con los límites de la A4.2, y el panel de KPI abierto en el navegador del puesto del aula.
 - Lo explicado al principio de la sesión: [carga, rendimiento y estrés](#carga-rendimiento-y-estres-no-son-lo-mismo), [k6, options, stages, thresholds y checks](#calidad-de-servicio-y-rendimiento-con-k6) y [leer los resultados junto a Grafana](#leer-los-resultados-junto-a-grafana).
 
 <span class="et et-pas">Pasos</span>
 
-1. Prepara el token y el script, en `~/servicio`. El token lo da `/login`; guárdalo en un script corto, que te sirve igual en la A4.6 y en Jenkins:
+1. Escribe `tests/token.sh`, que imprime un token de `/login` para el usuario `test`, y copia a `tests/k6/carga.js` el script completo de [k6](#calidad-de-servicio-y-rendimiento-con-k6) con los umbrales de tus SLO.
 
-    ```bash
-    cat > tests/token.sh <<'EOF'
-    #!/bin/sh
-    curl -s -X POST "${API_URL:-https://api.dev.lab}/login" -H 'Content-Type: application/json' \
-      -d "{\"user\": \"test\", \"password\": \"$API_TEST_PASS\"}" | jq -r .token
-    EOF
-    chmod +x tests/token.sh && export API_TOKEN=$(tests/token.sh) && echo "$API_TOKEN"
-    ```
+    *Pista:* que `token.sh` use `API_URL` cuando esté definida, porque la etapa de Jenkins de la sesión 26 lo llamará contra pre.
 
-    Copia a `tests/k6/carga.js` el script completo del apartado (escenarios `navegacion` y `escrituras`, umbrales por etiqueta `name`) y ajusta los umbrales a los SLO de la A4.2.
+2. Exporta `API_TOKEN` con la salida de `token.sh` y lanza la prueba completa como en el apartado, con `APP_VERSION=1.4.2` y el resumen en `tests/evidence/1.4.2/k6-resumen.json`. Al final de cada escalón (minutos 4, 8 y 12) captura el panel de KPI con el rango de tiempo visible: `grafana-carga-10.png`, `grafana-carga-50.png` y `grafana-carga-100.png`.
 
-2. Lanza la prueba completa (13 min: rampas de 10, 50 y 100 usuarios encadenadas):
+    *Pista:* las capturas se quedan en el puesto del aula; llévalas después a `tests/evidence/1.4.2/` del clon.
 
-    ```bash
-    API_URL=https://api.dev.lab APP_VERSION=1.4.2 \
-    k6 run --summary-export=tests/evidence/1.4.2/k6-resumen.json tests/k6/carga.js
-    echo "código de salida: $?"
-    ```
+3. Escribe `tests/evidence/1.4.2/rendimiento.md` con tres respuestas: a partir de cuántos usuarios se incumple el SLO de p95, qué recurso limita (en el orden de [Leer los resultados junto a Grafana](#leer-los-resultados-junto-a-grafana)) y por qué difieren el p95 de k6 y el del servidor. Empuja `tests/`.
 
-    Mientras corre, ten Grafana abierto con el rango "últimos 15 min" y refresco de 10 s.
-
-3. Al terminar cada escalón (minutos 4, 8 y 12 del script), captura el panel de KPI con el rango de tiempo visible y guárdalo como `grafana-carga-10.png`, `grafana-carga-50.png` y `grafana-carga-100.png`. Las capturas quedan en el puesto del aula; al final se copian.
-
-4. Lee el resumen de k6 y el servidor a la vez. Del resumen, el p95 de lectura y la tasa de fallos de toda la prueba:
-
-    ```bash
-    jq '.metrics["http_req_duration{name:items}"].values["p(95)"], .metrics.http_req_failed.values.rate' tests/evidence/1.4.2/k6-resumen.json
-    ```
-
-    Del servidor, el p95 de cada escalón está en las capturas del paso 3, y el máximo de toda la prueba en Prometheus: `max_over_time(app:latency_p95:5m[15m])`.
-
-5. Con los tres escalones, escribe `tests/evidence/1.4.2/rendimiento.md` respondiendo a tres preguntas: a partir de cuántos usuarios se incumple el SLO de p95; qué recurso limita (mira en este orden CPU y throttling de `app`, conexiones de PostgreSQL y `worker_connections` de nginx en web01); y por qué difieren el p95 de k6 y el del servidor.
-
-6. Copia las capturas desde el puesto del aula (`scp grafana-carga-*.png ops@<admin01>:servicio/tests/evidence/1.4.2/`), confirma y empuja.
+    *Pista:* el p95 de lectura del resumen está en `.metrics["http_req_duration{name:items}"].values["p(95)"]`.
 
 <span class="et et-com">Comprobación</span> `k6-resumen.json` con los umbrales evaluados (código de salida 0 si se cumplen, 99 si no); tres capturas con el rango visible; `rendimiento.md` con las tres respuestas.
 
@@ -972,7 +746,7 @@ La captura del panel es evidencia obligatoria en la A4.5 y la A4.6, y tiene que 
 
 <p class="ut-meta" markdown>21 de enero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Seguridad: ZAP baseline y trivy image · 15 min&#10;A4.6 Estrés y seguridad · 95 min" data-dur="Seguridad: ZAP baseline y trivy image · 15 min&#10;A4.6 Estrés y seguridad · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
 
-Esta sesión cierra las pruebas con las dos que quedan: el estrés, que busca dónde y cómo se rompe el servicio y cuánto tarda en recuperarse, y la seguridad con ZAP baseline y Trivy sobre la imagen. La diferencia entre carga, rendimiento y estrés se vio en la sesión 24, y el script de estrés va entero en la hoja; la teoría de hoy es la de ZAP y Trivy, con sus códigos de salida y qué informe se archiva. Es la sesión en la que Trivy se explica a fondo: la UT7 lo da por sabido y solo añade lo nuevo.
+Esta sesión cierra las pruebas con las dos que quedan: el estrés, que busca dónde y cómo se rompe el servicio y cuánto tarda en recuperarse, y la seguridad con ZAP baseline y Trivy sobre la imagen. La diferencia entre carga, rendimiento y estrés se vio en la sesión 24, y el script de estrés sale del básico de k6 de esa sesión; la teoría de hoy es la de ZAP y Trivy, con sus códigos de salida y qué informe se archiva. Es la sesión en la que Trivy se explica a fondo: la UT7 lo da por sabido y solo añade lo nuevo.
 
 ### Seguridad: ZAP baseline y trivy image
 
@@ -1016,84 +790,40 @@ Los dos comandos hacen cosas distintas. El JSON que se archiva va sin filtros: e
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Un snapshot de app01 y db01 antes del estrés, en el nodo Proxmox: `qm snapshot 120 antes-estres && qm snapshot 130 antes-estres`. Es la regla del laboratorio para toda prueba que rompe cosas ([Cuando algo se rompe](../laboratorio.md#cuando-algo-se-rompe)): si algo no vuelve solo, se vuelve al snapshot en vez de reinstalar.
+- Un snapshot `antes-estres` de app01 (120) y db01 (130), por la regla de [Cuando algo se rompe](../laboratorio.md#cuando-algo-se-rompe).
 - k6, `tests/token.sh` y `API_TOKEN` como en la A4.5.
-- La imagen de ZAP en mon01. Si no la dejaste descargada, lanza `docker pull ghcr.io/zaproxy/zaproxy:stable` en la shell de mon01 al empezar: pesa unos 1,5 GB y se descarga mientras haces el estrés.
-- Trivy en el puesto de administración, que es donde se queda el resto del curso: `curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin` y `trivy --version`. La primera ejecución descarga además su base de datos de vulnerabilidades.
+- La imagen de ZAP en mon01. Si no la dejaste descargada, lanza su `docker pull` al empezar: son 1,5 GB y bajan mientras haces el estrés.
+- Trivy en el puesto de administración, donde se queda para el resto del curso. Su primera ejecución descarga la base de vulnerabilidades.
 - Panel de KPI y Loki (`{service="app"}`) abiertos en Grafana.
 - Lo explicado: [carga, rendimiento y estrés](#carga-rendimiento-y-estres-no-son-lo-mismo), en la sesión 24, y hoy [ZAP baseline y trivy image](#seguridad-zap-baseline-y-trivy-image).
 
 <span class="et et-pas">Pasos</span>
 
-1. Crea `tests/k6/estres.js` con este contenido, que sube a 50, 100 y 200 usuarios y baja en 3 minutos, con el umbral de errores solo informativo. Con un solo worker de gunicorn, la rotura llega bastante antes de 200:
+1. Escribe `tests/k6/estres.js` a partir del script básico de [k6](#calidad-de-servicio-y-rendimiento-con-k6), con la autenticación de `carga.js`: escalones de 2 min a 50, 100 y 200 usuarios, bajada a 0 en 3 min y `http_req_failed: ['rate<0.10']` como umbral solo informativo. Lánzalo con el resumen en `tests/evidence/1.4.2/k6-estres.json`.
 
-    ```javascript
-    // tests/k6/estres.js: rampa hasta el fallo y bajada
-    import http from 'k6/http';
-    import { check, sleep } from 'k6';
+2. Durante la subida, anota el punto de rotura (minuto y usuarios en que los errores pasan del 10 % o aparecen timeouts), el modo de fallo (503 limpios o cuelgue) y la primera línea de error, con su hora.
 
-    export const options = {
-      stages: [
-        { duration: '2m', target: 50 },
-        { duration: '2m', target: 100 },
-        { duration: '2m', target: 200 },
-        { duration: '3m', target: 0 },   // aquí se mide la recuperación
-      ],
-      thresholds: { http_req_failed: ['rate<0.10'] }, // solo informativo: no aborta
-    };
+    *Pista:* el `upstream timed out` del proxy no llega a Loki: está en `/var/log/nginx/error.log` de web01.
 
-    const BASE = __ENV.API_URL || 'https://api.dev.lab';
-    const params = { headers: { Authorization: `Bearer ${__ENV.API_TOKEN}` } };
+3. Durante la bajada, mide cuánto tardan la latencia y los errores en volver a lo normal; si algo no vuelve solo, anótalo y vuelve al snapshot. Captura el panel con toda la prueba (`grafana-estres.png`) y escribe `tests/evidence/1.4.2/estres.md` con los tres datos y lo que demuestra cada uno.
 
-    export default function () {
-      const r = http.get(`${BASE}/items`, params);
-      check(r, { 'status 200': (r) => r.status === 200 });
-      sleep(1);
-    }
-    ```
+    *Pista:* mira los errores con una ventana de `[1m]`: la regla de 5 minutos tarda en bajar.
 
-    Lánzalo con resumen:
+4. Pasa ZAP baseline contra `https://api.dev.lab` desde mon01, como en [ZAP baseline y trivy image](#seguridad-zap-baseline-y-trivy-image), con `tests/zap-rules.conf` (las tres reglas de cabeceras del apartado en FAIL), y trae `zap.html` y `zap.json` a `tests/evidence/1.4.2/zap/`.
 
-    ```bash
-    API_URL=https://api.dev.lab APP_VERSION=1.4.2 \
-    k6 run --summary-export=tests/evidence/1.4.2/k6-estres.json tests/k6/estres.js
-    ```
+    *Pista:* `zap-rules.conf` tiene que estar dentro de la carpeta de mon01 que montas en `/zap/wrk`.
 
-2. Durante la subida, anota el minuto y los VU en que la tasa de errores supera el 10 % o aparecen timeouts: es el punto de rotura. En ese instante busca el modo de fallo: ¿503 limpios o cuelgue? ¿El primer error es `too many clients` de PostgreSQL (en Loki, `{service="app", level="error"}`), `upstream timed out` del proxy (en `/var/log/nginx/error.log` de web01, que no envía a Loki) o un `oom` de la API (en Loki, `{service="docker-events", action="oom"}`)? Apunta esa línea con su hora.
+5. Escanea con Trivy la imagen que corre en app01, como en el apartado: el informe completo en `tests/evidence/1.4.2/trivy.json` y la tabla de trabajo con la puerta, anotando su código de salida.
 
-3. Durante la bajada, mide el tiempo de recuperación: desde que la carga baja hasta que la latencia y los errores vuelven a su valor normal. Mira los errores con una ventana corta (`sum(rate(app_http_requests_total{status=~"5.."}[1m]))`), porque la regla de 5 minutos tarda en bajar. Si algo no se recupera solo, eso también es un resultado: anótalo y arréglalo a mano o vuelve al snapshot.
+    *Pista:* la etiqueta exacta (en estos apuntes, `app:1.4.2`) la da `docker compose images` en app01.
 
-4. Captura el panel de KPI con toda la prueba en el rango (`grafana-estres.png`, que se copia desde el puesto del aula con `scp` como en la A4.5) y escribe `tests/evidence/1.4.2/estres.md` con punto de rotura, modo de fallo y tiempo de recuperación, cada uno con el dato que lo demuestra.
-
-5. ZAP baseline desde mon01. Crea `tests/zap-rules.conf` con las tres reglas de cabeceras en FAIL del apartado, llévalo a mon01, lanza el escaneo y trae el informe, todo desde el puesto de administración:
-
-    ```bash
-    ssh ops@10.10.0.20 'mkdir -p zap && chmod 777 zap'
-    scp tests/zap-rules.conf ops@10.10.0.20:zap/
-    ssh ops@10.10.0.20 'docker run --rm --network host -v "$HOME/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
-      zap-baseline.py -t https://api.dev.lab -r zap.html -J zap.json -c zap-rules.conf; echo "código de salida: $?"'
-    mkdir -p tests/evidence/1.4.2/zap && scp 'ops@10.10.0.20:zap/zap.*' tests/evidence/1.4.2/zap/
-    ```
-
-    Si devuelve 3 al instante, el contenedor no llega a la URL: comprueba que lleva `--network host`, que es lo que le da el DNS de mon01 para resolver `api.dev.lab`, o añade `--add-host api.dev.lab:10.10.1.10`.
-
-6. Trivy sobre la imagen que corre en app01. Mira con qué etiqueta corre (`ssh ops@10.10.2.10 docker compose -f /opt/servicio/compose.yml images app`; en estos apuntes, `app:1.4.2`) y escanéala como en el apartado:
-
-    ```bash
-    ssh ops@10.10.2.10 docker save app:1.4.2 > /tmp/app.tar
-    trivy image --input /tmp/app.tar --format json -o tests/evidence/1.4.2/trivy.json
-    trivy image --input /tmp/app.tar --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
-    echo "código de salida: $?"
-    rm /tmp/app.tar
-    ```
-
-7. Escribe `tests/evidence/1.4.2/seguridad.md` con una tabla: hallazgo, herramienta, severidad y dónde se corrige (proxy nginx en web01, imagen base, dependencia, código). Entran los FAIL y WARN de ZAP y los HIGH y CRITICAL con corrección de la tabla de Trivy; si pasan de diez, agrúpalos por paquete. Confirma y empuja.
+6. Escribe `tests/evidence/1.4.2/seguridad.md`: hallazgo, herramienta, severidad y dónde se corrige (proxy nginx de web01, imagen base, dependencia o código), con los FAIL y WARN de ZAP y los HIGH y CRITICAL con corrección de Trivy, agrupados por paquete si pasan de diez. Empuja `tests/`.
 
 <span class="et et-com">Comprobación</span> `estres.md` con los tres datos y su evidencia; `grafana-estres.png` con el rango visible; `zap.html` y `zap.json` en la carpeta; `trivy.json` sin filtrar y el código de salida de la puerta anotado; `seguridad.md` con los hallazgos y dónde se corrige cada uno.
 
 <span class="et et-ent">Entrega</span> `tests/k6/estres.js`, `tests/zap-rules.conf` y en `tests/evidence/1.4.2/` `k6-estres.json`, `grafana-estres.png`, `estres.md`, `zap/`, `trivy.json` y `seguridad.md`, en `servicio`, empujados a la Gitea del laboratorio.
 
-<span class="et et-ext">Si te sobra tiempo</span> Corrige uno de los hallazgos de cabeceras en el nginx de web01 (`add_header X-Content-Type-Options nosniff always;` en el bloque `server` del 443, `sudo nginx -t` y `sudo systemctl reload nginx`) y vuelve a pasar ZAP: la alerta tiene que desaparecer del informe.
+<span class="et et-ext">Si te sobra tiempo</span> Corrige uno de los hallazgos de cabeceras en el nginx de web01 (`add_header X-Content-Type-Options nosniff always;` en el bloque `server` del 443) y vuelve a pasar ZAP: la alerta tiene que desaparecer del informe.
 
 ## Sesión 26 · Documentación de pruebas y seguimiento
 
@@ -1262,58 +992,28 @@ Documentar las pruebas y montar el ciclo de revisión comparten sesión: lo prim
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Las evidencias de la A4.4, la A4.5 y la A4.6 en `tests/evidence/1.4.2/` del clon de `servicio`, y `operacion` en el puesto de administración.
-- El `ci/Jenkinsfile.pruebas` y el `ci/README.md` de la A4.4. El pipeline de 5166 no existe todavía (empieza el 3 de febrero), así que esta hoja lo deja todo listo para ese día.
+- Las evidencias de la A4.4 a la A4.6 en `tests/evidence/1.4.2/` del clon de `servicio`, y `operacion`, en el puesto de administración.
+- `ci/Jenkinsfile.pruebas` y `ci/README.md` de la A4.4. El pipeline de 5166 empieza el 3 de febrero: esta hoja lo deja listo para ese día.
 - El histórico de Prometheus (las pruebas de las sesiones anteriores cuentan como tráfico) y la shell de mon01 del túnel, con `jq`.
 - Lo explicado al principio de la sesión: [la ficha de caso y el informe de versión](#documentar-las-pruebas), [la puerta de pruebas en Jenkins](#la-puerta-de-pruebas-en-el-pipeline-de-jenkins) y [el ciclo de revisión](#seguimiento-periodico).
 
 <span class="et et-pas">Pasos</span>
 
-1. Crea `tests/evidence/1.4.2/casos/` y rellena la ficha de caso del apartado para cinco pruebas, una por tipo: PF-01 (la suite funcional de la A4.4), PC-01 (calidad de servicio: el escalón de 50 usuarios de la A4.5), PR-01 (rendimiento: las tres rampas), PE-01 (estrés) y PS-01 (seguridad: ZAP y Trivy). Copia la ficha del apartado y cambia Id, Procedimiento, resultados y Evidencias. En Procedimiento va el comando exacto con sus variables; en Evidencias, ficheros que existan en la carpeta.
+1. Rellena en `tests/evidence/1.4.2/casos/` la ficha de caso del apartado para cinco pruebas, una por tipo: PF-01 (funcionales), PC-01 (calidad de servicio: el escalón de 50 usuarios), PR-01 (rendimiento: las tres rampas), PE-01 (estrés) y PS-01 (seguridad), con el comando exacto en Procedimiento.
 
-2. Escribe `tests/evidence/1.4.2/INFORME.md` con la tabla por bloque del apartado y el veredicto único de la versión, firmado. Si Trivy o ZAP dejaron un hallazgo en FAIL, la versión es NO APTA aunque el resto pase.
+2. Escribe `tests/evidence/1.4.2/INFORME.md` con la tabla por bloque del apartado y el veredicto único de la versión, firmado. Un hallazgo en FAIL de ZAP o de Trivy hace la versión NO APTA aunque el resto pase.
 
-3. Completa `ci/Jenkinsfile.pruebas` con la etapa `Pruebas en pre` del apartado y apunta en `ci/README.md` lo que habrá que crear en febrero: la credencial `api-test-pass`, pytest y k6 en el agente, y quién puede lanzar la etapa. Después comprueba la puerta a mano: pon un umbral imposible en `carga.js` (`http_req_duration: ['p(95)<1']`) y encadena con `&&` los comandos de la etapa que corren en el puesto, con una rampa corta de k6, que para esto sobra y no cuesta trece minutos:
+3. Añade a `ci/Jenkinsfile.pruebas` la etapa `Pruebas en pre` del apartado, y a `ci/README.md` lo pendiente para febrero: la credencial, pytest y k6 en el agente, quién lanza la etapa y la opción `skipStagesAfterUnstable()`, sin la que un build en amarillo no detiene el pipeline. Después comprueba la puerta a mano: con un umbral imposible en `carga.js`, encadena con `&&` en `ci/puerta-pruebas.sh` pytest, una rampa corta de k6 y un `echo` de que la versión pasa, y guarda la salida en `ci/puerta-fallo.txt`. Tiene que pararse en k6 con código 99. Deshaz el umbral.
 
-    ```bash
-    cat > ci/puerta-pruebas.sh <<'EOF'
-    #!/bin/sh
-    python3 -m pytest tests/functional -v --junitxml=reports/pytest.xml &&
-    API_TOKEN=$(tests/token.sh) k6 run --vus 10 --duration 1m --summary-export=reports/k6-resumen.json tests/k6/carga.js &&
-    echo "PUERTA: la versión pasa"
-    EOF
-    sh ci/puerta-pruebas.sh > ci/puerta-fallo.txt 2>&1; echo "código de salida: $?"
-    ```
+    *Pista:* `p(95)<1` es imposible y `--vus 10 --duration 1m` basta como rampa. Exporta antes las variables de la A4.4, o la cadena se parará en pytest.
 
-    Con `REQUESTS_CA_BUNDLE`, `API_URL` y `API_TEST_PASS` exportadas como en la A4.4, la cadena tiene que pararse en k6 con código 99 y no escribir la última línea: es exactamente lo que hará la etapa. Deshaz el umbral y anota en `ci/README.md` que, con Jenkins, un build en amarillo no detiene el pipeline y hace falta `options { skipStagesAfterUnstable() }`.
+4. Escribe `revisiones/README.md` en `operacion` con el ciclo de [Seguimiento periódico](#seguimiento-periodico) adaptado a tu servicio: las tres revisiones con su duración, tus indicadores y tus alarmas en lugar de los ejemplos, y quién hace cada una. Tres líneas por revisión bastan.
 
-4. Escribe `revisiones/README.md` en `operacion` con el diseño del ciclo para tu servicio: copia las tres listas del apartado [Seguimiento periódico](#seguimiento-periodico) con su duración y, en cada una, sustituye los ejemplos por tus indicadores y tus alarmas y añade quién la hace. Tres líneas por revisión bastan.
+5. Haz la revisión semanal de las dos últimas semanas en `revisiones/AAAA-Wnn.md` con la plantilla del apartado: las cifras de Estado, con la función `q` en mon01, y las alarmas, de Alertmanager o de `ALERTS`. Cada hallazgo acaba en una acción con responsable y fecha o en un "no procede" razonado.
 
-5. Ejecuta la revisión semanal con los datos de las dos últimas semanas en `revisiones/AAAA-Wnn.md`, con la plantilla del apartado. Las cifras de Estado salen de Prometheus, en la shell de mon01, con la función `q` del apartado:
+    *Pista:* el pico semanal de conexiones es una subconsulta: `max_over_time(sum(pg_stat_activity_count)[7d:5m])`.
 
-    ```bash
-    q() { curl -sG http://localhost:9090/api/v1/query --data-urlencode "query=$1" | jq -r '.data.result[0].value[1] // "n/a"'; }
-    q 'app:availability:30d'
-    q 'quantile_over_time(0.95, app:latency_p95:5m[7d])'
-    q 'max_over_time(sum(pg_stat_activity_count)[7d:5m])'
-    q 'sum(changes(ALERTS_FOR_STATE[7d]))'
-    ```
-
-    La tabla de alarmas sale de Alertmanager (`http://localhost:9093` por el túnel) o de `ALERTS` en Prometheus. Cada hallazgo termina en una acción con responsable y fecha o en un "no procede" razonado.
-
-6. Elige un umbral que los datos digan que está mal (una alarma que salta y se cierra sola varias veces, o un aviso que nunca se acerca) y propón el cambio con un pull request en `alerting`. En mon01, en una rama, con las cifras que lo justifican en el mensaje del commit:
-
-    ```bash
-    cd /opt/alerting && git switch -c umbral-latencia
-    # edita prometheus/alerts.yml y valida con promtool, como en la A4.2
-    git commit -am "AppHighLatency: for 10m a 15m (cifras en revisiones/2027-W04.md de operacion)"
-    git push -u origin umbral-latencia
-    curl -u <usuario> -X POST -H 'Content-Type: application/json' \
-      -d '{"head": "umbral-latencia", "base": "main", "title": "AppHighLatency: for 10m a 15m"}' \
-      http://gitea.lab:3001/api/v1/repos/ops/alerting/pulls
-    ```
-
-    El pull request queda abierto: es la propuesta que sale de la revisión, y se fusiona cuando alguien la revisa.
+6. Elige un umbral que los datos de la revisión digan que está mal y propón el cambio en `alerting` con un pull request desde una rama, con la regla validada y las cifras que lo justifican en el mensaje del commit. El pull request se queda abierto hasta que alguien lo revise.
 
 <span class="et et-com">Comprobación</span> Cinco fichas, una por tipo de prueba, cuyas evidencias existen en la carpeta; `INFORME.md` con veredicto y con todas las pruebas en su tabla; `ci/Jenkinsfile.pruebas` y `ci/README.md` completos, y `ci/puerta-fallo.txt` con la cadena detenida en k6; `revisiones/README.md` y un registro semanal con acciones; el pull request de `alerting` con el umbral ajustado y su justificación.
 
@@ -1329,11 +1029,11 @@ La sesión se dedica a cerrar el dossier de operación con todo lo producido en 
 
 Entregables:
 
-- [ ] `operacion/metricas.md`: mínimo diez fichas, tres o más por categoría (de la A4.1, pasos 4 y 5).
-- [ ] `operacion/indicadores.md`, `operacion/grafana/kpi.json` y `alerting/prometheus/rules.yml`: nueve indicadores con fórmula, categoría, umbrales y justificación, con las recording rules cargadas en el Prometheus de mon01 (de la A4.2, pasos 1 a 6).
+- [ ] `operacion/metricas.md`: mínimo diez fichas, tres o más por categoría (de la A4.1, pasos 3 y 4).
+- [ ] `operacion/indicadores.md`, `operacion/grafana/kpi.json` y `alerting/prometheus/rules.yml`: nueve indicadores con fórmula, categoría, umbrales y justificación, con las recording rules cargadas en el Prometheus de mon01 (de la A4.2, pasos 1 a 5).
 - [ ] `operacion/alarmas/`: catálogo con todas las alarmas y cinco runbooks completos, enlazados desde la anotación `runbook` de `alerting` (de la A4.3, pasos 2 a 4).
 - [ ] `servicio/tests/`: la suite funcional, los scripts de k6 y el fichero de reglas de ZAP (de las A4.4, A4.5 y A4.6), y `tests/evidence/<versión>/` con las evidencias de cada prueba, las cinco fichas de caso y el `INFORME.md` (de la A4.7, pasos 1 y 2).
-- [ ] `servicio/ci/`: `Jenkinsfile.pruebas` con la etapa de pruebas, `README.md` con lo que queda pendiente de crear en Jenkins y `puerta-fallo.txt` (de la A4.4, paso 4, y la A4.7, paso 3).
+- [ ] `servicio/ci/`: `Jenkinsfile.pruebas` con la etapa de pruebas, `README.md` con lo que queda pendiente de crear en Jenkins y `puerta-fallo.txt` (de la A4.4, paso 3, y la A4.7, paso 3).
 - [ ] `operacion/revisiones/`: diseño del ciclo y un registro de revisión semanal con acciones, y el pull request de `alerting` con el umbral ajustado y su justificación (de la A4.7, pasos 4 a 6).
 
 | Criterio | RA2 | Peso |
@@ -1356,6 +1056,8 @@ Este dossier es el punto de partida de la UT7: cuando se actualicen la aplicaci�
 **Una regla grabada nueva no enseña nada del pasado.** Una recording rule empieza a guardar su serie cuando se carga, y Prometheus no la rellena hacia atrás: el día que se crea `app:cpu:ratio5m`, su gráfica de ayer está vacía aunque la CPU sí se midiera. Para mirar el histórico de una regla recién creada se usa la expresión completa, que sí se calcula sobre los datos crudos guardados.
 
 **pytest falla en todos los casos con `SSLError`.** `requests` instalado con pip no lee el almacén de certificados del sistema, sino su propio paquete certifi, que no conoce la CA del curso: el fixture que pide el token muere antes del primer caso. Se exporta `REQUESTS_CA_BUNDLE` con la ruta de `ca.crt`, y lo mismo en Jenkins; el equivalente para newman es `NODE_EXTRA_CA_CERTS`.
+
+**`pg_up` o `node_filesystem_avail_bytes{mountpoint="/data"}` no devuelven nada en Prometheus.** Falta el target de db01 en `prometheus.yml` o su regla en OPNsense, que se abrió en la [A3.2](ut3-seguridad-monitorizacion.md#a32-red-firewall-y-tls-sesion-17). Sin ellos se quedan sin datos tres de los nueve indicadores y las alarmas `PgDown`, `DbDiskLow` y `DiskWillFillIn7d`.
 
 **La saturación de CPU da `+Inf` o la memoria da 0 % siempre.** El servicio no tiene `cpus` o `mem_limit` en `/opt/servicio/compose.yml`, así que el denominador es 0 o un número de 18 cifras. No es un fallo de la fórmula: es que el contenedor no tiene límites y por tanto no puede saturarse "respecto a" nada. Hay que poner límites; hacen falta igualmente para el estrés.
 
