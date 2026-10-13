@@ -145,7 +145,7 @@ Todas las VM que salen de la plantilla traen node_exporter de fábrica (paquete 
 | app01 | docker-events | ninguno | Promtail, que lo manda a Loki con `service="docker-events"` | A1.5 (20 oct) |
 | db01 | postgres_exporter | 9187 | Prometheus, job `postgres` | En el compose del servicio desde la A1.3; desde el 27 nov, paquete `prometheus-postgres-exporter` en db01 con el usuario `monitor`, que instala la A3.3 de Despliegue; su target pasa a db01 en la A3.2 |
 
-web01, jenkins01, agent01 y gitea01 traen node_exporter igual, y los da de alta en Prometheus la UT7 de Despliegue en marzo. No se instalan en el curso ni nginx-prometheus-exporter (9113), porque lo que interesa de nginx sale de su log de acceso en JSON, ni blackbox_exporter: la disponibilidad sale de `up` y `pg_up`.
+web01, jenkins01, agent01 y gitea01 traen node_exporter igual. De ellas, la UT7 de Despliegue da de alta en Prometheus jenkins01, en marzo; web01, agent01 y gitea01 se quedan fuera de la monitorización del curso. No se instalan en el curso ni nginx-prometheus-exporter (9113), porque lo que interesa de nginx sale de su log de acceso en JSON, ni blackbox_exporter: la disponibilidad sale de `up` y `pg_up`.
 
 ## Lo que se añade en cada unidad
 
