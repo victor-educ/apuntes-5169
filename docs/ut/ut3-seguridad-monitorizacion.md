@@ -2,17 +2,21 @@
 
 <p class="ut-meta">6 h · Sesiones 16 a 18 · RA1 CE f, g</p>
 
-La UT1 conectó el servicio del curso a la pila de mon01 (node_exporter, cAdvisor, postgres_exporter, el `/metrics` de la API, Promtail y Loki) y la UT2 le puso alarmas encima. Todo eso funciona, pero funciona en claro: cada exporter es un servidor HTTP sin autenticación, Promtail manda los logs a Loki por HTTP y Grafana está en el 3000 con la contraseña del primer día. Esta unidad da la vuelta a la pila y la mira como la miraría alguien que ha entrado en la red: qué puertos hay abiertos, quién puede llegar a ellos y qué se lleva si llega. Después se cierra lo que sobra por capas (la forma de publicar de Docker, el firewall del host y OPNsense), se cifra y se autentica lo que queda, y se documenta como una política que se pueda auditar. Lo que se hace aquí se apoya directamente en la [UT3 de la asignatura de despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/): mismas zonas, mismo OPNsense y la misma CA del curso, con nmap y tcpdump tal como se vieron en Despliegue. Con esta unidad se cierra la primera evaluación: el examen es el 10 de diciembre y entra UT1, UT2 y UT3 completas. La UT4 vuelve a la explotación (KPI y pruebas) sobre una pila que ya no filtra nada.
+La UT1 conectó el servicio del curso a la pila de mon01 (node_exporter, cAdvisor, postgres_exporter, el `/metrics` de la API, Promtail y Loki) y la UT2 le puso alarmas encima. Todo eso se montó pensando en que funcionase y en que Prometheus llegase a todo, y funciona en claro: cada exporter es un servidor HTTP sin autenticación, Promtail manda los logs a Loki por HTTP y Grafana está en el 3000 con la contraseña del primer día. Y la monitorización es justo la pieza que más conviene proteger, porque es la que llega a todas las máquinas y la que sabe todo de ellas: quien entra en ella tiene el mapa de la infraestructura y, si alcanza las alarmas, puede apagarlas antes de atacar.
+
+Esta unidad mira la pila como la miraría alguien que ha entrado en la red y la protege en el orden en que se hace en una empresa. Primero se audita (sesión 16): qué puertos hay abiertos, quién puede llegar a ellos y qué se lleva si llega, con una evidencia fechada de cada cosa; es el criterio f. Después se cierra lo que sobra por capas (la forma de publicar de Docker, el firewall de cada host y OPNsense), se cifra y se autentica lo que queda, y se documenta como una política que se pueda comprobar (sesiones 17 y 18); es el criterio g. Lo que se hace aquí se apoya directamente en la [UT3 de la asignatura de despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/): mismas zonas, mismo OPNsense y la misma CA del curso, con nmap y tcpdump tal como se vieron en Despliegue. Con esta unidad se cierra la primera evaluación: el examen es el 10 de diciembre y entra UT1, UT2 y UT3 completas. La UT4 vuelve a la explotación (KPI y pruebas) sobre una pila que ya no filtra nada.
 
 ## Sesión 16 · Auditoría inicial
 
 <p class="ut-meta" markdown>26 de noviembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Superficie de exposición de la monitorización · 10 min&#10;Auditar: saber qué hay antes de tocar nada · 10 min&#10;A3.1 Auditoría inicial · 90 min" data-dur="Superficie de exposición de la monitorización · 10 min&#10;Auditar: saber qué hay antes de tocar nada · 10 min&#10;A3.1 Auditoría inicial · 90 min">:material-school:<i class="dur-barra" style="--teoria:18%"></i>:material-flask:</span></p>
 
-Al acabar esta sesión queda hecha la matriz de exposición de la pila tal como está hoy: qué puertos escuchan en app01 y mon01, quién llega a ellos y qué se lee si llega, todo con una evidencia fechada por fila. Antes de la hoja de práctica conviene leer qué se ve en un `/metrics` abierto y la tabla de puertos del entorno, que es de donde salen la columna "esperado" de la matriz y las reglas de OPNsense que la hoja deja preparadas, y después los cinco pasos de la auditoría (ss y docker ps, nmap, curl, tcpdump y la matriz).
+Durante dos unidades la pila se ha montado para que funcione, y nadie ha preguntado todavía quién más puede llegar a ella. Antes de cerrar nada hay que saberlo, por dos motivos: lo que se cree abierto (lo que dicen los compose) no siempre es lo que está abierto de verdad, y la práctica evaluable pide demostrar con fecha cómo estaba la pila antes de protegerla y cómo queda después. Hoy es, además, el último día en que se puede medir tal como se construyó: mañana la A3.3 de Despliegue traslada app01 y mon01 a la VPC, detrás de OPNsense. La teoría sigue el orden en que se razona una auditoría: primero qué regala un `/metrics` abierto, para saber por qué importa; después la tabla de puertos con quién debe llegar a cada uno, que es lo esperado; y al final las cuatro medidas que dicen lo que hay de verdad (el inventario desde dentro, el escaneo desde fuera, qué protocolo habla cada puerto y qué tráfico circula) y la matriz que compara lo esperado con lo medido. La hoja hace esa auditoría sobre app01 y mon01 y deja preparados los certificados y las reglas de OPNsense que harán falta después del traslado.
 
 ### Superficie de exposición de la monitorización
 
-Cada exporter es un servidor HTTP más en cada máquina. Cuando se montó la pila en la UT1 el objetivo era que Prometheus llegase a todo (el scrape: la lectura periódica de cada `/metrics`), y la forma rápida de conseguirlo fue dejar node_exporter escuchando en todas las interfaces y publicar puertos en el host: `8081:8080`, `9102:9102`, `9080:9080`. El resultado es que la monitorización abre más puertos que la propia aplicación. El servicio del curso, bien desplegado, expone un único 443 en web01; la monitorización, sin control, expone cuatro puertos en app01, dos en db01 y siete en mon01 (contando Mailpit y la Gitea provisional de la UT2), ninguno con contraseña.
+**Qué es la superficie de exposición.** Es el conjunto de puntos por los que alguien de fuera puede interactuar con un sistema: cada puerto que escucha, cada servicio que responde, cada API que acepta peticiones. Cuanto más grande, más sitios por donde atacar, y por eso la primera regla de cualquier protección es reducirla: lo que no escucha no se puede atacar.
+
+**Por qué la de la monitorización es tan grande.** Cada exporter es un servidor HTTP más en cada máquina. Cuando se montó la pila en la UT1 el objetivo era que Prometheus llegase a todo (el scrape: la lectura periódica de cada `/metrics`), y la forma rápida de conseguirlo fue dejar node_exporter escuchando en todas las interfaces y publicar puertos en el host: `8081:8080`, `9102:9102`, `9080:9080`. Ni los exporters ni Prometheus traen activados de fábrica el cifrado ni la contraseña, y en la UT1 no se activaron. El resultado es que la monitorización abre más puertos que la propia aplicación. El servicio del curso, bien desplegado, expone un único 443 en web01; la monitorización, sin control, expone cuatro puertos en app01, dos en db01 y siete en mon01 (contando Mailpit y la Gitea provisional de la UT2), ninguno con contraseña.
 
 <figure markdown="span">
   ![Arquitectura de Prometheus](../img/prometheus-arquitectura.svg){ width="640" }
@@ -21,7 +25,19 @@ Cada exporter es un servidor HTTP más en cada máquina. Cuando se montó la pil
 
 #### Qué se ve en un /metrics abierto
 
-La idea de que las métricas son "solo números" no aguanta un `curl`. Esto es lo que devuelve un node_exporter recién instalado a cualquiera que llegue al 9100:
+**Las métricas no son «solo números».** La idea no aguanta un `curl`. Esto es lo que devuelve un node_exporter recién instalado a cualquiera que llegue al 9100:
+
+```text
+node_uname_info{domainname="(none)",machine="x86_64",nodename="app01",release="6.12.22-amd64",sysname="Linux",version="#1 SMP PREEMPT_DYNAMIC Debian 6.12.22-1"} 1
+node_os_info{id="debian",name="Debian GNU/Linux",version_id="13"} 1
+node_network_address_info{address="10.10.2.10",device="ens18",netmask="24"} 1
+node_filesystem_size_bytes{device="/dev/sda1",mountpoint="/var/lib/docker"} 2.1e+10
+node_systemd_unit_state{name="ssh.service",state="active"} 1
+node_systemd_unit_state{name="postgresql.service",state="inactive"} 1
+node_boot_time_seconds 1.763979e+09
+```
+
+**Lo que regala node_exporter.** Con esas siete líneas un atacante sabe qué versión exacta del kernel y de la distribución corre la máquina, y con eso qué CVE (vulnerabilidades publicadas con identificador) le afectan; sabe en qué red está y con qué dirección, qué discos tiene montados, qué servicios están activos y cuánto lleva sin reiniciarse (`node_boot_time_seconds`), que suele ser cuánto lleva sin aplicar los parches del kernel, porque esos necesitan reiniciar. Es justo la información que se busca al preparar un ataque, servida sin pedir nada a cambio.
 
 ```mermaid
 flowchart LR
@@ -42,24 +58,15 @@ flowchart LR
 
 <p class="pie" markdown>No hace falta entrar en la máquina para saber cómo atacarla: basta con que el exporter esté abierto.</p>
 
+**Lo que regalan los demás exporters.** cAdvisor pone en sus series la imagen y el nombre de cada contenedor (las etiquetas `image` y `name`, por ejemplo en `container_last_seen`), así que se ve qué versión de la aplicación corre (`app:1.4.2`). Con su configuración de fábrica copia además todas las etiquetas de Docker de cada contenedor como `container_label_*`, y si alguien puso en una etiqueta del compose una URL con credenciales, está ahí; la configuración del curso solo deja pasar dos, pero el `/metrics` sigue diciendo qué corre y en qué versión. postgres_exporter publica los nombres de las bases de datos y las conexiones por usuario. El `/metrics` de la API del curso enumera las rutas que han recibido alguna petición (`app_http_requests_total{route="/items/<int:id>"}`), incluidas las que no están enlazadas desde ningún sitio.
 
-```text
-node_uname_info{domainname="(none)",machine="x86_64",nodename="app01",release="6.12.22-amd64",sysname="Linux",version="#1 SMP PREEMPT_DYNAMIC Debian 6.12.22-1"} 1
-node_os_info{id="debian",name="Debian GNU/Linux",version_id="13"} 1
-node_network_address_info{address="10.10.2.10",device="ens18",netmask="24"} 1
-node_filesystem_size_bytes{device="/dev/sda1",mountpoint="/var/lib/docker"} 2.1e+10
-node_systemd_unit_state{name="ssh.service",state="active"} 1
-node_systemd_unit_state{name="postgresql.service",state="inactive"} 1
-node_boot_time_seconds 1.763979e+09
-```
-
-Con eso un atacante sabe qué CVE (vulnerabilidades publicadas con identificador) le afectan a la máquina, dónde está y cuánto lleva sin reiniciarse, que suele ser cuánto lleva sin parchear. cAdvisor es peor: `container_last_seen` lleva las etiquetas `image` y `name` de cada contenedor, así que se ve `app:1.4.2`, y las etiquetas del contenedor que no se filtran aparecen como `container_label_*`. Si alguien puso una URL con credenciales en una etiqueta del compose, está ahí. postgres_exporter publica los nombres de las bases de datos y las conexiones por usuario. El `/metrics` de la API del curso enumera todas las rutas que existen (`app_http_requests_total{route="/login"}`), incluidas las que no están enlazadas desde ningún sitio.
-
-Los propios servidores de la pila filtran todavía más: la API de Prometheus da en `/api/v1/targets` el mapa de todo lo que se monitoriza y en `/api/v1/status/config` la configuración cargada, Alertmanager acepta silencios sin autenticación (un atacante silencia la alarma y después ataca) y Loki sin autenticación deja leer todos los logs e inyectar líneas falsas. El detalle de cada API está en [Para ampliar](../ampliacion.md#lo-que-dejan-ver-prometheus-alertmanager-y-loki-sin-autenticacion).
+**Lo que regalan los servidores de la pila.** Prometheus, Alertmanager y Loki filtran todavía más: la API de Prometheus da en `/api/v1/targets` el mapa de todo lo que se monitoriza y en `/api/v1/status/config` la configuración cargada, Alertmanager acepta silencios sin autenticación (un atacante silencia la alarma y después ataca) y Loki sin autenticación deja leer todos los logs e inyectar líneas falsas. El detalle de cada API está en [Para ampliar](../ampliacion.md#lo-que-dejan-ver-prometheus-alertmanager-y-loki-sin-autenticacion).
 
 No es teórico: hay recuentos públicos de cientos de miles de exporters abiertos a Internet ([casos reales](../ampliacion.md#casos-reales-de-pilas-de-monitorizacion-expuestas)).
 
 #### Puertos del entorno del curso y quién debe llegar
+
+**La referencia contra la que se audita.** Auditar es comparar lo que hay con lo que debería haber, y para eso primero hay que escribir lo que debería haber. Esta tabla es esa referencia: cada puerto de la pila, en qué máquina corre y quién tiene motivo para llegar a él. El criterio es el de mínimo privilegio, cada puerto solo para quien lo necesita para su trabajo, y de la tabla salen tanto la columna «esperado» de la matriz de la auditoría como las reglas de los cortafuegos.
 
 | Componente | Puerto | Dónde corre | Quién debe llegar |
 |------------|-------:|-------------|-------------------|
@@ -77,11 +84,11 @@ No es teórico: hay recuentos públicos de cientos de miles de exporters abierto
 
 cAdvisor escucha en el 8080 dentro de la red de Docker, pero en el host de app01 ese puerto es el de la API, así que se publica en el 8081: lo que se escanea y va a la matriz es el 8081.
 
-Todo lo demás, cerrado. Y de estos, los administradores entran por la red de gestión (10.10.0.0/24) con usuario nominal, nunca desde front ni desde back. Los servidores de mon01 se hablan por nombre en la red de Docker, así que en la 10.10.0.20 solo se publica lo que llega de otra máquina: un nginx que hace de puerta de Grafana (443) y de Loki (3100), y la Gitea provisional (3001). Prometheus, Alertmanager y Mailpit quedan en `127.0.0.1`, detrás de un túnel SSH.
+**Todo lo demás, cerrado.** Y de estos, los administradores entran por la red de gestión (10.10.0.0/24) con usuario nominal (una cuenta por persona, nunca compartida, para que cada acción tenga autor), nunca desde front ni desde back. Los servidores de mon01 se hablan por nombre en la red de Docker, así que en la 10.10.0.20 solo se publica lo que llega de otra máquina: un nginx que hace de puerta de Grafana (443) y de Loki (3100), y la Gitea provisional (3001). Prometheus, Alertmanager y Mailpit quedan en `127.0.0.1`, detrás de un túnel SSH (un puerto del puesto que, por dentro de una conexión SSH, llega a mon01, como se explica en [Cómo se llega a la pila desde hoy](#como-se-llega-a-la-pila-desde-hoy)). De fábrica no piden credenciales, y el túnel les pone delante la autenticación y el cifrado de SSH sin tocar nada en ellos.
 
-Y un detalle del laboratorio que condiciona toda la unidad: **app01 y db01 no tienen pata en la red de gestión**. Cada uno lleva una sola tarjeta, la de su zona (app01 la 10.10.2.10 en back, db01 la 10.10.3.10 en data), y mon01 vive en gestión con la 10.10.0.20. Eso significa que el scrape cruza siempre el cortafuegos, y que la protección no puede consistir en esconder el puerto en una interfaz que solo ve gestión: hay que permitir el paso justo en OPNsense y cerrar el resto en cada host.
+**Por qué el scrape cruza el cortafuegos.** Un detalle del laboratorio condiciona toda la unidad: **app01 y db01 no tienen pata en la red de gestión**. Cada uno lleva una sola tarjeta, la de su zona (app01 la 10.10.2.10 en back, db01 la 10.10.3.10 en data), y mon01 vive en gestión con la 10.10.0.20. Eso significa que el scrape cruza siempre el cortafuegos, y que la protección no puede consistir en esconder el puerto en una interfaz que solo ve gestión: hay que permitir el paso justo en OPNsense y cerrar el resto en cada host.
 
-Las reglas de OPNsense salen directamente de la tabla anterior. Son las filas 11 a 13 de la matriz de reglas del laboratorio, con las pestañas y los alias que se crearon en la [sesión 15 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#sesion-15-reglas-por-zona-y-publicacion-de-un-servicio): `srv_app` y `srv_db` ya existen, y solo se añaden el host `srv_mon` (10.10.0.20) y los alias de puertos `p_mon_app` y `p_mon_db`.
+**Las reglas de OPNsense.** Salen directamente de la tabla anterior. Son las filas 11 a 13 de la matriz de reglas del laboratorio, escritas como en la [sesión 15 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#sesion-15-reglas-por-zona-y-publicacion-de-un-servicio): cada regla en la pestaña de la interfaz por la que entra el tráfico (las [reglas y su orden de evaluación](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#reglas-y-orden-de-evaluacion)) y con alias, nombres que agrupan direcciones o puertos para que la regla se lea sola (los [aliases](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#aliases)). `srv_app` y `srv_db` ya existen, y solo se añaden el host `srv_mon` (10.10.0.20) y los alias de puertos `p_mon_app` y `p_mon_db`.
 
 | Fila | Pestaña | Acción | Origen | Destino | Puertos | Log | Descripción |
 |-----:|---------|--------|--------|---------|---------|-----|-------------|
@@ -89,18 +96,20 @@ Las reglas de OPNsense salen directamente de la tabla anterior. Son las filas 11
 | 12 | MGMT | Pass | `srv_mon` | `srv_db` | `p_mon_db`: 9100, 9187 | sí | 12 Scrape de mon01 a db01 |
 | 13 | DMZINT | Pass | `srv_app` | `srv_mon` | 3100 | sí | 13 Promtail de app01 hacia Loki |
 
-Cada regla va en la pestaña por la que entra el tráfico, y cualquier otro origen cae en la denegación por defecto, la fila 99. app01 llega además al 3001 de la Gitea provisional por la fila 6, que puso Despliegue. Sin las filas 11 a 13 los targets de app01 y db01 se quedan en DOWN en la VPC y los logs de app01 no llegan a Loki. La A3.1 las deja puestas el día antes del traslado, y así el 1 de diciembre basta con cambiar los targets a las direcciones nuevas.
+Cualquier otro origen cae en la denegación por defecto, la fila 99. app01 llega además al 3001 de la Gitea provisional por la fila 6, que puso Despliegue. Sin las filas 11 a 13 los targets de app01 y db01 se quedan en DOWN en la VPC y los logs de app01 no llegan a Loki. La A3.1 las deja puestas el día antes del traslado, y así el 1 de diciembre basta con cambiar los targets a las direcciones nuevas.
 
 ### Auditar: saber qué hay antes de tocar nada
 
-La auditoría es la parte del criterio f y se hace antes de proteger nada, porque la evaluable pide la matriz antes y después. Son cinco pasos, sobre app01 y mon01.
+**Qué es auditar aquí.** Medir lo que hay de verdad, compararlo con lo que debería haber y dejar una prueba fechada de cada medida. Es el criterio f, y se hace antes de proteger nada por dos razones: lo que se cambia ya no se puede medir como estaba, y la evaluable pide la matriz antes y después, porque la comparación es lo que demuestra que la protección funciona.
+
+**Por qué cuatro medidas y no una.** Cada herramienta ve una parte. El inventario desde dentro dice lo que el host cree que expone; el escaneo desde fuera, lo que de verdad se alcanza a través de la red; la prueba de protocolo, lo que se lleva quien llega; y la captura de tráfico, quién usa cada puerto y qué viaja por él. Los problemas se esconden justo en las diferencias entre una medida y otra: un puerto que `ss` no lista y que se ve desde fuera, o un exporter que no está en ningún compose y responde igual. Las cuatro se hacen sobre app01 y mon01, y la matriz las junta: son los cinco apartados que siguen.
 
 !!! otra "Repaso"
     nmap y tcpdump, y cómo se leen sus salidas, se explicaron en la [sesión 10 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut2-vpc/#como-se-prueba-una-red). Aquí solo se repasa lo que cambia al aplicarlos a los exporters.
 
 #### Inventario desde dentro
 
-`ss -tlnup` lista los sockets en escucha con su proceso (el proceso solo se ve con root):
+**Qué escucha cada host.** `ss -tlnup` lista los sockets TCP y UDP en escucha (`-t`, `-u`, `-l`), con números en lugar de nombres (`-n`) y con el proceso que los abrió (`-p`; el proceso solo se ve con root):
 
 ```bash
 sudo ss -tlnup
@@ -112,7 +121,9 @@ sudo ss -tlnup
 # tcp   LISTEN 0      128          0.0.0.0:22         0.0.0.0:*     users:(("sshd",pid=610,fd=3))
 ```
 
-La columna de dirección local es la que importa: `0.0.0.0` o `*` es todas las interfaces, incluidos los bridges de Docker; `127.0.0.1`, solo local; `10.10.2.10`, solo la tarjeta de la zona. Los que aparecen con `docker-proxy` los publica Docker, y con `userland-proxy` desactivado ni siquiera saldrían en `ss`, porque la publicación se haría solo con NAT. Por eso el segundo comando es obligatorio:
+**La dirección es lo que importa.** La columna de dirección local dice desde dónde se puede llegar: `0.0.0.0` o `*` es todas las interfaces, incluidos los bridges de Docker; `127.0.0.1`, solo desde la propia máquina; `10.10.2.10`, solo por la tarjeta de la zona. Un exporter en `0.0.0.0` no es un agujero por sí mismo, pero quiere decir que todo depende de que un cortafuegos lo cierre.
+
+**Lo que publica Docker no siempre sale en `ss`.** Los puertos que aparecen con el proceso `docker-proxy` los publica Docker. Ese proceso es solo un apoyo: Docker publica en realidad con reglas de NAT en el kernel, como se ve en la [sesión 17](#por-que-docker-se-salta-el-firewall-del-host), y si se desactiva el proxy (`"userland-proxy": false` en `daemon.json`) el puerto sigue abierto pero desaparece de `ss`. Por eso el inventario no está completo sin preguntar a Docker qué publica:
 
 ```bash
 docker ps --format '{{.Names}}\t{{.Ports}}'
@@ -122,42 +133,49 @@ docker ps --format '{{.Names}}\t{{.Ports}}'
 # servicio-db-1    5432/tcp
 ```
 
-`0.0.0.0:9102->9102/tcp` es un puerto abierto a todo el mundo, en IPv4 y en IPv6; el primer número es el del host, que es el que se escanea desde fuera. `5432/tcp` sin flecha se expone pero no se publica: solo se alcanza desde la red de Docker.
+`0.0.0.0:9102->9102/tcp` es un puerto publicado para todo el mundo, en IPv4 y en IPv6; el primer número es el del host, que es el que se escanea desde fuera, y el segundo, el del contenedor. `5432/tcp` sin flecha se expone pero no se publica: solo se alcanza desde la red de Docker. node_exporter no sale en esta lista porque no es un contenedor sino un servicio del sistema, que viene en la plantilla de las VM: de él solo informa `ss`.
 
 #### Escaneo desde fuera
 
-El inventario dice lo que el host cree que expone; el escaneo, lo que de verdad se ve desde fuera. Los orígenes de la unidad son fijos: mon01, que debe ver los exporters; el puesto de administración (10.10.0.50), que no tiene por qué leer métricas; web01, que no debe ver nada de la monitorización; y app01 hacia mon01, que solo debe llegar a Loki y a la Gitea provisional. El 26 de noviembre, con web01 ya detrás de OPNsense, el origen "de fuera" es el puesto de administración, por su tarjeta del aula.
+**Por qué desde fuera, y desde dónde.** El inventario dice lo que el host cree que expone; el escaneo, lo que de verdad se alcanza desde otra máquina, con todo lo que hay por medio (cortafuegos, rutas, el NAT de Docker). Como lo que se alcanza depende de desde dónde se mire, se escanea desde varios orígenes, y los de la unidad son fijos porque cada uno representa a un tipo de cliente:
 
-De nmap interesan dos escaneos: `-sS` (SYN, con root, sin completar la conexión) y `-sV`, que identifica el servicio de cada puerto abierto y dice si hay TLS.
+- **mon01**, el cliente legítimo: tiene que ver los exporters.
+- **El puesto de administración** (10.10.0.50), una máquina de gestión que no es la monitorización: no tiene por qué leer métricas, aunque esté en la red de confianza.
+- **web01**, la máquina más expuesta, en la DMZ externa: es la primera que caería si alguien entra desde Internet, y no debe ver nada de la monitorización.
+- **app01 hacia mon01**, el sentido contrario: los logs van de app01 a mon01, así que app01 tiene que llegar a Loki y a la Gitea provisional, y a nada más.
+
+El 26 de noviembre, con web01 ya detrás de OPNsense, el origen «de fuera» es el puesto de administración, por su tarjeta del aula.
+
+**Las opciones de nmap.** Interesan dos escaneos: `-sS` (SYN, con root: manda solo el primer paquete de cada conexión y no la completa, así que es rápido) y `-sV`, que identifica el servicio de cada puerto abierto y dice si habla TLS. `--reason` añade a cada puerto el paquete que decidió su estado, que es justo lo que hay que interpretar; `-p-` recorre los 65 535 puertos en lugar de los mil más habituales, y `-T4` acorta las esperas, algo razonable en una red de laboratorio sin pérdidas. Detrás de un cortafuegos hace falta además `-Pn`: antes de escanear, nmap comprueba si el host está vivo con un ping y un par de sondas TCP, y si el cortafuegos las tira todas lo da por caído y no escanea nada (avisa con `Host seems down`); `-Pn` se salta esa comprobación.
 
 ```bash
 sudo nmap -sS -p- --reason -T4 <app01> <mon01>             # desde el puesto de administración, todos los puertos
 sudo nmap -sS -p 22,8081,9080,9100,9102 --reason <app01>   # desde mon01, solo los esperados
 ```
 
-La lectura de los estados es lo que se pide en la práctica y lo que la gente confunde:
+**Cómo se lee cada estado.** Es lo que se pide en la práctica y lo que la gente confunde:
 
 | Estado nmap | Qué ha pasado en la red | Qué significa aquí |
 |-------------|-------------------------|--------------------|
 | `open` | Llegó un SYN-ACK | Hay un servicio escuchando y nada lo filtra |
-| `closed` | Llegó un RST | El paquete llegó al host pero nadie escucha en ese puerto; un firewall con `reject` también da esto |
+| `closed` | Llegó un RST | El paquete llegó al host pero nadie escucha en ese puerto; un firewall que rechaza con RST en vez de tirar (la acción Reject) también da esto |
 | `filtered` | No llegó nada, o llegó un ICMP unreachable | Un firewall con `drop` lo ha tirado por el camino (OPNsense o nftables) |
 
 Hoy, desde el puesto de administración, el 9100 de app01 sale `open`; al final tiene que salir `filtered`, y desde mon01 seguir `open`. La salida se guarda con `-oN escaneo-desde-admin-$(date +%F).txt`: la fecha del nombre y la hora de la cabecera son la evidencia. Si todo está filtrado, el escaneo tarda minutos, porque nmap espera el timeout de cada puerto: eso ya indica un `drop`. web01 tiene nmap desde la A3.1 de Despliegue; desde app01, que no lo tiene, se usa `nc -zv -w 3 <IP> <puerto>`: `succeeded` es open, `refused` es closed y el tiempo agotado, filtered.
 
 #### Protocolos y autenticación
 
-El tercer paso comprueba qué protocolo habla cada puerto abierto y si pide credenciales. Con `curl -v` se ve todo el diálogo:
+**Por qué no basta con el escaneo.** `open` dice que alguien responde, no qué entrega ni si pregunta quién llama. La tercera medida pide cada `/metrics` como lo pediría cualquiera, sin credenciales, y mira el diálogo entero con `curl -v`:
 
 ```bash
 curl -sv http://<app01>:9100/metrics 2>&1 | head -20
 ```
 
-Un `HTTP/1.1 200 OK` con las métricas, desde el puesto de administración, son tres fallos a la vez: alcanzable desde donde no toca, en claro y sin autenticación. Se arreglan en tres sitios distintos: el firewall, TLS y basic auth.
+**Qué se lee en la salida.** Las líneas que empiezan por `>` son lo que envía curl, y las que empiezan por `<`, lo que contesta el servidor. Si la conexión fuese cifrada, antes de la petición aparecería el handshake TLS (el saludo inicial en el que cliente y servidor acuerdan cómo cifrar), con una línea `SSL connection using TLSv1.3`; si el exporter pidiese credenciales, la respuesta sería `401 Unauthorized`. Un `HTTP/1.1 200 OK` seguido de las métricas, desde el puesto de administración, son tres fallos a la vez: alcanzable desde donde no toca, en claro y sin autenticación. Cada uno se arregla en un sitio distinto, y ese es el orden de lo que queda de unidad: el cortafuegos decide quién llega, TLS cifra lo que viaja y la autenticación decide a quién se contesta.
 
 #### Tráfico real con tcpdump
 
-El escaneo dice qué puertos aceptan conexiones; tcpdump dice quién las está usando de verdad. En app01, mirando el tráfico de Promtail hacia Loki:
+**Lo que no ve ninguna de las anteriores.** El escaneo y curl prueban qué pasa cuando alguien abre una conexión hacia un puerto; no dicen quién la abre de verdad ni qué viaja por ella. Para los logs eso es lo que importa, porque ahí la conexión la abre app01: Promtail empuja sus lotes hacia el 3100 de mon01, y la única forma de ver qué viaja es capturarlo. En app01:
 
 ```bash
 sudo tcpdump -i ens18 -nn -A port 3100 -c 20
@@ -165,11 +183,11 @@ sudo tcpdump -i ens18 -nn -A port 3100 -c 20
 # 10:42:17.303 IP 10.10.0.20.3100 > 10.10.2.10.48122: Flags [P.], seq ..., length 89
 ```
 
-Se busca que el único destino sea mon01 y que inicie app01 (puerto alto de origen, 3100 de destino). Con `-A` se ve el contenido: antes de proteger se lee `POST /loki/api/v1/push` y las líneas de log; con mTLS no se lee nada. Esa pareja de capturas es la evidencia de cifrado de la práctica.
+**Qué se busca.** La salida de ejemplo es con las direcciones de la VPC; el 26 de noviembre salen las del aula. Las opciones son las de siempre (`-i` la interfaz, `-nn` sin traducir direcciones ni puertos a nombres, `-c 20` para parar a los veinte paquetes) más `-A`, que imprime el contenido de cada paquete como texto. Se busca que el único destino sea mon01 y que inicie app01: un puerto de origen alto (el puerto efímero que el sistema asigna al cliente) y el 3100 de destino. Antes de proteger se lee la petición `POST /loki/api/v1/push` con sus cabeceras y trozos de las líneas de log, porque Promtail las comprime, pero comprimir no es cifrar. Cuando el envío vaya cifrado, en la sesión 18, no se leerá nada. Esa pareja de capturas, la de hoy y la del final de la unidad, es la evidencia de cifrado de la práctica.
 
 #### La matriz de exposición
 
-Todo se registra en una matriz como la de pruebas de la [UT3 de despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/), orientada a puertos de monitorización. Estas son las filas mínimas, las mismas el 26 de noviembre, con las direcciones del aula, y el 3 de diciembre, con las de la VPC:
+**Para qué una matriz.** Los ficheros de nmap, curl y tcpdump son la prueba, pero nadie los lee uno a uno. La matriz los ordena para que se entiendan de un vistazo: una fila por cada origen y destino, con lo que se esperaba (de la tabla de puertos), lo que se obtuvo (de las medidas) y el fichero que lo demuestra. Es la misma idea que la matriz de pruebas de la [UT3 de despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/), orientada a puertos de monitorización. Estas son las filas mínimas, las mismas el 26 de noviembre, con las direcciones del aula, y el 3 de diciembre, con las de la VPC:
 
 | Origen | Destino | Puertos | Esperado | Obtenido (antes) | Obtenido (después) | Evidencia |
 |--------|---------|---------|----------|------------------|--------------------|-----------|
@@ -182,7 +200,7 @@ Todo se registra en una matriz como la de pruebas de la [UT3 de despliegue](http
 | app01 | mon01 | 3000, 8025, 9090, 9093 | filtered | open | | nc-mon01-desde-app01-2026-11-26.txt |
 | web01 | app01 y mon01 | todos los de la tabla de puertos | filtered | no se mide: web01 ya está detrás de OPNsense | | |
 
-Las filas donde esperado y obtenido no coinciden se marcan en rojo: son la lista de trabajo de la sesión 17 y de la evaluable, donde se rellena "obtenido (después)".
+Las filas donde esperado y obtenido no coinciden se marcan en rojo: son la lista de trabajo de la sesión 17 y de la evaluable, donde se rellena «obtenido (después)». Al final de la unidad, la misma matriz con las dos columnas llenas es la demostración de que el trabajo está hecho.
 
 ```mermaid
 flowchart LR
@@ -203,42 +221,36 @@ flowchart LR
 
 ### A3.1 Auditoría inicial (sesión 16)
 
-<span class="et et-obj">Objetivo</span> Tener la matriz de exposición de la pila de monitorización tal como está hoy, con una evidencia fechada por fila y en rojo las filas que no deberían estar así, y dejar preparados los certificados y las reglas de OPNsense que la unidad necesita después del traslado a la VPC.
+<span class="et et-obj">Objetivo</span> Tener la matriz de exposición de la pila de monitorización tal como está hoy, con una evidencia fechada por fila y en rojo las filas que no deberían estar así. Es la mitad «antes» de la práctica evaluable, y solo se puede medir hoy: mañana app01 y mon01 se van a la VPC y la pila deja de estar como se construyó. De paso dejas preparados los certificados y las reglas de OPNsense que la unidad necesita después del traslado, para que las sesiones 17 y 18 solo tengan que instalarlos.
 
 <span class="et et-pre">Antes de empezar</span>
 
 - app01 y mon01 con la pila de la UT2 funcionando (todos los targets en UP), todavía en la red del aula y sin cortafuegos: eso es lo que la matriz tiene que demostrar con fecha. Hoy se usan sus direcciones del aula; el traslado a la VPC es mañana, en la A3.3 de Despliegue.
-- El puesto de administración, que tiene tarjeta en el aula además de la 10.10.0.50, hace hoy de origen "de fuera": web01 ya está detrás de OPNsense y no llega al aula.
-- La consola de OPNsense y la CA del curso (`Lab 5166 CA`) en `~/ca/` del puesto de administración, las dos de la [A3.2 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/). Si la CA no existe, créala con aquel apartado antes del paso 5.
-- Se ha explicado al principio de la sesión [qué se ve en un /metrics abierto](#superficie-de-exposicion-de-la-monitorizacion), la [tabla de puertos con las filas 11 a 13](#puertos-del-entorno-del-curso-y-quien-debe-llegar) y los [cinco pasos de la auditoría](#auditar-saber-que-hay-antes-de-tocar-nada), con el repaso de nmap y tcpdump.
+- El puesto de administración, que tiene tarjeta en el aula además de la 10.10.0.50, hace hoy de origen «de fuera»: web01 ya está detrás de OPNsense y no llega al aula.
+- La consola de OPNsense, con los alias `srv_app` y `srv_db`, y la CA del curso (`Lab 5166 CA`) en `~/ca/` del puesto de administración, las dos tal como las dejó ayer la [A3.2 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/). Si la CA no existe, créala con aquel apartado antes del paso 5.
+- Lo explicado antes: [qué se ve en un /metrics abierto](#que-se-ve-en-un-metrics-abierto), la [tabla de puertos con las filas 11 a 13](#puertos-del-entorno-del-curso-y-quien-debe-llegar) y las [cuatro medidas de la auditoría con su matriz](#auditar-saber-que-hay-antes-de-tocar-nada), con el repaso de nmap y tcpdump. Para el paso 5, [Certificados con la CA del curso](#certificados-con-la-ca-del-curso), que se explica en la sesión 17 pero hoy solo hace falta para firmar.
 
 <span class="et et-pas">Pasos</span>
 
-1. Haz el inventario de app01 y de mon01 con las dos órdenes de [Inventario desde dentro](#inventario-desde-dentro), en `inventario-<host>-<fecha>.txt`, y apunta por cada puerto en qué dirección escucha y si lo publica Docker.
+Vas a hacer dos cosas. Primero, en los cuatro primeros pasos, la auditoría, de dentro afuera y en el orden de la teoría: lo que cada host dice que escucha, lo que se alcanza desde otras máquinas y lo que contesta cada puerto, lo que viaja por la red y, al final, la matriz que lo compara todo con lo esperado. Después, en los dos últimos, preparas el traslado de mañana: los certificados y las reglas de OPNsense no se pueden probar hoy, pero dejarlos hechos es lo que permite que la sesión 17 se dedique entera a cerrar y a cifrar.
+
+1. **Haz el inventario de app01 y de mon01.** Antes de mirar desde fuera, apunta lo que cada máquina dice que expone, con las dos órdenes de [Inventario desde dentro](#inventario-desde-dentro), en `inventario-<host>-<fecha>.txt`. Por cada puerto, anota en qué dirección escucha y si lo publica Docker: son los dos datos que deciden, en la sesión 17, dónde va la regla que lo cierra.
 
     *Pista:* instala antes `tcpdump`, `netcat-openbsd` y `nftables` en app01, que mañana pierde la salida a Internet, y `nmap` en mon01 y en el puesto de administración. De app01, la matriz solo recoge lo que sigue allí tras el traslado: la base de datos, nginx y postgres_exporter se van mañana.
 
-2. Escanea con nmap, como en [Escaneo desde fuera](#escaneo-desde-fuera), los puertos esperados de app01 desde mon01 (`escaneo-app01-desde-mon01-<fecha>.txt`) y todos los de app01 y mon01 desde el puesto de administración (`escaneo-desde-admin-<fecha>.txt`). Desde el puesto, guarda en `curl-app01-desde-admin-<fecha>.txt` lo que responden a un `curl` sin credenciales los cuatro exporters de app01.
+2. **Escanea desde fuera y pide las métricas sin credenciales.** Comprueba qué se alcanza de verdad desde los dos orígenes de hoy, como en [Escaneo desde fuera](#escaneo-desde-fuera): desde mon01, los puertos esperados de app01 (`escaneo-app01-desde-mon01-<fecha>.txt`), que tienen que salir abiertos porque es el cliente legítimo; desde el puesto de administración, todos los de app01 y mon01 (`escaneo-desde-admin-<fecha>.txt`), que es lo que vería cualquiera del aula. Después, desde el puesto, guarda en `curl-app01-desde-admin-<fecha>.txt` lo que responden los cuatro exporters de app01 a una petición sin credenciales, como en [Protocolos y autenticación](#protocolos-y-autenticacion): demuestra que, además de alcanzables, hablan en claro y contestan a cualquiera.
 
-3. Desde app01, guarda en `tcpdump-app01-3100-<fecha>.txt` veinte paquetes del tráfico de Promtail hacia Loki con el contenido legible, y en `nc-mon01-desde-app01-<fecha>.txt` si llega a los puertos 3000, 8025, 9090 y 9093 de mon01.
+3. **Mira qué viaja por la red desde app01.** Guarda en `tcpdump-app01-3100-<fecha>.txt` veinte paquetes del tráfico de Promtail hacia Loki con el contenido legible, como en [Tráfico real con tcpdump](#trafico-real-con-tcpdump): es la mitad «antes» de la pareja de capturas que demuestra el cifrado. Guarda también en `nc-mon01-desde-app01-<fecha>.txt` si app01 llega a los puertos 3000, 8025, 9090 y 9093 de mon01: es el sentido contrario, lo que alcanzaría quien comprometiese la API.
 
     *Pista:* comprueba el nombre de la interfaz con `ip -br link` antes de capturar. `nc` escribe su resultado en la salida de error: redirígela al fichero.
 
-4. Reúne las evidencias en `audit/antes/` del repositorio `monitoring` de mon01 (`/opt/monitoring`) y crea `audit/matriz.md` con las ocho filas de [La matriz de exposición](#la-matriz-de-exposicion): "obtenido (antes)" con lo medido y las direcciones de hoy, "después" vacía y en rojo (negrita o una columna "estado") las filas donde esperado y obtenido no coinciden. Haz commit.
+4. **Junta las medidas en la matriz.** Reúne las evidencias en `audit/antes/` del repositorio `monitoring` de mon01 (`/opt/monitoring`) y crea `audit/matriz.md` con las ocho filas de [La matriz de exposición](#la-matriz-de-exposicion): «obtenido (antes)» con lo medido y las direcciones de hoy, «después» vacía, y en rojo (negrita o una columna «estado») las filas donde esperado y obtenido no coinciden, que son la lista de trabajo del resto de la unidad. Haz commit: su fecha es una prueba más de cuándo se midió.
 
-5. Emite con la CA del curso, como en [Certificados con la CA del curso](#certificados-con-la-ca-del-curso), los ocho certificados que las sesiones 17 y 18 solo tendrán que instalar, y déjalos con sus claves y una copia de `ca.crt` en `~/tls-monitorizacion/` del puesto de administración, fuera de cualquier repositorio. Siete son de servidor, con su SAN: `app01-node` y `app01-nginx` (`DNS:app01.dev.lab,IP:10.10.2.10`), `db01-node` y `db01-postgres` (`DNS:db01.dev.lab,IP:10.10.3.10`), `mon01-node` y `mon01-loki` (`DNS:mon01.lab,IP:10.10.0.20`) y `mon01-nginx` (lo mismo más `DNS:grafana.lab`). El octavo, `promtail-app01`, es de cliente y no lleva SAN. Comprueba uno de cada clase con `openssl x509 -noout -ext subjectAltName,extendedKeyUsage`.
+5. **Emite de una vez los certificados de la unidad.** Las sesiones 17 y 18 cifran el scrape y los logs, y cada servicio que va a hablar TLS necesita su certificado firmado por la CA del curso. Emítelos hoy todos, como en [Certificados con la CA del curso](#certificados-con-la-ca-del-curso), y déjalos con sus claves y una copia de `ca.crt` en `~/tls-monitorizacion/` del puesto de administración, fuera de cualquier repositorio: después solo habrá que copiarlos. Son ocho. Siete son de servidor, con su SAN: `app01-node` y `app01-nginx` (`DNS:app01.dev.lab,IP:10.10.2.10`), `db01-node` y `db01-postgres` (`DNS:db01.dev.lab,IP:10.10.3.10`), `mon01-node` y `mon01-loki` (`DNS:mon01.lab,IP:10.10.0.20`) y `mon01-nginx` (lo mismo más `DNS:grafana.lab`). El octavo, `promtail-app01`, es de cliente y no lleva SAN. Comprueba uno de cada clase con `openssl x509 -noout -ext subjectAltName,extendedKeyUsage`.
 
-    *Pista:* firmar es mecánico; con esta función, ejecutada en `~/ca` y con `T=~/tls-monitorizacion`, cada certificado de servidor es una línea (`srv app01-node DNS:app01.dev.lab,IP:10.10.2.10`). El de cliente lleva `-extensions client_cert` y ningún SAN. Si repites una firma, `index.txt` la apunta dos veces: emite solo los que falten.
+    *Pista:* con la función de aquel apartado, cada certificado de servidor es una línea; el de cliente lleva `-extensions client_cert` y ningún SAN. Si repites una firma, `index.txt` la apunta dos veces: emite solo los que falten.
 
-    ```bash
-    srv() {   # srv <nombre> <SAN>
-      openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
-        -keyout $T/$1.key -out $T/$1.csr -subj "/CN=$1" -addext "subjectAltName=$2"
-      openssl ca -batch -notext -config ca.cnf -extensions server_cert -in $T/$1.csr -out $T/$1.crt
-    }
-    ```
-
-6. Deja en OPNsense las filas 11 a 13 de la [tabla del apartado](#puertos-del-entorno-del-curso-y-quien-debe-llegar), con sus alias nuevos (`srv_mon`, `p_mon_app` y `p_mon_db`) y el número de fila al principio de la descripción: desde el traslado de mañana dejarán pasar el scrape y los logs, aunque hoy no se pueden probar. Mañana añade también las tres filas, con su justificación, a la `matriz-reglas.md` que empiezas en la A3.3 de Despliegue.
+6. **Deja en OPNsense las reglas del traslado.** Crea las filas 11 a 13 de la [tabla del apartado](#puertos-del-entorno-del-curso-y-quien-debe-llegar), con sus alias nuevos (`srv_mon`, `p_mon_app` y `p_mon_db`) y el número de fila al principio de la descripción, para que el log y la matriz de reglas se crucen sin buscar. Hoy no se pueden probar, porque app01 y mon01 todavía no pasan por OPNsense, pero desde el traslado de mañana son las que dejan pasar el scrape y los logs. Mañana añade también las tres filas, con su justificación, a la `matriz-reglas.md` que empiezas en la A3.3 de Despliegue.
 
 <span class="et et-com">Comprobación</span> Un fichero de inventario por host, el escaneo desde mon01 y el del puesto de administración con la fecha en el nombre y en la cabecera, el fichero de curl con `200 OK` y métricas, el de `nc` desde app01 con los cuatro puertos `succeeded`, y una captura de tcpdump donde se lee `POST /loki/api/v1/push` en claro. En la matriz, las filas del puesto de administración y de app01 hacia puertos de monitorización están en rojo y la de mon01 no. En `~/tls-monitorizacion/` hay ocho certificados con su clave y `ca.crt`, y los dos comprobados dicen lo que tienen que decir: el de servidor lleva su SAN y `serverAuth`, y el de cliente, `clientAuth`. En OPNsense están los tres alias y las filas 11 a 13.
 
@@ -250,15 +262,17 @@ flowchart LR
 
 <p class="ut-meta" markdown>1 de diciembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Por qué Docker se salta el firewall del host · 10 min&#10;Reducir: red Docker dedicada y firewall por host · 10 min&#10;Proteger: cifrado y autenticación · 10 min&#10;A3.2 Red, firewall y TLS · 80 min" data-dur="Por qué Docker se salta el firewall del host · 10 min&#10;Reducir: red Docker dedicada y firewall por host · 10 min&#10;Proteger: cifrado y autenticación · 10 min&#10;A3.2 Red, firewall y TLS · 80 min">:material-school:<i class="dur-barra" style="--teoria:27%"></i>:material-flask:</span></p>
 
-Esta sesión junta las dos capas que quedan, cerrar y cifrar, porque una sin la otra no protege nada: un puerto cerrado sigue hablando en claro con quien sí puede llegar, y un puerto cifrado sigue expuesto a quien no debería verlo. La hoja las aplica sobre app01, que tiene a la vez un exporter que escucha como servicio del host y tres puertos que publica Docker. Al acabar, app01 queda cerrado por su propio nftables además de por OPNsense, eso sobrevive a un reinicio, y el scrape de su node_exporter va cifrado y con contraseña, con `nmap -sV` respondiendo `ssl/http`. Empieza por el apartado sobre Docker y NAT, porque sin él las reglas de la hoja parecen no funcionar; después vienen la publicación acotada, el fichero nftables completo, la segunda capa en OPNsense y, al final, los certificados de la CA del curso y el `web.config.file` con bcrypt. Los ficheros van completos aquí y la hoja se limita a copiarlos y cambiar dos o tres líneas. El cierre de mon01 y el mTLS entre Promtail y Loki se montan en la práctica evaluable de la sesión 18, con su material de consulta allí.
+La matriz de la A3.1 tiene filas en rojo de tres clases: puertos que se alcanzan desde donde no toca, tráfico que viaja en claro y servicios que contestan a cualquiera. Desde el 27 de noviembre app01 y mon01 están en la VPC, detrás de OPNsense, y eso permite por fin arreglarlas con las dos capas que quedan: **reducir**, para que solo llegue quien debe, y **proteger**, para que lo que llega vaya cifrado y con credenciales. Hacen falta las dos, porque una sin la otra no protege nada: un puerto cerrado sigue hablando en claro con quien sí puede llegar, y un puerto cifrado sigue expuesto a quien no debería verlo. La teoría va en el orden en que se aplican. Primero, por qué un cortafuegos en un host con Docker no filtra los puertos que publica Docker, porque sin eso las reglas de la hoja parecen no funcionar; después, la reducción por capas (publicar solo donde hace falta, el nftables de cada host y la segunda capa en OPNsense); luego, qué resuelve TLS y qué resuelve la autenticación, los certificados de la CA del curso y cómo se activan los dos en un exporter; y al final, cómo se demuestra que todo eso funciona. La hoja lo aplica a app01, que tiene a la vez un exporter que escucha como servicio del host y tres puertos que publica Docker: al acabar, app01 queda cerrado por su propio nftables además de por OPNsense, de forma que sobrevive a un reinicio, y el scrape de su node_exporter va cifrado y con contraseña, con `nmap -sV` respondiendo `ssl/http`. Los ficheros van completos aquí y la hoja solo tiene que adaptarlos. El cierre de mon01 y el mTLS entre Promtail y Loki se montan en la práctica evaluable de la sesión 18, con su material de consulta allí.
 
 ### Por qué Docker se salta el firewall del host
 
-Es el error más común al poner un firewall en una máquina con Docker, y conviene entender el mecanismo porque aparece en cualquier host que combine las dos cosas. Alguien pone reglas en nftables (el firewall del kernel Linux) o en ufw (un frontal simplificado de iptables) para cerrar el 8080, comprueba con `nft list ruleset` que están, y desde otra máquina el 8080 sigue abierto. La regla no está mal: es que el paquete nunca pasa por ella.
+**El síntoma.** Es el error más común al poner un firewall en una máquina con Docker, y conviene entender el mecanismo porque aparece en cualquier host que combine las dos cosas. Alguien pone reglas en nftables o en ufw (un frontal simplificado de iptables) para cerrar el 8080, comprueba con `nft list ruleset` que están, y desde otra máquina el 8080 sigue abierto. La regla no está mal: es que el paquete nunca pasa por ella.
 
-Para seguir el mecanismo hay que conocer tres piezas de Netfilter, el filtro de paquetes del kernel: las tablas (`nat` para reescribir direcciones, `filter` para aceptar o tirar), las cadenas por las que pasa un paquete según su camino (`PREROUTING` al entrar, `INPUT` si va al propio host, `FORWARD` si el host lo reenvía) y DNAT, la reescritura de la dirección de destino.
+**Las piezas del cortafuegos del kernel.** El filtro de paquetes de Linux se llama Netfilter y vive en el kernel; iptables y nftables son las dos herramientas con las que se le escriben reglas (nftables es la actual y la que trae Debian; iptables, la histórica, que todavía usan muchos programas, Docker entre ellos). Para seguir el mecanismo hacen falta tres piezas: las **tablas**, que agrupan las reglas según lo que hacen (`nat` para reescribir direcciones, `filter` para aceptar o tirar); las **cadenas**, los puntos del camino del paquete donde se aplican (`PREROUTING` al entrar, `INPUT` si va al propio host, `FORWARD` si el host lo reenvía a otro sitio); y el **DNAT** (NAT de destino), la reescritura de la dirección o el puerto de destino de un paquete, que es lo que hace el port forward de un router.
 
-Cuando se publica un puerto con `-p 8080:8080`, Docker no abre un socket en el host y reenvía (eso solo lo hace `docker-proxy` como apoyo para el tráfico local). Lo que hace es escribir reglas en las tablas del kernel: una regla DNAT en la cadena `PREROUTING` de la tabla `nat` que cambia el destino `10.10.2.10:8080` por `172.18.0.3:8080` (la IP del contenedor en su red bridge), y reglas en la cadena `FORWARD` de la tabla `filter` que aceptan ese tráfico hacia el bridge. Un paquete que llega de fuera con destino al contenedor entra por `PREROUTING`, se le cambia el destino, y como el nuevo destino no es una IP local del host, el kernel lo enruta: pasa por `FORWARD`, no por `INPUT`. Las reglas de `INPUT` (que es donde todo el mundo pone las reglas de "este host solo acepta X") no lo ven jamás. Con `-p 9100:9100` de un node_exporter en contenedor pasa exactamente lo mismo.
+**Cómo publica Docker un puerto.** Un contenedor tiene su propia dirección en una red bridge de Docker (por ejemplo, la 172.18.0.3), que solo existe dentro del host. Para que un puerto del host llegue a él, Docker hace lo mismo que el [port forward de OPNsense](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#nat-port-forward-y-outbound) de Despliegue, pero dentro del propio host. Con `-p 8080:8080` no abre un socket y reenvía (eso solo lo hace `docker-proxy` como apoyo para el tráfico local): escribe una regla DNAT en la cadena `PREROUTING` de la tabla `nat` que cambia el destino `10.10.2.10:8080` por `172.18.0.3:8080`, y reglas en la cadena `FORWARD` de la tabla `filter` que aceptan ese tráfico hacia el bridge.
+
+**Por qué la regla del host no lo ve.** Un paquete que llega de fuera con destino al contenedor entra por `PREROUTING` y se le cambia el destino; como el nuevo destino ya no es una dirección del host, el kernel lo enruta: pasa por `FORWARD`, no por `INPUT`. Las reglas de `INPUT`, que es donde todo el mundo pone las de «este host solo acepta X», no lo ven jamás. Con `-p 9100:9100` de un node_exporter en contenedor pasaría exactamente lo mismo.
 
 ```mermaid
 flowchart TB
@@ -283,9 +297,9 @@ flowchart TB
 
 <p class="pie" markdown>El tráfico a un contenedor publicado nunca pasa por `INPUT`: por eso una regla en el firewall del host no lo filtra y hay que ponerla en `DOCKER-USER`.</p>
 
-Docker sabe que esto es un problema y por eso crea la cadena `DOCKER-USER` al principio de `FORWARD`: es la única cadena que Docker promete no tocar, y todo el tráfico hacia contenedores pasa por ella antes que por las reglas de Docker. En Debian 13 con Docker Engine 28 las reglas de Docker se escriben con la API de iptables, que por debajo es `iptables-nft`, así que conviven con el ruleset propio de nftables en tablas distintas (`ip filter`, `ip nat` de Docker frente a `inet fw`). Un matiz de nftables que aquí importa: cuando hay varias tablas con cadenas base en el mismo hook, el kernel las evalúa todas. Un `accept` en la cadena de Docker no salva al paquete de un `drop` en la propia; un `drop` en cualquiera es definitivo. Por eso una cadena `forward` en la tabla propia con reglas de `drop` explícitas funciona aunque Docker acepte el tráfico en la suya.
+**La cadena que Docker deja para el administrador.** Docker sabe que esto es un problema y por eso crea la cadena `DOCKER-USER` al principio de `FORWARD`: es la única cadena que Docker promete no tocar, y todo el tráfico hacia contenedores pasa por ella antes que por las reglas de Docker. En Debian 13 con Docker Engine 28 las reglas de Docker se escriben con la API de iptables, que por debajo es `iptables-nft`, así que acaban como tablas de nftables (`ip filter`, `ip nat`) que conviven con la tabla propia del host (`inet fw`, la del fichero de más abajo). Un matiz de nftables que aquí importa: cuando hay varias tablas con cadenas base en el mismo hook (el mismo punto del camino del paquete), el kernel las evalúa todas. Un `accept` en la cadena de Docker no salva al paquete de un `drop` en la propia; un `drop` en cualquiera es definitivo. Por eso una cadena `forward` en la tabla propia con reglas de `drop` explícitas funciona aunque Docker acepte el tráfico en la suya.
 
-Hay tres soluciones, y en el laboratorio se usan las tres según el caso:
+**Las tres soluciones.** En el laboratorio se usan las tres, según el caso:
 
 1. **Publicar en una IP concreta.** `-p 10.10.2.10:9102:9102` (o `"10.10.2.10:9102:9102"` en el compose) hace que la regla DNAT solo se aplique a paquetes cuyo destino original es esa IP. En una máquina con varias tarjetas esto basta para esconder un puerto de las zonas que no deben verlo. En el laboratorio del curso no basta, y conviene tenerlo claro desde el principio: app01 tiene una sola tarjeta, la de la zona back, así que publicar en la 10.10.2.10 no lo esconde de nadie que ya esté en back. Lo que sí consigue es dejar de publicar en `0.0.0.0`, es decir, retirar el puerto de `localhost` y de los bridges de Docker, donde cualquier contenedor del host lo alcanzaba. Lo mismo vale para los exporters que corren como servicio del sistema (node_exporter con `--web.listen-address=10.10.2.10:9100`), que no tienen nada que ver con Docker pero sufren el mismo problema de "escuchar en todas partes". Se puede fijar como valor por defecto en `/etc/docker/daemon.json` con `"ip": "10.10.2.10"`, y entonces cualquier `-p 8080:8080` que a alguien se le olvide restringir se publica ahí y no en todas las interfaces. Quién llega de verdad al puerto lo decide la solución 3 y OPNsense.
 2. **No publicar: red interna.** Si Prometheus corre en un contenedor de la misma máquina, no hace falta publicar nada: los dos contenedores comparten una red Docker y se hablan por nombre. Es lo que se hace en mon01 con Prometheus, Alertmanager, Loki y Grafana. Para app01, donde Prometheus está en otra máquina, la red Docker no cruza hosts, así que se combina con la solución 1 o la 3 (apartado siguiente).
@@ -295,14 +309,14 @@ Hay tres soluciones, y en el laboratorio se usan las tres según el caso:
 iptables -I DOCKER-USER -i ens18 -p tcp -m conntrack --ctorigdstport 8081 ! -s 10.10.0.20 -j DROP
 ```
 
-El `--ctorigdstport` es necesario porque en `DOCKER-USER` el paquete ya ha pasado por el DNAT y su puerto de destino es el del contenedor, que no siempre coincide con el publicado; conntrack (el seguimiento de conexiones del kernel) recuerda el destino original. Con nftables la misma idea va en la cadena `forward` de la tabla propia y aparece en el fichero completo más abajo.
+El `--ctorigdstport` es necesario porque en `DOCKER-USER` el paquete ya ha pasado por el DNAT y su puerto de destino es el del contenedor, que no siempre coincide con el publicado; conntrack (el seguimiento de conexiones del kernel, el mismo que hace funcionar los [cortafuegos con estado](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#cortafuegos-con-estado) de Despliegue) recuerda el destino original. Con nftables la misma idea va en la cadena `forward` de la tabla propia y aparece en el fichero completo más abajo.
 
 !!! ojo "ufw y Docker"
     `ufw` es un frontal de iptables que solo escribe en `INPUT`, así que con Docker no sirve para nada respecto a los puertos publicados, y hay años de hilos en foros de gente sorprendida. Si aparece ufw en una máquina con Docker, lo prudente es asumir que los puertos publicados están abiertos y comprobarlo con nmap desde fuera.
 
 ### Reducir: red Docker dedicada y firewall por host
 
-El trabajo de este apartado es cerrar puertos. El objetivo es que, al terminar, un escaneo desde cualquier sitio que no sea mon01 devuelva `filtered` para todos los puertos de la monitorización, y que ese resultado se deba a dos capas independientes: la forma de publicar los puertos y el firewall de cada host, por un lado, y OPNsense en el centro de la VPC, por otro. Si una de las dos falla o alguien la desconfigura, la otra sigue cerrando.
+El trabajo de este apartado es cerrar puertos. El objetivo es que, al terminar, un escaneo desde cualquier sitio que no sea mon01 devuelva `filtered` para todos los puertos de la monitorización, y que ese resultado se deba a dos capas independientes: la forma de publicar los puertos y el firewall de cada host, por un lado, y OPNsense en el centro de la VPC, por otro. Si una de las dos falla o alguien la desconfigura, la otra sigue cerrando. Es la defensa en profundidad del modelo de capas de la [UT3 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#defensa-en-profundidad-y-zonas), aplicada a la monitorización.
 
 <figure markdown="span">
   ![DMZ con un cortafuegos](../img/dmz-un-firewall.svg){ width="560" }
@@ -311,7 +325,7 @@ El trabajo de este apartado es cerrar puertos. El objetivo es que, al terminar, 
 
 #### Publicar solo donde hace falta
 
-La red dedicada ya existe: es `obs`, la red de Docker que comparten desde la UT1 los composes del servicio, de los agentes y de la monitorización, y por la que los contenedores se llaman por nombre. Lo que falta es acotar lo que se publica hacia fuera. En app01 hay que publicar, porque Prometheus está en otra máquina, así que se aplica la solución 1 cambiando solo las líneas `ports` de los dos composes:
+**Lo que se arregla en el compose.** La red dedicada ya existe: es `obs`, la red de Docker que comparten desde la UT1 los composes del servicio, de los agentes y de la monitorización, y por la que los contenedores se llaman por nombre. Lo que falta es acotar lo que se publica hacia fuera. En app01 hay que publicar, porque Prometheus está en otra máquina, así que se aplica la solución 1 cambiando solo las líneas `ports` de los dos composes:
 
 ```yaml
 # /opt/servicio/compose.yml, servicio app
@@ -325,10 +339,15 @@ Lo que se retira es la publicación en `0.0.0.0` (localhost y los bridges de Doc
 
 #### nftables por host: el fichero completo
 
-Cada host lleva su propio firewall aunque OPNsense ya filtre entre zonas, porque OPNsense no ve el tráfico dentro de una misma subred (una máquina comprometida en back llegaría a app01 sin pasar por él) y porque dos capas independientes son lo que pide la defensa en profundidad. El fichero va en `/etc/nftables.conf`, que es el que carga `nftables.service` en Debian, y se activa con `systemctl enable --now nftables`. Este es el de app01 completo; conviene fijarse en las dos cadenas: `input` es para lo que escucha el propio host (node_exporter, SSH) y `forward` para los puertos que publica Docker, que no pasan por `input`:
+**Por qué cada host lleva el suyo.** Cada host lleva su propio firewall aunque OPNsense ya filtre entre zonas, por dos motivos: OPNsense no ve el tráfico dentro de una misma subred (una máquina comprometida en back llegaría a app01 sin pasar por él), y dos capas independientes son lo que pide la defensa en profundidad. En Debian el cortafuegos del host se escribe con nftables: el fichero va en `/etc/nftables.conf`, que es el que carga `nftables.service` al arrancar, y se activa con `systemctl enable --now nftables`.
+
+**Cómo se lee un fichero de nftables.** A diferencia de iptables, en nftables no hay tablas ni cadenas hechas de antemano: se declaran. Una **tabla** agrupa todo lo propio, y la familia `inet` hace que valga a la vez para IPv4 y para IPv6. Dentro, cada **cadena base** se engancha a un punto del camino del paquete (`hook input`, `forward` u `output`, los mismos del apartado anterior) con una prioridad, y lleva una **política**: lo que se hace con el paquete que llega al final sin que ninguna regla haya decidido. Un **conjunto** (`set`) es una lista con nombre que las reglas usan con `@`, para escribir los puertos una sola vez. Y las reglas que empiezan por `ct` consultan conntrack: `ct state established,related accept` deja pasar todo lo que pertenece a una conexión ya aceptada, así que solo hay que escribir reglas para el primer paquete de cada una.
+
+Este es el de app01 completo; conviene fijarse en las dos cadenas: `input` es para lo que escucha el propio host (node_exporter, SSH) y `forward` para los puertos que publica Docker, que no pasan por `input`:
 
 ```text
 #!/usr/sbin/nft -f
+table inet fw
 flush table inet fw
 
 table inet fw {
@@ -369,35 +388,63 @@ table inet fw {
 }
 ```
 
-La cadena `input` tiene política `drop` y solo abre lo que la matriz justifica; la regla de `log ... drop` va explícita, aunque la política ya tiraría esos paquetes, para que quede rastro en `journalctl -k` de quién lo intenta. La cadena `forward` no tiene política `drop`: si la tuviera, cortaría el tráfico de los contenedores hacia otras máquinas (Promtail hacia Loki, la API hacia la base de datos), que también pasa por `forward`. Se deja `accept` y se ponen `drop` explícitos para lo que importa, apoyándose en que un `drop` en la tabla propia es definitivo aunque la tabla de Docker acepte. `ct original proto-dst` es el equivalente nftables del `--ctorigdstport`: el puerto de destino tal como llegó, antes del DNAT. `flush table inet fw` al principio hace el fichero idempotente (se recarga con `nft -f /etc/nftables.conf` sin duplicar reglas) y no toca las tablas de Docker, que es lo que haría un `flush ruleset`: Docker no las regenera hasta que se reinicia el servicio, y quedarían contenedores publicados sin NAT.
+Las decisiones del fichero:
+
+- **Las dos primeras líneas** crean la tabla si no existe y la vacían, así que el fichero se puede recargar con `nft -f /etc/nftables.conf` sin duplicar reglas. La primera hace falta porque no se puede vaciar una tabla que todavía no existe: sin ella, la primera carga del fichero fallaría. Las dos tocan solo la tabla propia: un `flush ruleset`, que es como empieza el `/etc/nftables.conf` que trae Debian, borraría también las tablas de Docker, que no las regenera hasta que se reinicia el servicio, y dejaría los contenedores publicados sin NAT.
+- **`input` con política `drop`**: el host solo acepta lo que la matriz justifica. Primero va lo que no se discute (el tráfico local por `lo`, las respuestas de conexiones ya aceptadas y el ICMP, sin el que no funcionan ni el ping de diagnóstico ni IPv6), y después SSH solo desde la red de gestión y los puertos de monitorización solo desde mon01.
+- **El `log ... drop` explícito**, aunque la política ya tiraría esos paquetes, deja rastro en `journalctl -k` de quién lo intenta, con un prefijo fácil de buscar.
+- **`forward` con política `accept`** y `drop` explícitos solo para lo que importa. Con política `drop` cortaría también el tráfico de los contenedores hacia otras máquinas (Promtail hacia Loki, la API hacia la base de datos), que pasa por `forward`. Funciona porque, como se vio en el apartado anterior, un `drop` en la tabla propia es definitivo aunque la tabla de Docker acepte.
+- **`ct original proto-dst`** es el equivalente nftables del `--ctorigdstport`: el puerto de destino tal como llegó, antes del DNAT.
 
 El de db01 es el mismo con dos cambios: el conjunto pasa a `{ 9100, 9187 }` y se añade `ip saddr 10.10.2.10 tcp dport 5432 accept`, porque allí PostgreSQL es un servicio del host y sí pasa por `input`; la cadena `forward` sobra, porque db01 no tiene Docker. El de mon01 tiene una trampa: casi todo lo que se protege allí lo publica Docker (el nginx que da paso a Grafana y a Loki, y la Gitea provisional), así que una cadena `input` sola no filtra nada de eso y hacen falta las dos. Su fichero está en la sesión 18, en [Cerrar mon01](#cerrar-mon01-publicacion-y-cortafuegos), porque se escribe a la vez que se retira el 3000 de Grafana.
 
 #### Segunda capa en OPNsense
 
-Las filas 11 a 13 que la A3.1 dejó en OPNsense son la segunda capa: desde el cortafuegos central dicen lo mismo que cada host. Con las dos, un escaneo desde web01 hacia app01:9100 da `filtered` por dos motivos independientes, y en el registro en vivo (Firewall, Log Files, Live View) aparece el bloqueo con la regla que lo decidió; una captura de esa vista es la evidencia de la segunda capa. Ver que la capa del host funciona sola exige llegar a app01 sin que OPNsense corte antes, y eso solo se consigue con una fila temporal, que es una de las tareas de «si te sobra tiempo» de la A3.2. En mon01 es más fácil, porque el puesto de administración está en su misma subred y OPNsense no se interpone: es la prueba que hace la evaluable.
+**Qué añade.** Las filas 11 a 13 que la A3.1 dejó en OPNsense son la segunda capa: desde el cortafuegos central dicen lo mismo que cada host. Si alguien compromete app01 y vacía su nftables, OPNsense sigue cerrando; si alguien abre de más en OPNsense, sigue cerrando el host. Con las dos, un escaneo desde web01 hacia app01:9100 da `filtered` por dos motivos independientes, y en el registro en vivo de OPNsense (Firewall, Log Files, Live View, el de la [sesión 15 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#logs)) aparece el bloqueo con la regla que lo decidió; una captura de esa vista es la evidencia de la segunda capa.
+
+**Cómo se prueba cada capa por separado.** Ver que la capa del host funciona sola exige llegar a app01 sin que OPNsense corte antes, y eso solo se consigue con una fila temporal, que es una de las tareas de «si te sobra tiempo» de la A3.2. En mon01 es más fácil, porque el puesto de administración está en su misma subred y OPNsense no se interpone: es la prueba que hace la evaluable.
 
 ### Proteger: cifrado y autenticación
 
-Con el firewall, alguien de front ya no llega a los exporters. Pero cualquiera con acceso a la red de gestión (un portátil de un administrador, una VM mal colocada, o la propia mon01 si la comprometen) sigue leyendo las métricas y los logs en claro. TLS resuelve la confidencialidad y la autenticación del servidor; basic auth o mTLS (TLS mutuo: también el cliente presenta certificado) resuelven quién puede pedir.
+**Lo que el cortafuegos no arregla.** Con el cortafuegos, alguien de front ya no llega a los exporters. Pero el cortafuegos decide por la dirección de origen, y eso deja dos huecos. El primero: el scrape sigue viajando en claro, de gestión a back a través de OPNsense, y cualquiera que pueda capturar en ese camino (una máquina comprometida en el mismo segmento, el propio cortafuegos) lee las métricas y los logs. El segundo: la regla confía en una dirección, no en un programa, y todo lo que corre en mon01 sale con la 10.10.0.20, incluidos sus contenedores (la Gitea provisional, por ejemplo); si uno de ellos cae en malas manos, pasa el filtro como si fuera Prometheus. Para cerrar esos dos huecos hacen falta otras dos piezas: cifrar el canal y que cada extremo demuestre quién es.
+
+#### Qué resuelve TLS y qué resuelve la autenticación
+
+**Qué es TLS.** TLS (*Transport Layer Security*, seguridad de la capa de transporte) es el protocolo que cifra una conexión y permite al cliente comprobar con quién está hablando. Es el sucesor de SSL, cuyo nombre sigue apareciendo en mensajes de error y en directivas de nginx, y es la S de HTTPS: el mismo HTTP de siempre, dentro de un canal cifrado. Al abrir la conexión, en el handshake, el servidor presenta su certificado: un documento que dice «esta clave pública es de `app01.dev.lab` y de la 10.10.2.10» y que lleva la firma de una autoridad de certificación (CA). El cliente comprueba esa firma con el certificado de la CA, que tiene guardado y en el que confía, y comprueba que el nombre o la dirección a la que se ha conectado está en el certificado. Si todo cuadra, los dos acuerdan una clave para esa conexión y a partir de ahí todo viaja cifrado.
+
+**Lo que resuelve.** Dos cosas: la confidencialidad (quien capture el tráfico no lee nada, y si lo altera se nota) y la identidad del servidor (Prometheus sabe que habla con el exporter de app01 y no con otra máquina que se haga pasar por él).
+
+**Lo que no resuelve.** Quién es el cliente. Un servidor TLS normal acepta la conexión de cualquiera: cifra la conversación, pero no pregunta con quién la tiene. Para eso hace falta autenticación, y en el curso se usa una forma distinta en cada sentido del tráfico, aunque técnicamente las dos valdrían en los dos:
+
+- **Basic auth en los exporters**, a los que Prometheus va a buscar las métricas. El cliente manda en cada petición una cabecera `Authorization` con su usuario y su contraseña, solo codificados en base64, que se deshace sin ninguna clave: basic auth sin TLS es entregar la contraseña en claro, y por eso van siempre juntos. Encaja porque cada exporter tiene un solo cliente legítimo, Prometheus, y la librería de los exporters la trae hecha.
+- **mTLS** (TLS mutuo) **delante de Loki**, al que los hosts empujan sus logs. El cliente también presenta un certificado firmado por la CA, y el servidor lo comprueba igual que el cliente comprueba el suyo. Encaja porque Loki no trae autenticación propia, y el nginx que se le pone delante comprueba certificados sin guardar ninguna contraseña: le basta con el certificado de la CA del curso.
+
+**Por qué TLS 1.3 y no otra versión.** La 1.3, de 2018, es la actual, y quitó los algoritmos antiguos que daban problemas en las anteriores. Todos los clientes del curso la hablan (Prometheus, Promtail, curl y los navegadores), así que no hay motivo para aceptar nada anterior, y por eso cada servidor de la unidad la exige como mínimo.
 
 #### Certificados con la CA del curso
 
-La CA del curso es la que se creó en la [A3.2 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/) (`Lab 5166 CA`) y vive en `~/ca/` del puesto de administración, con su `ca.cnf`, `index.txt`, `serial` y `crlnumber`; `ca.key` no sale nunca de ahí. Se firma con `openssl ca`, que apunta cada certificado en `index.txt` y así permite revocarlo después. Por cada servicio que va a hablar TLS se emite un certificado de servidor con su nombre y su IP en el SAN (Subject Alternative Name, la lista de nombres e IP para los que vale), porque Prometheus y Promtail validan el SAN y no el CN (el campo clásico de nombre):
+**Qué hace falta para hablar TLS.** Cada servicio que va a hablar TLS necesita un certificado con su nombre y su dirección, firmado por una CA en la que confíen sus clientes. El curso tiene la suya, la que se creó en la [A3.2 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#certificados) (`Lab 5166 CA`), que vive en `~/ca/` del puesto de administración con su `ca.cnf`, `index.txt`, `serial` y `crlnumber`; `ca.key` no sale nunca de ahí. Una CA propia y no un certificado autofirmado por servicio, porque así cada cliente confía en un solo fichero, `ca.crt`, y con él en todo lo que la CA firme; y no Let's Encrypt, porque solo firma nombres públicos que puede comprobar desde Internet, y `app01.dev.lab` no lo es.
+
+**Cómo se emite uno.** Se firma con `openssl ca`, que apunta cada certificado en `index.txt` y así permite revocarlo después. Por cada servicio que va a hablar TLS se emite un certificado de servidor con su nombre y su IP en el SAN (Subject Alternative Name, la lista de nombres e IP para los que vale), porque Prometheus y Promtail validan el SAN y no el CN (el campo clásico de nombre). Son dos órdenes: `openssl req` crea la clave y la petición de firma (CSR) con el nombre y el SAN, y `openssl ca` la firma con la extensión de servidor. Como en la A3.1 se emiten ocho seguidos y entre uno y otro solo cambian el nombre y el SAN, las dos órdenes van en una función:
 
 ```bash
-# en ~/ca del puesto de administración, para el node_exporter de app01
-openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
-  -keyout app01-node.key -out app01-node.csr -subj "/CN=app01-node" \
-  -addext "subjectAltName=DNS:app01.dev.lab,IP:10.10.2.10"
-openssl ca -config ca.cnf -extensions server_cert -notext -in app01-node.csr -out app01-node.crt
+# en ~/ca del puesto de administración; los certificados se dejan en $T
+T=~/tls-monitorizacion && mkdir -p $T
+srv() {   # srv <nombre> <SAN>
+  openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+    -keyout $T/$1.key -out $T/$1.csr -subj "/CN=$1" -addext "subjectAltName=$2"
+  openssl ca -batch -notext -config ca.cnf -extensions server_cert -in $T/$1.csr -out $T/$1.crt
+}
+srv app01-node DNS:app01.dev.lab,IP:10.10.2.10    # el del node_exporter de app01
 ```
 
-La sección `server_cert` de `ca.cnf` marca el certificado como de servidor (`serverAuth`), y `copy_extensions = copy` hace que el SAN de la petición pase al certificado. Los de cliente (el de Promtail y el de `logcli` del puesto de administración) se firman con `-extensions client_cert`, que pone `clientAuth`, y no llevan SAN. El CN es el nombre del fichero y no el del host porque app01 y mon01 llevan varios certificados cada una, y así `index.txt` dice cuál es cuál. En el laboratorio del curso se emiten todos de una vez en la A3.1, así que después solo queda copiarlos a cada host con `scp`, con propietario el usuario que los lee y permisos 600 en la clave. Un certificado de un año en un laboratorio está bien; en una empresa lo normal es una CA interna que emite por ACME (el protocolo automático que usa Let's Encrypt), por ejemplo step-ca, con certificados de días.
+`-batch` hace que `openssl ca` firme sin preguntar, y `-notext` deja en el `.crt` solo el certificado, sin su versión en texto. La sección `server_cert` de `ca.cnf` marca el certificado como de servidor (`serverAuth`), y `copy_extensions = copy` hace que el SAN de la petición pase al certificado. Los de cliente (el de Promtail y el de `logcli` del puesto de administración) se firman con `-extensions client_cert`, que pone `clientAuth`, y no llevan SAN, porque nadie se conecta a ellos. El CN es el nombre del fichero y no el del host porque app01 y mon01 llevan varios certificados cada una, y así `index.txt` dice cuál es cuál.
+
+**Cómo se usan en el curso.** Se emiten todos de una vez en la A3.1, así que después solo queda copiarlos a cada host con `scp`, con propietario el usuario que los lee y permisos 600 en la clave. Un certificado de un año en un laboratorio está bien; en una empresa lo normal es una CA interna que emite por ACME (el protocolo automático que usa Let's Encrypt), por ejemplo step-ca, con certificados de días que se renuevan solos.
 
 #### TLS y basic auth en los exporters
 
-node_exporter, postgres_exporter y el resto de exporters oficiales usan la misma librería (`exporter-toolkit`) y admiten `--web.config.file`. El fichero tiene dos bloques, TLS de servidor y usuarios de basic auth:
+**Una sola configuración para todos los exporters.** node_exporter, postgres_exporter y el resto de exporters oficiales comparten la librería de su servidor web (`exporter-toolkit`, del propio proyecto Prometheus), y por eso todos admiten la misma opción, `--web.config.file`, que apunta a un fichero con dos bloques: el TLS del servidor y los usuarios de basic auth:
 
 ```yaml
 # /etc/node_exporter/web.yml
@@ -409,13 +456,15 @@ basic_auth_users:
   prometheus: "$2y$10$Wb3l0jwVfM1xC5eYq7p0Ee2q1HkzFq4t1g1hA5m9Xn3uQ2Xv3q5Ki"
 ```
 
-La contraseña va en bcrypt (un hash lento hecho a propósito para contraseñas), no en claro. Se genera con `htpasswd -nBC 10 prometheus` (paquete `apache2-utils`), que pide la contraseña y escribe `usuario:hash`. El coste 10 es suficiente: el exporter comprueba el hash en cada scrape (cada 15 segundos), y un coste 14 haría que cada petición tardase medio segundo de CPU. En el paquete de Debian los argumentos del exporter van en `/etc/default/prometheus-node-exporter`, en la línea `ARGS`, y el servicio corre con el usuario `prometheus`, que es quien tiene que poder leer la clave:
+**Por qué la contraseña va en bcrypt.** El fichero no guarda la contraseña sino su hash bcrypt, un hash lento hecho a propósito para contraseñas: quien lea el fichero (en una copia de seguridad, en un repositorio) no obtiene la contraseña, y adivinarla probando millones cuesta muchísimo. Se genera con `htpasswd -nBC 10 prometheus` (paquete `apache2-utils`), que pide la contraseña y escribe `usuario:hash`; al fichero va solo el hash. El 10 es el coste: cada punto más duplica el tiempo de cálculo, y 10 es el valor habitual, lento para quien prueba contraseñas a ciegas y asumible para el exporter, que tiene que comprobarla cuando Prometheus se presenta.
+
+**Dónde se activa.** En el paquete de Debian los argumentos del exporter van en `/etc/default/prometheus-node-exporter`, en la línea `ARGS`, y el servicio corre con el usuario `prometheus`, que es quien tiene que poder leer la clave:
 
 ```bash
 ARGS="--web.listen-address=10.10.2.10:9100 --web.config.file=/etc/node_exporter/web.yml"
 ```
 
-En Prometheus, un job solo tiene un esquema, así que app01 pasa a un job propio, `node-tls`, y mon01 y db01 siguen en `node` por HTTP. La alarma `HostDown` de la UT2 (en `prometheus/alerts.yml` del repositorio `alerting`), que mira `up{job="node"}`, pasa a mirar `up{job=~"node|node-tls"}` para seguir cubriendo app01. El job nuevo:
+**Qué cambia en Prometheus.** En Prometheus, el esquema (`http` o `https`), la CA y las credenciales son de cada job y no de cada target, así que app01 pasa a un job propio, `node-tls`, y mon01 y db01 siguen en `node` por HTTP. La alarma `HostDown` de la UT2 (en `prometheus/alerts.yml` del repositorio `alerting`), que mira `up{job="node"}`, pasa a mirar `up{job=~"node|node-tls"}` para seguir cubriendo app01. El job nuevo:
 
 ```yaml
   - job_name: node-tls
@@ -430,7 +479,7 @@ En Prometheus, un job solo tiene un esquema, así que app01 pasa a un job propio
         labels: { host: app01 }
 ```
 
-`password_file` en lugar de `password` para que la contraseña no esté en un `prometheus.yml` que va a un repositorio Git. `server_name` no hace falta porque el certificado lleva la IP del target en el SAN. Los ficheros que Prometheus lee se montan en su contenedor con un `compose.override.yml` al lado del compose de mon01, que Docker Compose lee solo sin tener que nombrarlo; `tls/` y `secrets/` van en el `.gitignore` del repositorio `monitoring`, y el fichero de la contraseña, con propietario 65534 (el usuario con el que corre Prometheus en su imagen) y permisos 600:
+`password_file` en lugar de `password` para que la contraseña no esté en un `prometheus.yml` que va a un repositorio Git. `server_name` no hace falta porque el certificado lleva la IP del target en el SAN. Los ficheros que Prometheus lee se montan en su contenedor con un `compose.override.yml` al lado del compose de mon01, que Docker Compose lee solo sin tener que nombrarlo y que permite añadir volúmenes sin tocar el compose original; `tls/` y `secrets/` van en el `.gitignore` del repositorio `monitoring`, y el fichero de la contraseña, con propietario 65534 (el usuario con el que corre Prometheus en su imagen) y permisos 600:
 
 ```yaml
 # /opt/monitoring/compose.override.yml
@@ -459,7 +508,7 @@ sequenceDiagram
 
 <p class="pie" markdown>Dos comprobaciones distintas y en este orden: el certificado dice quién es el exporter, y la contraseña dice quién es Prometheus.</p>
 
-cAdvisor y el 9102 de la API no usan exporter-toolkit y no tienen TLS ni autenticación propias. La salida habitual es ponerles delante un nginx sidecar (un contenedor auxiliar al lado del servicio) en la red `obs`, que termine TLS, pida basic auth y sea el único que publica esos dos puertos; mientras no está, los protegen la cadena `forward` y OPNsense. Su configuración es la del proxy de Grafana con un bloque `server` por puerto y `auth_basic`:
+**cAdvisor y la API, con un sidecar.** cAdvisor y el 9102 de la API no usan exporter-toolkit y no tienen TLS ni autenticación propias. La salida habitual es ponerles delante un nginx sidecar (un contenedor auxiliar al lado del servicio) en la red `obs`, que termine TLS, pida basic auth y sea el único que publica esos dos puertos; mientras no está, los protegen la cadena `forward` y OPNsense. Su configuración es la del proxy de Grafana con un bloque `server` por puerto y `auth_basic`:
 
 ```nginx
 server {
@@ -482,7 +531,7 @@ El job de Prometheus para ellos es como `node-tls`. El sidecar tiene la ventaja 
 !!! consulta "Material de consulta"
     Esto no se explica en clase: lo necesita la hoja de hoy en sus dos últimos pasos, y la práctica evaluable de la sesión 18 para cerrar la auditoría.
 
-Lo que vale para la práctica no es el fichero de configuración sino la prueba de que hace lo que dice. Estas son las comprobaciones, con el resultado esperado; las cuatro primeras se lanzan desde mon01 (con `ca.crt` en el directorio de trabajo), la quinta desde el puesto de administración con el certificado de cliente de `logcli` y la sexta desde una shell en mon01:
+**Por qué se prueba.** Lo que vale para la práctica no es el fichero de configuración sino la prueba de que hace lo que dice: un `web.yml` perfecto que el servicio no ha cargado no protege nada. Las comprobaciones quitan piezas de una en una, para que cada fallo salga por el motivo correcto: primero sin la CA (el cliente no puede comprobar quién es el servidor), después con la CA y sin credenciales (el servidor no sabe quién es el cliente) y por último con las dos. Estas son, con el resultado esperado; las cuatro primeras se lanzan desde mon01 (con `ca.crt` en el directorio de trabajo), la quinta desde el puesto de administración con el certificado de cliente de `logcli` y la sexta desde una shell en mon01:
 
 ```bash
 # 1. sin CA: el certificado no se puede validar
@@ -511,11 +560,13 @@ curl --cacert ca.crt --cert logcli.crt --key logcli.key https://10.10.0.20:3100/
 curl -s localhost:9090/api/v1/targets | jq -r '.data.activeTargets[] | "\(.labels.job) \(.scrapeUrl) \(.health)"'
 ```
 
-La evidencia de cifrado en la red es tcpdump con `-A` sobre el puerto del exporter durante un scrape: antes se leía `GET /metrics HTTP/1.1` y las métricas; ahora se ven los bytes del ClientHello (`16 03 01` al principio del primer paquete de la conexión, TLS con versión de registro 1.0 que después negocia 1.3) y a partir de ahí datos que no significan nada. Con el 3100, mientras Promtail envía, pasa lo mismo, y esa es la pareja de capturas que se entrega. `nmap -sV -p 9100 10.10.2.10` desde mon01 lo resume en una línea: `9100/tcp open ssl/http`. Ese `ssl/` es la diferencia entre la matriz de antes y la de después.
+**Cómo se lee la cuarta.** `openssl s_client` hace el handshake a mano y lo enseña entero: la versión negociada, el cifrado, la cadena de certificados y, al final, `Verify return code: 0 (ok)`, que quiere decir que la cadena llega hasta la CA de `ca.crt`. Cualquier otro código dice por qué no.
+
+**La prueba en la red.** La evidencia de cifrado en la red es tcpdump sobre el puerto del exporter durante un scrape. Antes, con `-A`, se leía `GET /metrics HTTP/1.1` y las métricas; ahora no se lee nada. Si se añade `-X`, que vuelca cada paquete también en hexadecimal, los datos del primer paquete que manda el cliente empiezan por `16 03 01`: es la cabecera del ClientHello, el primer mensaje del handshake TLS, que por compatibilidad dice versión 1.0 aunque después se negocie la 1.3. Con el 3100, mientras Promtail envía, pasa lo mismo, y esa es la pareja de capturas que se entrega. `nmap -sV -p 9100 10.10.2.10` desde mon01 lo resume en una línea: `9100/tcp open ssl/http`. Ese `ssl/` es la diferencia entre la matriz de antes y la de después.
 
 ### A3.2 Red, firewall y TLS (sesión 17)
 
-<span class="et et-obj">Objetivo</span> Que los puertos de monitorización de app01 salgan `filtered` desde fuera de mon01 y sigan `open` desde mon01, que ese cierre se deba a dos capas (el nftables del propio host y OPNsense) y que el scrape de su node_exporter viaje ya cifrado y con contraseña.
+<span class="et et-obj">Objetivo</span> Que los puertos de monitorización de app01 salgan `filtered` desde fuera de mon01 y sigan `open` desde mon01, que ese cierre se deba a dos capas (el nftables del propio host y OPNsense) y que el scrape de su node_exporter viaje ya cifrado y con contraseña. Al terminar, app01 es el primer host cerrado y con un exporter cifrado, y lo que has hecho en él es la receta que después se repite en db01 y en mon01.
 
 <span class="et et-pre">Antes de empezar</span>
 
@@ -524,27 +575,31 @@ La evidencia de cifrado en la red es tcpdump con `-A` sobre el puerto del export
 - Las filas 11 a 13 de OPNsense, del paso 6 de la A3.1, y los certificados de `~/tls-monitorizacion/`, del paso 5 de la A3.1 (si faltan, emite al menos `app01-node`). En el puesto de administración, `htpasswd` (paquete `apache2-utils`).
 - La pila se abre ya con el primer túnel de [Cómo se llega a la pila](../laboratorio.md#como-se-llega-a-la-pila-desde-el-3-de-diciembre), con `-L 3000:127.0.0.1:3000` añadido para Grafana, que sigue en el 3000 hasta la evaluable. Ese túnel deja además una shell en mon01.
 - Hoy solo se cierra app01: mon01 se cierra en la evaluable, a la vez que se pone nginx delante de Grafana y de Loki.
-- Se ha explicado al principio de la sesión [por qué Docker se salta el firewall del host](#por-que-docker-se-salta-el-firewall-del-host), las [tres soluciones](#reducir-red-docker-dedicada-y-firewall-por-host) y el [cifrado y la autenticación de los exporters](#proteger-cifrado-y-autenticacion).
+- Lo explicado antes: [por qué Docker se salta el firewall del host](#por-que-docker-se-salta-el-firewall-del-host), con sus tres soluciones; [publicar solo donde hace falta](#publicar-solo-donde-hace-falta) y [el fichero nftables](#nftables-por-host-el-fichero-completo); [qué resuelve TLS y qué resuelve la autenticación](#que-resuelve-tls-y-que-resuelve-la-autenticacion) y [TLS y basic auth en los exporters](#tls-y-basic-auth-en-los-exporters). Para los pasos 4 y 5, el material de consulta [Verificar que de verdad está protegido](#verificar-que-de-verdad-esta-protegido).
 
 <span class="et et-pas">Pasos</span>
 
-1. Lleva a las direcciones de la VPC lo que sigue apuntando al aula: los targets de Prometheus (app01 en la 10.10.2.10 y mon01 en la 10.10.0.20) y el envío de Promtail a Loki. Con la base de datos en db01, el target del job `postgres` pasa a `10.10.3.10:9187` y el job `node` gana `10.10.3.10:9100`, los dos con `host: db01`. Todos los targets tienen que quedar en UP.
+Vas a cerrar app01 y a cifrar su node_exporter, en el orden en que cada cosa se puede comprobar. Primero recuperas la monitorización en las direcciones nuevas, porque hasta que todo esté en UP no sabrías si un target caído es culpa tuya o del traslado. Después cierras app01 (reducir) y compruebas que lo legítimo sigue pasando; luego cifras su node_exporter y haces que Prometheus lo lea así (proteger); y al final lo mides desde fuera. Entre cerrar y cifrar, el target de app01 puede pasar un rato en DOWN: por eso el paso 2 empieza con un silencio.
+
+1. **Recupera la monitorización en la VPC.** Desde el traslado, Prometheus y Promtail siguen apuntando a las direcciones del aula, que ya no son las de app01 y mon01. Lleva a las de la VPC los targets de Prometheus (app01 en la 10.10.2.10 y mon01 en la 10.10.0.20) y el envío de Promtail a Loki. Con la base de datos en db01, el target del job `postgres` pasa a `10.10.3.10:9187` y el job `node` gana `10.10.3.10:9100`, los dos con `host: db01`. Todos los targets tienen que quedar en UP: es el punto de partida contra el que se mide todo lo que cierres después, y la prueba de que las filas 11 a 13 de la A3.1 hacen su trabajo.
 
     *Pista:* Promtail no relee su fichero solo: después de cambiarlo, reinícialo.
 
-2. Silencia en Alertmanager `host=app01` hasta el final de la clase: desde aquí hasta el paso 4 su target puede quedar en DOWN, y `HostDown` abriría una incidencia. Después cierra app01: haz que su node_exporter escuche solo en la 10.10.2.10 y deja activo y persistente el [fichero nftables de app01](#nftables-por-host-el-fichero-completo). Comprueba que lo que cruza la cadena `forward` sigue pasando: la API responde en `https://api.dev.lab/health` desde tu puesto del aula y Promtail envía sin errores.
+2. **Cierra app01 sin cortar lo legítimo.** Silencia antes en Alertmanager `host=app01` hasta el final de la clase, como en [Silencios](ut2-alarmas.md#silencios): desde aquí hasta el paso 4 su target puede quedar en DOWN, y `HostDown` abriría una incidencia. Después haz que su node_exporter escuche solo en la 10.10.2.10 y deja activo y persistente el [fichero nftables de app01](#nftables-por-host-el-fichero-completo), que lo cierra a todo lo que no sea mon01. Comprueba al final que lo que cruza la cadena `forward` sigue pasando: la API responde en `https://api.dev.lab/health` desde tu puesto del aula y Promtail envía sin errores. Un cortafuegos que corta el servicio no está terminado.
 
     *Pista:* node_exporter no es un contenedor: su dirección va en la línea `ARGS` de `/etc/default/prometheus-node-exporter`, de momento solo con `--web.listen-address`. Valida el fichero con `nft -c -f` y actívalo entrando por el puesto de administración: la regla de SSH solo admite la red de gestión.
 
-3. Activa TLS y basic auth en el node_exporter de app01 con el certificado `app01-node`, el `web.yml` y la línea `ARGS` completa de [TLS y basic auth en los exporters](#tls-y-basic-auth-en-los-exporters). El hash es el de una contraseña para el usuario `prometheus`; guarda también la contraseña, que Prometheus necesita en el paso 4.
+3. **Cifra el node_exporter y ponle contraseña.** Activa TLS y basic auth en el node_exporter de app01 con el certificado `app01-node`, el `web.yml` y la línea `ARGS` completa de [TLS y basic auth en los exporters](#tls-y-basic-auth-en-los-exporters). El hash es el de una contraseña para el usuario `prometheus`; guarda también la contraseña, que Prometheus necesita en el paso 4. Desde ese momento el exporter ya no contesta por HTTP, y el target de app01 queda en DOWN hasta que Prometheus aprenda a hablarle cifrado.
 
     *Pista:* la clave, en 600 y del usuario `prometheus`, que es con el que corre el servicio.
 
-4. Haz que Prometheus lea ese exporter con TLS y contraseña: el target de app01 pasa del job `node` al job `node-tls` del apartado, con `ca.crt` en `/opt/monitoring/tls/`, la contraseña en `secrets/node_exporter.pass` y los dos directorios montados con su `compose.override.yml`. En el repositorio `alerting`, `HostDown` pasa a `up{job=~"node|node-tls"} == 0`. Termina con las tres primeras comprobaciones de [Verificar que de verdad está protegido](#verificar-que-de-verdad-esta-protegido).
+4. **Haz que Prometheus lo lea cifrado y con contraseña.** El target de app01 pasa del job `node` al job `node-tls` del apartado, con `ca.crt` en `/opt/monitoring/tls/`, la contraseña en `secrets/node_exporter.pass` y los dos directorios montados con su `compose.override.yml`. En el repositorio `alerting`, `HostDown` pasa a `up{job=~"node|node-tls"} == 0`, para que la alarma siga cubriendo app01. Termina con las tres primeras comprobaciones de [Verificar que de verdad está protegido](#verificar-que-de-verdad-esta-protegido): sin CA, sin credenciales y con las dos, cada una tiene que fallar o funcionar por el motivo que dice el apartado.
 
     *Pista:* un volumen nuevo no se aplica recargando: hay que recrear el contenedor de Prometheus, que de paso relee la configuración y las reglas. `tls/` y `secrets/` van al `.gitignore`.
 
-5. Deja en `/opt/monitoring/audit/despues/` dos escaneos con fecha: desde el puesto de administración, los cuatro puertos de monitorización de app01 (`escaneo-app01-desde-admin-<fecha>.txt`), y desde mon01, un `nmap -sV` contra su 9100 (`nmap-sv-app01-<fecha>.txt`). Los demás orígenes, el Live View de OPNsense y el reinicio se miden sobre el estado final, en la [sesión 18](#sesion-18-practica-evaluable).
+5. **Mide el resultado desde fuera.** Deja en `/opt/monitoring/audit/despues/` dos escaneos con fecha que demuestran las dos mitades del trabajo: desde el puesto de administración, los cuatro puertos de monitorización de app01 (`escaneo-app01-desde-admin-<fecha>.txt`), que tienen que salir `filtered`; y desde mon01, un `nmap -sV` contra su 9100 (`nmap-sv-app01-<fecha>.txt`), que tiene que decir `ssl/http`. Los demás orígenes, el Live View de OPNsense y el reinicio se miden sobre el estado final, en la [sesión 18](#sesion-18-practica-evaluable).
+
+    *Pista:* desde el puesto, nmap da app01 por caído y no escanea nada: detrás de un cortafuegos hace falta `-Pn`, como se explica en [Escaneo desde fuera](#escaneo-desde-fuera).
 
 <span class="et et-com">Comprobación</span> Prometheus tiene todos los targets en UP, incluidos los dos de db01, y el de `node-tls` con un `scrapeUrl` que empieza por `https://`. En app01, `ss` muestra el 9100 solo en la 10.10.2.10, `nft list ruleset` enseña la tabla `inet fw` con sus dos cadenas y `systemctl is-enabled nftables` dice `enabled`. `curl` sin CA da error 60, con CA y sin credenciales 401, y con las dos devuelve métricas; `nmap -sV` responde `ssl/http` en el 9100. Desde el puesto de administración, los cuatro puertos de app01 salen `filtered`. La API sigue respondiendo en `https://api.dev.lab` y en Explore de Grafana hay líneas de app01 del último minuto.
 
@@ -556,17 +611,23 @@ La evidencia de cifrado en la red es tcpdump con `-A` sobre el puerto del export
 
 <p class="ut-meta" markdown>3 de diciembre · Práctica evaluable · <span class="dur" tabindex="0" aria-label="La política de protección entre contenedor y monitorización · 10 min&#10;Trabajo en la práctica · 100 min" data-dur="La política de protección entre contenedor y monitorización · 10 min&#10;Trabajo en la práctica · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
 
-En esta sesión se cierra la unidad entera: se cierra mon01 (publicación acotada, un nginx que hace de única puerta de Grafana y de Loki, y su propio `nftables.conf`), Promtail pasa a enviar los logs con certificado de cliente, se repite la auditoría sobre el estado final y, con lo medido, se completan la matriz y el documento de política. El cierre de mon01 se hace aquí a propósito: su `nftables.conf` se escribe a la vez que el compose, ya con el 443 en lugar del 3000, para no escribirlo dos veces. Los diez minutos de explicación se dedican al documento de política: qué son las cinco reglas y cómo se comprueba cada una. Los cuatro apartados que vienen a continuación son material de consulta, con los ficheros que hay que copiar; después van el documento de política y el enunciado, con el reparto del tiempo, los entregables y los criterios de calificación.
+Después de la sesión 17, app01 está cerrado y su node_exporter va cifrado, pero el centro de la pila sigue abierto: en mon01, Grafana está en el 3000 en HTTP y con la contraseña del primer día, Prometheus, Alertmanager y Mailpit contestan sin pedir nada a cualquiera de la red de gestión, y Loki acepta logs de quien sea. mon01 se cierra la última porque cerrarla cambia cómo llega todo el mundo a la pila, y se hace aquí a propósito: su `nftables.conf` se escribe a la vez que el compose, ya con el 443 de nginx en lugar del 3000 de Grafana, para no escribirlo dos veces. La sesión termina la unidad en este orden: se cierra mon01 (publicación acotada, un nginx que hace de única puerta de Grafana y de Loki, y su propio cortafuegos); como desde ese momento Loki exige certificado, lo siguiente es dárselo a Promtail para que vuelva a enviar; después se repite la auditoría sobre el estado final, y con lo medido se completan la matriz y el documento de política. Los diez minutos de explicación se dedican al documento de política, que es lo que convierte la configuración en algo que se puede comprobar: qué son las cinco reglas y cómo se comprueba cada una. Los cuatro apartados que vienen a continuación son material de consulta, con los ficheros que hay que copiar; después van el documento de política y el enunciado, con el reparto del tiempo, los entregables y los criterios de calificación.
 
 !!! examen "La unidad cierra la primera evaluación"
-    El 10 de diciembre hay examen de la primera evaluación y entra UT1, UT2 y UT3 completas. De esta unidad se pregunta lo que se explica en clase: qué se ve en un `/metrics` abierto, cómo se lee cada estado de nmap, por qué un puerto publicado por Docker no pasa por la cadena `input` y dónde va entonces la regla, y qué resuelve TLS frente a qué resuelve la autenticación. La práctica evaluable de la sesión 18 se entrega por Aules antes del examen: el trabajo de laboratorio queda hecho el 3 de diciembre, y la matriz y el documento de política se pueden terminar hasta la víspera.
+    El 10 de diciembre hay examen de la primera evaluación y entra UT1, UT2 y UT3 completas. De esta unidad se pregunta lo que se explica en clase: [qué se ve en un `/metrics` abierto](#que-se-ve-en-un-metrics-abierto), [cómo se lee cada estado de nmap](#escaneo-desde-fuera), [por qué un puerto publicado por Docker no pasa por la cadena `input`](#por-que-docker-se-salta-el-firewall-del-host) y dónde va entonces la regla, y [qué resuelve TLS frente a qué resuelve la autenticación](#que-resuelve-tls-y-que-resuelve-la-autenticacion). La práctica evaluable de la sesión 18 se entrega por Aules antes del examen: el trabajo de laboratorio queda hecho el 3 de diciembre, y la matriz y el documento de política se pueden terminar hasta la víspera.
 
 ### Cerrar mon01: publicación y cortafuegos
 
 !!! consulta "Material de consulta"
     Esto no se explica en clase: lo necesita el primer bloque de la práctica evaluable de hoy.
 
-En mon01 se aplica la solución 2 de la sesión 17: los servicios de la pila se hablan por nombre en la red `obs`, y hacia fuera solo se publica lo que tiene que llegar desde otra máquina. Son dos cambios en `/opt/monitoring/compose.yml`: las líneas `ports` de los servicios que ya existen y un servicio nuevo, `nginx`, que hace de puerta de Grafana y de Loki.
+**Qué se cambia y por qué.** En mon01 se aplica la solución 2 de la sesión 17: los servicios de la pila se hablan por nombre en la red `obs`, y hacia fuera solo se publica lo que tiene que llegar desde otra máquina. Cada servicio cae en uno de tres casos:
+
+- **Lo que solo usan los administradores**, de vez en cuando, y no pide credenciales de fábrica (Prometheus, Alertmanager y Mailpit) se publica en `127.0.0.1`. Desde fuera no existe, y se llega por un túnel SSH, que le pone delante la clave SSH y el cifrado sin configurar nada en él.
+- **Lo que tiene que llegar desde otras máquinas** (Grafana, para los usuarios, y Loki, para Promtail) deja de publicarse y pasa detrás de un nginx que termina el TLS de los dos y, en el caso de Loki, exige además certificado de cliente. Es el patrón del proxy inverso de web01 en la [sesión 16 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#el-proxy-inverso), y deja en un solo sitio los certificados de mon01.
+- **La Gitea provisional** se publica solo en la 10.10.0.20 hasta que se vaya a gitea01.
+
+Son dos cambios en `/opt/monitoring/compose.yml`: las líneas `ports` de los servicios que ya existen y un servicio nuevo, `nginx`, que hace de puerta de Grafana y de Loki.
 
 | Servicio | Línea `ports` que queda | Por qué |
 |----------|-------------------------|---------|
@@ -592,10 +653,11 @@ En mon01 se aplica la solución 2 de la sesión 17: los servicios de la pila se 
 
 `nginx/mon01.conf` lleva dos bloques `server`, el de [Grafana](#grafana-detras-de-nginx-con-tls-y-roles) y el de [Loki](#mtls-entre-promtail-y-loki). En `tls/` se juntan `ca.crt`, que está desde la A3.2, y los certificados `mon01-nginx` y `mon01-loki` de la A3.1, con las claves de root y en 600: el directorio también está montado en Prometheus, que no tiene por qué leerlas. Al levantar, `docker ps` enseña siete flechas y ninguna en `0.0.0.0`: cuatro en `127.0.0.1` (las tres de la tabla y el receptor de incidencias de la UT2, que ya estaba ahí) y tres en la 10.10.0.20.
 
-El cortafuegos de mon01 tiene las mismas dos cadenas que el de app01, con otros puertos. En `input` queda lo que escucha el propio host (SSH y el node_exporter, al que Prometheus llega desde su contenedor, por la red de Docker); en `forward`, lo que publica Docker, con un `accept` por cada origen legítimo antes del `drop` final. La primera regla de `forward` deja pasar las respuestas de las conexiones que abren los propios contenedores: sin ella, la respuesta de Telegram a Alertmanager, que vuelve del 443, caería en el `drop` del final.
+**El cortafuegos de mon01.** Tiene las mismas dos cadenas que el de app01, con otros puertos. En `input` queda lo que escucha el propio host (SSH y el node_exporter, al que Prometheus llega desde su contenedor, por la red de Docker); en `forward`, lo que publica Docker, con un `accept` por cada origen legítimo antes del `drop` final. La primera regla de `forward` deja pasar las respuestas de las conexiones que abren los propios contenedores: sin ella, la respuesta de Telegram a Alertmanager, que vuelve del 443, caería en el `drop` del final, porque su conexión también tiene el 443 como destino original.
 
 ```text
 #!/usr/sbin/nft -f
+table inet fw
 flush table inet fw
 
 table inet fw {
@@ -644,7 +706,7 @@ Lo que se publica en `127.0.0.1` no necesita regla: no se alcanza desde fuera, y
 
 #### Cómo se llega a la pila desde hoy
 
-Con mon01 cerrado, las interfaces que se consultaban por la IP del aula pasan a estar detrás del puesto de administración, que es la máquina de gestión con tarjeta en el aula:
+**Por qué cambia el acceso.** Con mon01 cerrado, las interfaces que se consultaban por la IP del aula pasan a estar detrás del puesto de administración, que es la máquina de gestión con tarjeta en el aula. Se llega con túneles SSH: `ssh -L puerto_local:destino:puerto` abre un puerto en la máquina desde la que se lanza y lleva lo que entra por él, por dentro de la conexión SSH, hasta el destino tal como se ve desde el otro extremo. Por eso, en un túnel hacia mon01, `127.0.0.1` es el de mon01 y no el del puesto. Con `-J`, la conexión salta antes por el puesto de administración, que llega a la vez al aula y a la VPC:
 
 - **Prometheus, Alertmanager y Mailpit**, desde el puesto del aula, con un túnel SSH que salta por el puesto de administración: `ssh -L 9090:127.0.0.1:9090 -L 9093:127.0.0.1:9093 -L 8025:127.0.0.1:8025 -J ops@<IP de aula de admin01> ops@10.10.0.20`, y después `http://localhost:9090` en el navegador. Desde una shell en mon01, `curl http://localhost:9090/...`, y `amtool` con `docker compose exec alertmanager amtool ...`.
 - **Grafana**, desde el puesto de administración, en `https://grafana.lab/`. Desde el puesto del aula, con `ssh -L 8443:10.10.0.20:443 ops@<IP de aula de admin01>`, la línea `127.0.0.1 grafana.lab` en el fichero hosts del puesto y la CA del curso importada, en `https://grafana.lab:8443`.
@@ -655,7 +717,9 @@ Con mon01 cerrado, las interfaces que se consultaban por la IP del aula pasan a 
 !!! consulta "Material de consulta"
     Esto no se explica en clase: lo necesitan el primer y el segundo bloque de la práctica evaluable de hoy.
 
-En el sentido de los logs la relación se invierte: son los hosts los que hablan con mon01, y Loki tiene que saber que quien le envía logs es un Promtail legítimo y no cualquiera con acceso al 3100. Loki no trae autenticación propia para eso, así que en el laboratorio la pone el mismo nginx que protege Grafana: escucha en el 3100 de la 10.10.0.20, presenta el certificado `mon01-loki`, exige un certificado de cliente firmado por la CA del curso y solo entonces reenvía a `loki:3100` por la red interna. Grafana y Prometheus siguen hablando con Loki por dentro, sin pasar por nginx, y no hay que tocarlos. Loki sabe también exigir el certificado él mismo (`http_tls_config` con `RequireAndVerifyClientCert`), pero entonces todo el que le habla, incluidos Grafana y Prometheus, necesitaría certificado de cliente.
+**El problema.** En el sentido de los logs la relación se invierte: son los hosts los que hablan con mon01, y Loki tiene que saber que quien le envía logs es un Promtail legítimo y no cualquiera con acceso al 3100, que podría inyectar líneas falsas. Loki no trae autenticación propia. El `auth_enabled` de su configuración, pese al nombre, no comprueba quién llama: activa el modo de varios inquilinos, que separa los datos de cada cliente según una cabecera que pone el propio cliente. Su documentación da por hecho que la autenticación la pone un proxy delante.
+
+**La solución del curso.** En el laboratorio la pone el mismo nginx que protege Grafana: escucha en el 3100 de la 10.10.0.20, presenta el certificado `mon01-loki`, exige un certificado de cliente firmado por la CA del curso y solo entonces reenvía a `loki:3100` por la red interna. Grafana y Prometheus siguen hablando con Loki por dentro, sin pasar por nginx, y no hay que tocarlos. Loki sabe también exigir el certificado él mismo (`http_tls_config` con `RequireAndVerifyClientCert`), pero entonces todo el que le habla, incluidos Grafana y Prometheus, necesitaría certificado de cliente.
 
 ```mermaid
 flowchart TB
@@ -683,8 +747,9 @@ flowchart TB
     classDef riesgo fill:#dc262622,stroke:#dc2626,stroke-width:1.5px
 ```
 
-<p class="pie" markdown>La dirección del tráfico decide el mecanismo: si se va a buscar, basta con autenticarse; si el otro empuja los datos, hay que saber quién es.</p>
+<p class="pie" markdown>En los dos sentidos el servidor se identifica con su certificado; lo que cambia es el cliente: Prometheus, que va a buscar, con usuario y contraseña, y Promtail, que empuja, con su propio certificado.</p>
 
+**El bloque de nginx.** Además del certificado del servidor, lleva las dos directivas que hacen el TLS mutuo: `ssl_client_certificate`, la CA con la que se comprueban los certificados de los clientes, y `ssl_verify_client on`, que hace obligatorio presentar uno:
 
 ```nginx
 # /opt/monitoring/nginx/mon01.conf, segundo bloque: Loki
@@ -702,7 +767,7 @@ server {
 }
 ```
 
-En app01, Promtail cambia la URL a `https` y presenta su certificado. Los tres ficheros van en `/opt/agentes/tls/` (la clave en 600) y se montan en el contenedor con una línea más en los `volumes` del servicio `promtail` de `/opt/agentes/compose.yml`, `- ./tls:/etc/promtail/tls:ro`:
+**Qué cambia en Promtail.** En app01, Promtail cambia la URL a `https` y presenta su certificado. Los tres ficheros van en `/opt/agentes/tls/` (la clave en 600) y se montan en el contenedor con una línea más en los `volumes` del servicio `promtail` de `/opt/agentes/compose.yml`, `- ./tls:/etc/promtail/tls:ro`:
 
 ```yaml
 # /opt/agentes/promtail.yml en app01: el bloque clients
@@ -724,14 +789,14 @@ openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
 openssl ca -batch -notext -config ca.cnf -extensions client_cert -in $T/logcli.csr -out $T/logcli.crt
 ```
 
-Promtail está en modo mantenimiento desde Loki 3 y Grafana recomienda Alloy como sustituto; la configuración TLS de Alloy es equivalente (`loki.write` con bloque `tls_config`), así que lo que se aprende aquí se traslada tal cual.
+Promtail está al final de su vida, como se vio en la [UT1](ut1-observabilidad.md#promtail), y su sustituto es Grafana Alloy; la configuración TLS de Alloy es equivalente (`loki.write` con bloque `tls_config`), así que lo que se aprende aquí se traslada tal cual.
 
 ### Grafana detrás de nginx con TLS y roles
 
 !!! consulta "Material de consulta"
     Esto no se explica en clase: lo necesita el primer bloque de la práctica evaluable de hoy.
 
-Grafana no debe escuchar directamente en 10.10.0.20:3000. El nginx de [Cerrar mon01](#cerrar-mon01-publicacion-y-cortafuegos) publica `10.10.0.20:443` y reenvía a `grafana:3000` por la red interna:
+**Por qué detrás de nginx.** Grafana es lo único de la pila que usan personas a diario, y hasta hoy escuchaba en 10.10.0.20:3000 en HTTP: la contraseña de cada usuario viajaba en claro al iniciar sesión. Grafana sabe servir HTTPS por sí mismo, pero el curso termina el TLS en el nginx de [Cerrar mon01](#cerrar-mon01-publicacion-y-cortafuegos), que ya está ahí por Loki, para tener en un solo sitio los certificados de mon01. nginx publica `10.10.0.20:443` y reenvía a `grafana:3000` por la red interna:
 
 ```nginx
 # /opt/monitoring/nginx/mon01.conf, primer bloque: Grafana
@@ -756,7 +821,9 @@ server {
 }
 ```
 
-Y en la configuración de Grafana (por variables de entorno en el servicio `grafana` del compose, que en Grafana equivalen a las secciones de `grafana.ini`) se cierra lo que viene abierto de fábrica:
+Las cabeceras son las del [proxy inverso de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#el-proxy-inverso), con dos detalles: `Host` lleva `$http_host`, que conserva el puerto, y las tres últimas líneas dejan pasar el WebSocket (una conexión que se queda abierta para que el servidor mande datos sin que se los pidan) con el que Grafana Live actualiza los paneles en directo.
+
+**Lo que se fija en Grafana.** En la configuración de Grafana, por variables de entorno en el servicio `grafana` del compose (cada `GF_<SECCIÓN>_<CLAVE>` equivale a una clave de una sección de `grafana.ini`), se fija lo que importa para la política. Varias ya valen eso de fábrica; se escriben igualmente para que la decisión quede en el repositorio y no dependa de los valores por defecto de la versión que se instale:
 
 ```yaml
 environment:
@@ -768,14 +835,22 @@ environment:
   GF_AUTH_BASIC_ENABLED: "false"
 ```
 
-Los roles de Grafana son cuatro por organización: Admin (todo), Editor (crea y modifica dashboards y alertas), Viewer (solo mira) y, desde Grafana 10, No basic role combinado con permisos por recurso. La regla de la política es sencilla: cada persona con su usuario nominal, Viewer por defecto, Editor para quien mantiene dashboards y un solo Admin, el `admin` de fábrica, que no usa nadie a diario. `auto_assign_org_role: Viewer` garantiza que un usuario nuevo no pueda tocar nada hasta que alguien le suba el rol. `auth.basic` desactivado evita que la API de Grafana acepte usuario y contraseña en cada petición (los tokens de cuenta de servicio son la forma correcta de automatizar, y se pueden revocar). La contraseña del `admin` no se cambia con variables de entorno, que solo cuentan la primera vez que arranca Grafana, sino con `docker compose exec grafana grafana cli admin reset-admin-password '<nueva>'`. Prometheus, Alertmanager y Mailpit quedan en `127.0.0.1`: cómo se llega a ellos está en [Cómo se llega a la pila desde hoy](#como-se-llega-a-la-pila-desde-hoy).
+- `GF_SERVER_ROOT_URL` es la dirección pública de Grafana, con la que construye sus enlaces y redirecciones: si no dice `https://`, redirige a HTTP.
+- `GF_SECURITY_COOKIE_SECURE` hace que la cookie de sesión solo se envíe por HTTPS, así que nunca viaja en claro.
+- `GF_AUTH_ANONYMOUS_ENABLED` y `GF_USERS_ALLOW_SIGN_UP` impiden entrar sin usuario y que alguien se cree uno a sí mismo: los usuarios los da de alta un administrador.
+- `GF_USERS_AUTO_ASSIGN_ORG_ROLE: Viewer` garantiza que un usuario nuevo no pueda tocar nada hasta que alguien le suba el rol.
+- `GF_AUTH_BASIC_ENABLED` desactivado evita que la API de Grafana acepte usuario y contraseña en cada petición: para automatizar están los tokens de cuenta de servicio, que se pueden revocar.
+
+**Roles y usuarios.** Los roles de Grafana son cuatro por organización: Admin (todo), Editor (crea y modifica dashboards y alertas), Viewer (solo mira) y, desde Grafana 10, No basic role combinado con permisos por recurso. La regla de la política es sencilla: cada persona con su usuario nominal, Viewer por defecto, Editor para quien mantiene dashboards y un solo Admin, el `admin` de fábrica, que no usa nadie a diario. La contraseña del `admin` no se cambia con variables de entorno, que solo cuentan la primera vez que arranca Grafana, sino con `docker compose exec grafana grafana cli admin reset-admin-password '<nueva>'`. Prometheus, Alertmanager y Mailpit quedan en `127.0.0.1`: cómo se llega a ellos está en [Cómo se llega a la pila desde hoy](#como-se-llega-a-la-pila-desde-hoy).
 
 ### Datos: redacción, retención y permisos
 
 !!! consulta "Material de consulta"
     Esto no se explica en clase: lo necesita el documento de política de la práctica evaluable, que dice dónde se redactan los secretos y dónde se fijan la retención y los permisos, y su «si sobra tiempo», que añade las etapas `replace` al Promtail de app01.
 
-Cifrar el canal no sirve de nada si el contenido ya está mal. Los logs de la API del curso pasaron a Loki en la UT1 tal como salían de la aplicación, y las aplicaciones registran cosas que no deberían: parámetros de la petición con contraseñas, cabeceras `Authorization`, tokens en URLs de callback. La primera línea de defensa es la aplicación: registrar de forma estructurada (JSON con campos elegidos), nunca volcar la petición entera, y tener una lista de campos que el logger sustituye antes de escribir. Como no siempre se controla el código, la segunda línea está en Promtail, que puede reescribir cada línea antes de enviarla. Las tres etapas van al principio de `pipeline_stages` del job `docker` de `/opt/agentes/promtail.yml`, antes de los dos `match` de la UT1:
+**El contenido también se protege.** Cifrar el canal no sirve de nada si lo que viaja ya está mal. Los logs de la API del curso pasaron a Loki en la UT1 tal como salían de la aplicación, y las aplicaciones registran cosas que no deberían: parámetros de la petición con contraseñas, cabeceras `Authorization`, tokens en URLs de callback. Una vez en Loki, los lee cualquiera que pueda consultar los logs, durante todos los días que diga la retención.
+
+**Redactar: tachar el secreto antes de guardarlo.** Redactar, en este sentido (del inglés *redact*), es tachar o sustituir en un texto lo que no debe guardarse. La primera línea de defensa es la aplicación: registrar de forma estructurada (JSON con campos elegidos), nunca volcar la petición entera, y tener una lista de campos que el logger sustituye antes de escribir. Como no siempre se controla el código, la segunda línea está en Promtail, que puede reescribir cada línea antes de enviarla con la etapa `replace`. Las tres etapas van al principio de `pipeline_stages` del job `docker` de `/opt/agentes/promtail.yml`, antes de los dos `match` de la UT1:
 
 ```yaml
     pipeline_stages:
@@ -786,17 +861,21 @@ Cifrar el canal no sirve de nada si el contenido ya está mal. Los logs de la AP
           expression: 'Authorization: (?:Basic|Bearer) (\S+)'
           replace: '***'
       - replace:
-          expression: '\b(\d{4})\d{8}(\d{4})\b'
-          replace: '${1}********${2}'
+          expression: '\b\d{4}(\d{8})\d{4}\b'
+          replace: '********'
 ```
 
-En la etapa `replace`, si la expresión tiene grupos de captura, se sustituye el contenido de cada grupo (no la línea entera), de modo que `password=hunter2` queda como `password=***` y la clave del campo se conserva para poder seguir buscando. El tercer ejemplo enmascara el centro de un número de 16 dígitos (una tarjeta) dejando los cuatro primeros y los cuatro últimos. Se comprueba con `promtail --dry-run --config.file=...` sobre un fichero de muestra antes de desplegar, y después con una consulta en Grafana: `{service="app"} |= "password="` no debe devolver nada que no lleve asteriscos. La redacción en Promtail tiene un límite: actúa sobre lo que ya salió de la aplicación, así que ese secreto estuvo unos milisegundos en `journald` o en el fichero JSON del driver de Docker. Por eso la política pide las dos cosas.
+En la etapa `replace`, si la expresión tiene grupos de captura, se sustituye solo el contenido de cada grupo (no la línea entera), de modo que `password=hunter2` queda como `password=***` y la clave del campo se conserva para poder seguir buscando. Por eso el tercer ejemplo captura solo el centro de un número de 16 dígitos (una tarjeta): se tachan los ocho de en medio y quedan los cuatro primeros y los cuatro últimos, que bastan para reconocerla. Se comprueba con `promtail --dry-run --config.file=...` sobre un fichero de muestra antes de desplegar, y después con una consulta en Grafana: `{service="app"} |= "password="` no debe devolver nada que no lleve asteriscos. La redacción en Promtail tiene un límite: actúa sobre lo que ya salió de la aplicación, así que ese secreto estuvo unos milisegundos en `journald` o en el fichero JSON del driver de Docker. Por eso la política pide las dos cosas.
 
-La retención también es una decisión de seguridad: cuanto más tiempo se guarda, más hay que robar y más cuesta cumplir una petición de borrado. En Loki está fijada desde la UT1 en `loki.yml`, con `retention_period: 168h` y el compactor activo (sin el compactor, la retención no se aplica y el disco crece hasta llenarse). En Prometheus se fija con `--storage.tsdb.retention.time` en el `command` de su servicio; en el laboratorio son 45 días, porque la disponibilidad mensual de la UT4 necesita más de 30. Los datos viven en volúmenes con nombre (`monitoring_loki` y los de Prometheus y Grafana), dentro de `/var/lib/docker/volumes`, que solo lee root: la base de datos de Grafana, con las credenciales de los datasources, y los chunks de Loki, con los logs de todos, quedan a salvo de un usuario sin privilegios de mon01. Lo que hay que vigilar es quién está en el grupo `docker`, porque pertenecer a él equivale a ser root, y que `tls/` y `secrets/` sigan con las claves en 600.
+**La retención también es una decisión de seguridad.** Cuanto más tiempo se guarda, más hay que robar y más cuesta cumplir una petición de borrado. En Loki está fijada desde la UT1 en `loki.yml`, con `retention_period: 168h` y el compactor activo (sin el compactor, la retención no se aplica y el disco crece hasta llenarse). En Prometheus se fija con `--storage.tsdb.retention.time` en el `command` de su servicio; si no se pone, guarda 15 días, su valor por defecto, y la UT4 la sube a 45 porque la disponibilidad mensual necesita más de 30. La política dice el valor que haya configurado de verdad el día que se escribe.
+
+**Los permisos de los datos.** Los datos viven en volúmenes con nombre (`monitoring_loki` y los de Prometheus y Grafana), dentro de `/var/lib/docker/volumes`, que solo lee root: la base de datos de Grafana, con las credenciales de los datasources, y los chunks de Loki, con los logs de todos, quedan a salvo de un usuario sin privilegios de mon01. Lo que hay que vigilar es quién está en el grupo `docker`, porque pertenecer a él equivale a ser root (puede arrancar un contenedor que monte el disco entero del host), y que `tls/` y `secrets/` sigan con las claves en 600.
 
 ### La política de protección entre contenedor y monitorización
 
-El criterio g no pide solo configurar sino documentar. El documento de política que se entrega es corto (una o dos páginas), vive en el repositorio `monitoring` junto a la configuración, y dice lo que se cumple y cómo se comprueba. El del curso tiene cinco reglas:
+**Para qué sirve el documento.** El criterio g no pide solo configurar sino documentar. La configuración dice cómo está la pila hoy; la política dice cómo tiene que estar siempre y cómo se comprueba, de modo que cualquiera (un compañero, un auditor, el tutor de empresa) puede verificarla sin preguntar, y un cambio que la incumpla se detecta en la siguiente comprobación. Por eso cada regla lleva su prueba: una regla que no se puede comprobar es una declaración de intenciones.
+
+**Cómo es.** El documento que se entrega es corto (una o dos páginas), vive en el repositorio `monitoring` junto a la configuración, y dice lo que se cumple y cómo se comprueba. El del curso tiene cinco reglas, que recogen las capas de la unidad: quién llega a la pila (la 1 y la 3), cómo viaja lo que llega (la 2), quién la administra (la 4) y cómo se mantiene todo eso en el tiempo (la 5):
 
 1. **Los exporters solo son alcanzables desde mon01.** Publicados en la IP de la zona del host o en red interna, con regla en nftables del host (cadenas `input` y `forward`) y en OPNsense. Comprobación: escaneo desde el puesto de administración y desde web01 con resultado `filtered`, y desde mon01 `open`.
 2. **Todo tráfico de monitorización va cifrado y autenticado.** TLS 1.3 con certificados de la CA del curso; basic auth en exporters; certificado de cliente para enviar a Loki; Grafana tras nginx con TLS y usuarios nominales. Comprobación: curl sin CA, sin credenciales y sin certificado de cliente fallan; tcpdump no muestra HTTP en claro.
@@ -804,26 +883,26 @@ El criterio g no pide solo configurar sino documentar. El documento de política
 4. **Los administradores acceden por la red de gestión, con usuario nominal.** Grafana sin acceso anónimo ni registro; Prometheus, Alertmanager y Mailpit solo en `127.0.0.1`, por túnel SSH. Comprobación: lista de usuarios de Grafana con roles, `docker ps` de mon01.
 5. **Cualquier puerto nuevo requiere actualizar la matriz y las reglas.** Un exporter nuevo entra por un cambio en el repositorio que toca a la vez el compose, `nftables.conf`, las reglas de OPNsense y la matriz, y se prueba con el mismo escaneo. Sin eso no se despliega.
 
-Junto a cada regla van la fecha de la última comprobación y el nombre del fichero de evidencia. Es el mismo formato de procedimiento de cambios de la 5166, y es lo que un auditor externo (o el tutor de empresa) va a pedir en la primera reunión.
+Junto a cada regla van la fecha de la última comprobación y el nombre del fichero de evidencia. La regla 5 es el [procedimiento de cambios](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#procedimiento-de-cambios) de la 5166 aplicado a la monitorización, y el conjunto es lo que un auditor externo (o el tutor de empresa) va a pedir en la primera reunión.
 
 ### Enunciado
 
 Toma la pila de monitorización tal como la dejó la A3.2 y déjala conforme a la política de protección de esta unidad, con evidencias de cada paso. Se entrega por Aules antes del examen del 10 de diciembre, como un directorio `monitoring/seguridad/` en el repositorio `monitoring` con un `README.md` que enlace cada evidencia.
 
-Los tres primeros bloques son trabajo en las máquinas y ocupan los cien minutos de hoy. Conviene hacerlos en este orden, porque cada uno deja hecho lo que mide el siguiente. La matriz y el documento de política son transcribir y redactar con lo que ya está en el repositorio: se empiezan si sobra rato y se terminan antes del examen.
+Los tres primeros bloques son trabajo en las máquinas y ocupan los cien minutos de hoy. Conviene hacerlos en este orden, porque cada uno deja hecho lo que necesita el siguiente: el bloque 1 cierra mon01 y, al poner nginx delante de Loki, deja a Promtail sin poder enviar; el bloque 2 se lo arregla con su certificado; y el bloque 3 mide el estado final, que solo existe cuando los dos anteriores están hechos. La matriz y el documento de política son transcribir y redactar con lo que ya está en el repositorio: se empiezan si sobra rato y se terminan antes del examen.
 
-1. **Cerrar mon01: publicación, nginx y nftables, 40 minutos.** Todo está en [Cerrar mon01](#cerrar-mon01-publicacion-y-cortafuegos) y en los dos apartados que lo siguen.
+1. **Cerrar mon01: publicación, nginx y nftables, 40 minutos.** Al terminar, la pila de mon01 solo se ve desde fuera por tres puertos (Grafana y Loki detrás de nginx, con TLS, y la Gitea provisional), y el resto solo se alcanza por túnel. Todo está en [Cerrar mon01](#cerrar-mon01-publicacion-y-cortafuegos) y en los dos apartados que lo siguen.
     - Publica la pila de mon01 como dice la tabla de aquel apartado, sin nada en `0.0.0.0`, con el servicio `nginx` y sus dos bloques `server` como única puerta de Grafana y de Loki, y Grafana con las variables `GF_*`. Los certificados `mon01-nginx` y `mon01-loki` van con `ca.crt` en `/opt/monitoring/tls/`. Desde ese momento el Promtail de app01 no puede enviar, porque el 3100 ya pide certificado: lo arregla el bloque 2.
     - Cierra mon01 con su `nftables.conf`, validado y persistente, como el de app01 en la A3.2.
     - Cambia la contraseña del `admin` de Grafana, entra desde tu puesto del aula en `https://grafana.lab:8443` con el túnel de [Cómo se llega a la pila](#como-se-llega-a-la-pila-desde-hoy) y crea tu usuario nominal con rol Editor. Con él, comprueba que siguen ahí los dashboards de la UT2 y que Explore lee Loki.
 
     *Pista:* la contraseña del `admin` no se cambia con variables de entorno, que solo cuentan en el primer arranque de Grafana, sino con `grafana cli`.
 
-2. **Certificado de cliente en Promtail, 20 minutos.** Haz que el Promtail de app01 vuelva a enviar a Loki presentando su certificado `promtail-app01`, con el bloque `clients` y el volumen de [mTLS entre Promtail y Loki](#mtls-entre-promtail-y-loki), hasta que en Explore vuelvan las líneas de app01. En el puesto de administración, emite el certificado de cliente de `logcli` del mismo apartado: lo usa la quinta comprobación del bloque 3, y con él se consulta Loki desde hoy.
+2. **Certificado de cliente en Promtail, 20 minutos.** Desde el bloque 1, el 3100 solo abre a quien presenta un certificado firmado por la CA del curso, y Promtail todavía no lo hace. Haz que el Promtail de app01 vuelva a enviar a Loki presentando su certificado `promtail-app01`, con el bloque `clients` y el volumen de [mTLS entre Promtail y Loki](#mtls-entre-promtail-y-loki), hasta que en Explore vuelvan las líneas de app01. En el puesto de administración, emite el certificado de cliente de `logcli` del mismo apartado: lo usa la quinta comprobación del bloque 3, y con él se consulta Loki desde hoy.
 
     *Pista:* un volumen nuevo no se aplica con `restart`: hay que recrear el contenedor de Promtail.
 
-3. **Auditoría final, 35 minutos.** Todo a `monitoring/audit/despues/`, con la fecha en el nombre.
+3. **Auditoría final, 35 minutos.** Repite las medidas de la A3.1 sobre el estado final, ahora también desde web01: son la columna «después» de la matriz y la prueba de que la política se cumple. Todo a `monitoring/audit/despues/`, con la fecha en el nombre.
     - Las seis comprobaciones de [Verificar que de verdad está protegido](#verificar-que-de-verdad-esta-protegido), con su salida. La sexta, todos los targets en UP, es la evidencia de que mon01 sigue llegando a los exporters.
     - Los escaneos del estado final, con los mismos doce puertos desde cada origen (`22,443,3000,3001,3100,8025,8081,9080,9090,9093,9100,9102`): app01 y mon01 desde el puesto de administración (`escaneo-desde-admin-<fecha>.txt`) y desde web01 (`escaneo-desde-web01-<fecha>.txt`), y desde app01, con `nc`, los puertos 443, 3000, 3001, 3100, 8025, 9090 y 9093 de mon01 (`nc-mon01-desde-app01-<fecha>.txt`).
     - La captura de tcpdump del 3100 en app01 (`tcpdump-app01-3100-<fecha>.txt`), igual que en la A3.1: es la mitad "después" de la pareja.
@@ -863,6 +942,8 @@ Para el criterio f se valora que la matriz sea completa (todos los orígenes rel
 **`x509: certificate is valid for app01.dev.lab, not 10.10.2.10`.** El target es una IP y el certificado no la lleva en el SAN. Hay que añadir `server_name` al `tls_config` o reemitir el certificado con `IP:10.10.2.10`.
 
 **El target da `401 Unauthorized` con la contraseña correcta.** El hash bcrypt tiene un `$` que se ha comido el shell o YAML. En el `web.yml` va entre comillas dobles; si se generó con `echo` sin comillas simples, se han perdido caracteres. Se regenera con `htpasswd -nBC 10` y se pega el hash tal cual.
+
+**nmap dice `Host seems down` desde el puesto de administración o desde web01.** Antes de escanear, nmap comprueba si el host responde a un ping y a un par de sondas TCP, y detrás de OPNsense y del nftables del host no vuelve ninguna. No quiere decir que no haya nada: con `-Pn` escanea sin esa comprobación.
 
 **Promtail registra `server returned HTTP status 400 Bad Request` contra Loki.** nginx no ha aceptado su certificado de cliente: no lo presenta (falta el `tls_config` o el volumen de `tls/`), lo firmó otra CA o se emitió sin `clientAuth`. `docker compose logs nginx` en mon01 dice cuál de las tres, y `openssl x509 -in promtail-app01.crt -noout -ext extendedKeyUsage` comprueba la última.
 

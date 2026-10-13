@@ -46,7 +46,7 @@ curl -s http://app01:9102/metrics | grep -E '^app_'
 sum(rate(app_http_requests_total{status=~"5.."}[5m])) / sum(rate(app_http_requests_total[5m]))
 histogram_quantile(0.95, sum by (le) (rate(app_http_request_duration_seconds_bucket[5m])))
 container_memory_working_set_bytes{service="app"} / container_spec_memory_limit_bytes{service="app"}
-changes(container_start_time_seconds{service="app"}[1h])    # es un gauge: changes, no increase
+changes(process_start_time_seconds{job="app"}[1h])    # es un gauge: changes, no increase
 sum(pg_stat_activity_count) / sum(pg_settings_max_connections)
 predict_linear(node_filesystem_avail_bytes{mountpoint="/data"}[7d], 30*86400) < 0   # /data: el disco de datos de db01
 absent(up{job="app"})
@@ -126,7 +126,7 @@ k6 run --vus 50 --duration 5m tests/k6/carga.js
 k6 run --summary-export=tests/evidence/1.4.2/k6-resumen.json tests/k6/carga.js
 k6 run --out experimental-prometheus-rw tests/k6/carga.js   # K6_PROMETHEUS_RW_SERVER_URL por un túnel al 9090 de mon01
 # Seguridad: ZAP en mon01, Trivy en el puesto de administración
-docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t https://api.dev.lab -r zap.html
+docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t https://api.dev.lab -r zap.html -I   # -I: los WARN no dan error
 ssh ops@10.10.2.10 docker save app:1.4.2 > /tmp/app.tar    # hasta el 19 de febrero la imagen es local, en app01
 trivy image --input /tmp/app.tar --severity HIGH,CRITICAL --ignore-unfixed
 ```
