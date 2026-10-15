@@ -4,7 +4,7 @@
 
 Esta es la última unidad en el centro. Durante el curso el servicio se ha levantado, instrumentado, protegido, probado, copiado y actualizado; ahora toca lo contrario: retirarlo sin dejar rastro. Parece la operación más sencilla de todas, porque apagar una máquina cuesta un minuto, y es la que más fácil sale mal: cada unidad anterior dejó algo del servicio fuera de él (una serie en Prometheus, una copia en MinIO, una credencial en Jenkins, una ruta en otra máquina), y nada de eso desaparece al apagar. Una baja bien hecha encuentra cada rastro, decide cuál se conserva y por qué, destruye el resto de forma que no se pueda recuperar y lo demuestra con una evidencia por punto.
 
-El sujeto de la baja es el entorno **pre**, creado con OpenTofu en la UT5 de Despliegue (8 de enero) y estrenado en esta asignatura en la UT7 (11 de febrero) para ensayar actualizaciones. Después del último despliegue, el 26 de febrero, ya no lo usa nadie, y se da de baja de verdad: contenedores e imágenes, VM y redes, rutas desde gestión, credenciales, copias, correo de alertas, datos y toda referencia en la monitorización. Dev sigue vivo al lado, y buena parte del cuidado de la unidad consiste en no llevárselo por delante. Son cinco sesiones, de la 35 a la 39. La práctica evaluable, el acta de baja, no tiene sesión propia: se construye en las cinco hojas y se entrega por Aules antes del examen de la segunda evaluación, el 23 de marzo (sesión 40), que entra UT4, UT7 y UT8. En la formación en empresa se pide exactamente esto cuando un cliente deja de serlo.
+El sujeto de la baja es el entorno **pre**, creado con OpenTofu en enero y usado desde febrero para ensayar actualizaciones. Después del último despliegue, el 26 de febrero, ya no lo usa nadie, y se da de baja de verdad: contenedores e imágenes, VM y redes, rutas desde gestión, credenciales, copias, correo de alertas, datos y toda referencia en la monitorización. Dev sigue vivo al lado, y buena parte del cuidado de la unidad consiste en no llevárselo por delante. La práctica evaluable, el acta de baja, no tiene sesión propia: se construye en las cinco hojas y se entrega por Aules antes del examen de la segunda evaluación, el 23 de marzo. En la formación en empresa se pide exactamente esto cuando un cliente deja de serlo.
 
 ## Sesión 35 · Plan de baja
 
@@ -46,7 +46,7 @@ flowchart LR
 
 La baja de un servicio es siempre un **cambio normal**. No es estándar, porque destruye datos y no se repite lo bastante para estar aprobada de antemano, y no es una emergencia, porque se sabe con semanas de antelación. En la práctica eso se traduce en cuatro cosas que tienen que existir antes de tocar nada:
 
-1. **Confirmación escrita** del responsable del servicio con fecha. Un correo vale; una conversación en el pasillo no. Ese correo va al acta. En el laboratorio es la respuesta del profesor a la solicitud en Aules.
+1. **Confirmación escrita** del responsable del servicio con fecha. Un correo vale; una conversación en el pasillo no. Ese correo va al acta. En el laboratorio es la respuesta del profesor a la solicitud que se le manda por mensaje en Aules.
 2. **Ventana de ejecución.** Aunque el servicio ya no dé tráfico, la baja toca sistemas compartidos (el firewall, Prometheus, la base de datos común). Se hace en horario en que alguien pueda deshacer un error.
 3. **Comunicación.** A los usuarios que quedasen (aviso previo de cierre, normalmente con semanas), a los equipos que consumen la monitorización (para que no abran incidencias) y al equipo de soporte.
 4. **Lista de lo que se conserva y hasta cuándo.** Esto es lo que más se olvida y lo que más problemas legales da en las dos direcciones: conservar de más incumple el principio de limitación del plazo de conservación, y conservar de menos, una obligación fiscal.
@@ -65,7 +65,7 @@ El cuarto punto es el que necesita más explicación, porque no lo decide la té
 | Logs de acceso con IP o usuario | RGPD (son datos personales); ENS (Esquema Nacional de Seguridad) para el sector público | Entre 6 meses y 2 años según finalidad y política; el ENS pide al menos lo que dure el análisis de incidentes |
 | Registros de actividades de tratamiento | RGPD art. 30 | Mientras exista el tratamiento, y se actualiza con la baja |
 
-**El bloqueo: guardar sin seguir usando.** El RGPD obliga a suprimir lo que ya no hace falta, y a la vez puede quedar pendiente una reclamación o una inspección en la que esos datos sean la prueba. El artículo 32 de la LOPDGDD resuelve ese choque con el **bloqueo**, que es lo que da sentido a "qué se conserva por si acaso": los datos se dejan de tratar, se aíslan con acceso restringido al responsable y a la autoridad, y solo se destruyen cuando prescriben las responsabilidades. Técnicamente eso es un volcado cifrado en un sitio al que solo llega el DPO o el responsable, con fecha de destrucción apuntada en el acta. Lo que no puede ser es "lo dejamos en el bucket de siempre porque nunca se sabe". En pre, ese volcado es el que guarda la A8.2.
+**El bloqueo: guardar sin seguir usando.** El RGPD obliga a suprimir lo que ya no hace falta, y a la vez puede quedar pendiente una reclamación o una inspección en la que esos datos sean la prueba. El artículo 32 de la LOPDGDD resuelve ese choque con el **bloqueo**, que es lo que da sentido a "qué se conserva por si acaso": los datos se dejan de tratar, se aíslan con acceso restringido al responsable y a la autoridad, y solo se destruyen cuando prescriben las responsabilidades. Técnicamente eso es un volcado cifrado en un sitio al que solo llega el DPO o el responsable, con fecha de destrucción apuntada en el acta. Lo que no puede ser es "lo dejamos en el bucket de siempre porque nunca se sabe". En pre, ese volcado se saca el 9 de marzo, antes de destruir nada.
 
 El acta tiene que decir, para cada categoría de datos, una de tres cosas: se destruye ahora (y cómo), se bloquea hasta una fecha (y dónde), o se transfiere a otro servicio que hereda el tratamiento.
 
@@ -118,7 +118,7 @@ mindmap
 **Lo escrito frente a lo que existe.** Lo que dice un fichero de configuración no siempre es lo que existe, y al revés: un recurso creado a mano no está escrito en ningún sitio, y una línea de configuración puede referirse a algo que ya no corre. Por eso, además de buscar en lo escrito, se pregunta a cada sistema por lo que tiene ahora, de la forma que ese sistema admite. La forma no es un capricho de cada herramienta: depende de dónde guarde la información y de si la deja ver en claro. En el laboratorio la lista es más corta que el mapa, pero tiene las mismas trampas:
 
 - **Repositorios.** Lo que está en Git se encuentra con `git grep` de las tres cadenas: `iac-lab`, `operacion` y `entregas-5166` en el puesto de administración, `monitoring` y `alerting` en mon01. Que salga una línea que no estaba prevista es lo normal; se apunta.
-- **OpenTofu frente a Proxmox.** `tofu state list` dice lo que la herramienta creó; la API de Proxmox, lo que existe. Comparar las dos listas es lo que descubre lo que se hizo a mano: `router-pre` y las VNets de pre son de la UT2 de Despliegue y no están en ningún estado.
+- **OpenTofu frente a Proxmox.** `tofu state list` dice lo que la herramienta creó; la API de Proxmox, lo que existe. Comparar las dos listas es lo que descubre lo que se hizo a mano: `router-pre` y las VNets de pre se crearon a mano, antes que el código, y no están en ningún estado.
 - **Prometheus.** No basta con leer `prometheus.yml`: se pregunta a la API por las series que existen ahora mismo con `env="pre"`. Configuración y estado no siempre coinciden, y lo que sobra puede estar en cualquiera de los dos.
 - **Jenkins y el registry.** Las credenciales de Jenkins están cifradas y solo se listan por la API de su carpeta; las etiquetas del registry, por la suya. Cuáles de esas etiquetas llegaron a pre lo dice `docker images` en app01-pre.
 - **Red.** Las rutas hacia `10.20.0.0/16` están en tres máquinas de gestión (el puesto, agent01 y mon01), y los nombres de pre los sirve el dnsmasq de `router-pre`, que muere con él. OPNsense no sabe nada de pre, porque gestión llega a pre por la pata que `router-pre` tiene en `devmgmt`, sin cruzar el cortafuegos, y eso también se comprueba.
@@ -137,10 +137,10 @@ El inventario se hace así, sistema por sistema, en el paso 3 de la [A8.1](#a81-
 
 | Camino | A qué se llega | Con qué credencial |
 |---|---|---|
-| API por HTTPS | Proxmox, Grafana, Jenkins y el registry | Un token por sistema: el `tofu` de Proxmox (A5.1 de Despliegue), el de una cuenta de servicio de Grafana y un API token de Jenkins; en el registry, su usuario `jenkins` (A6.6) |
+| API por HTTPS | Proxmox, Grafana, Jenkins y el registry | Un token por sistema: el `tofu` de Proxmox, el de una cuenta de servicio de Grafana y un API token de Jenkins; en el registry, su usuario `jenkins` |
 | SSH | Las VM de pre, agent01, mon01 y db01 | La clave de `ops` del puesto del aula, que `ssh -A` presta al puesto de administración |
-| Túnel SSH | Prometheus, Alertmanager y Mailpit, que desde la UT3 solo escuchan en el `127.0.0.1` de mon01 | La misma clave, en un túnel hacia mon01 |
-| Certificado de cliente | Loki, que lo exige desde la UT3 | El certificado `logcli` de `~/tls-monitorizacion/` |
+| Túnel SSH | Prometheus, Alertmanager y Mailpit, que solo escuchan en el `127.0.0.1` de mon01 | La misma clave, en un túnel hacia mon01 |
+| Certificado de cliente | Loki, que lo exige | El certificado `logcli` de `~/tls-monitorizacion/` |
 | Cliente de almacenamiento | El repositorio restic y el bucket `backups` de MinIO | La credencial `restic` de MinIO y la contraseña del repositorio |
 
 **Qué es un token y por qué uno propio.** Un token es una contraseña pensada para programas: se crea para un uso concreto, con los permisos justos, y se revoca sin tocar la contraseña de ninguna persona. Por eso la unidad crea en Grafana una cuenta de servicio propia, `baja-pre`, en lugar de usar la de `admin`: tiene los permisos que necesita la baja y no los de administrador, y se puede borrar sin afectar a nadie.
@@ -156,11 +156,11 @@ export AWS_ACCESS_KEY_ID=tofu AWS_SECRET_ACCESS_KEY='...'
 export PVE=https://192.168.1.50:8006/api2/json
 pve() { curl -sk -H "Authorization: PVEAPIToken=$TF_VAR_pve_token" "$PVE$1"; }
 # Prometheus, Alertmanager y Mailpit solo escuchan en el 127.0.0.1 de mon01: se llega por túnel
-tunel() { ssh -fN -L 9090:127.0.0.1:9090 -L 9093:127.0.0.1:9093 -L 8025:127.0.0.1:8025 ops@10.10.0.20; }
-export P=http://localhost:9090 MP=http://localhost:8025/api/v1
-amt() { ssh ops@10.10.0.20 docker compose -f /opt/monitoring/compose.yml exec -T alertmanager amtool --alertmanager.url=http://localhost:9093 "$@"; }
+tunel() { ssh -fN -L 29090:127.0.0.1:29090 -L 29093:127.0.0.1:29093 -L 28025:127.0.0.1:28025 ops@10.10.0.20; }
+export P=http://localhost:29090 MP=http://localhost:28025/api/v1
+amt() { ssh ops@10.10.0.20 docker compose -f /opt/monitoring/compose.yml exec -T alertmanager amtool --alertmanager.url=http://localhost:29093 "$@"; }
 export G=https://grafana.lab GRAFANA_TOKEN='...'
-export LOKI_ADDR=https://10.10.0.20:3100      # Loki pide el certificado de cliente de la UT3
+export LOKI_ADDR=https://10.10.0.20:23100     # Loki pide certificado de cliente
 export LOKI_CLIENT_CERT_PATH=~/tls-monitorizacion/logcli.crt LOKI_CLIENT_KEY_PATH=~/tls-monitorizacion/logcli.key
 export J=https://jenkins.lab JENKINS_TOKEN='...'
 export R=https://registry.lab:5000/v2/app REG_USER=jenkins REG_PASS='...'
@@ -170,7 +170,7 @@ rst() { ( set -a; . /etc/restic/env; set +a; exec restic "$@" ); }   # restic co
 Las líneas que no se explican solas:
 
 - `EV` es la carpeta de evidencias: dentro de `operacion`, que se sube a Gitea, y nunca en una máquina que se va a destruir.
-- `GPG_TTY` le dice a `gpg` en qué terminal pedir la frase de paso; sin ella, el cifrado del volcado de la A8.2 falla.
+- `GPG_TTY` le dice a `gpg` en qué terminal pedir la frase de paso; sin ella, el cifrado del volcado de bloqueo falla.
 - `TF_VAR_pve_token` y las dos variables `AWS_*` son el token de Proxmox y la credencial `tofu` de MinIO, que OpenTofu necesita para leer el estado de pre y para destruirlo. `pve` aprovecha el mismo token para preguntar a la API de Proxmox.
 - `tunel` abre en segundo plano los tres túneles hacia mon01. Con él abierto, Prometheus, Alertmanager y Mailpit responden en el `localhost` del puesto, que es adonde apuntan `P` y `MP`.
 - `amt` ejecuta `amtool` dentro del contenedor de Alertmanager de mon01, que ya lo trae, así que no hay que instalarlo en el puesto.
@@ -179,11 +179,11 @@ Las líneas que no se explican solas:
 
 #### Lista de comprobación completa
 
-**Del inventario a la lista.** El inventario dice qué hay; la lista de comprobación dice en qué orden se quita y cómo se demuestra que ya no está. Esta es la lista para pre, en el orden en que se ejecuta y con la hoja que se encarga de cada punto. Ese orden no es el de las familias del mapa, sino el que justifica [El orden importa](#el-orden-importa), en la sesión 36: primero lo que protege (la aprobación, el silencio, el volcado), después lo que destruye, y al final lo que confirma que no queda nada (el silencio expirado sin alertas y el acta cerrada). Cada línea lleva el comando de verificación, porque una casilla marcada sin evidencia no vale nada en un acta; `amt`, `pve` y `rst` son las funciones del [fichero de la unidad](#el-puesto-de-administracion-como-base-de-la-baja).
+**Del inventario a la lista.** El inventario dice qué hay; la lista de comprobación dice en qué orden se quita y cómo se demuestra que ya no está. Esta es la lista para pre, en el orden en que se ejecuta y con la hoja que se encarga de cada punto. Ese orden no es el de las familias del mapa: primero va lo que protege (la aprobación, el silencio, el volcado), después lo que destruye, y al final lo que confirma que no queda nada (el silencio expirado sin alertas y el acta cerrada). Cada línea lleva el comando de verificación, porque una casilla marcada sin evidencia no vale nada en un acta; `amt`, `pve` y `rst` son las funciones del [fichero de la unidad](#el-puesto-de-administracion-como-base-de-la-baja). Por qué cada paso va antes que el siguiente se explica el 9 de marzo, en [El orden importa](#el-orden-importa).
 
 - [ ] Aprobación escrita archivada: `ev/01-aprobacion.txt` con la respuesta del profesor (A8.1)
 - [ ] Silencio en Alertmanager para `env="pre"`, más largo que la ventana: `amt silence query env=pre` (A8.2)
-- [ ] Volcado de bloqueo cifrado, comprobado y entregado al DPO: `pg_restore -l` y `sha256sum` (A8.2)
+- [ ] Volcado de bloqueo cifrado, comprobado y guardado fuera de los repositorios: `pg_restore -l` y `sha256sum` (A8.2)
 - [ ] Dashboards de pre exportados a Git, si los hay: `git -C ~/operacion log -1 -- dashboards/pre/` (A8.2)
 - [ ] Job de despliegue a pre deshabilitado: la API de Jenkins lo da en `disabled` (A8.2)
 - [ ] Servicio parado y app01-pre sin contenedores, volúmenes, imágenes ni redes propias: `docker ps -a`, `docker volume ls`, `docker images` vacíos (A8.2)
@@ -225,7 +225,7 @@ Hoy no borras nada. Primero preparas el puesto, porque el inventario se hace con
 
 2. **Completa el puesto y prueba cada acceso.** Faltan cuatro piezas: la CA del curso en el almacén del sistema, para que `curl` y `logcli` confíen en los servicios del laboratorio sin repetir `--cacert`; `jq`, para leer las respuestas de las API; el cliente `mc` de MinIO con el alias `lab` y la credencial `restic`; y los dos tokens que el fichero deja en blanco, el de una cuenta de servicio `baja-pre` con rol Editor en Grafana y un API token de `admin` en Jenkins. Con el fichero cargado y el túnel abierto, comprueba que responden Prometheus, `amt`, Grafana, Jenkins, `logcli`, `rst` y `pve`. Lo que falle se arregla hoy: las hojas siguientes lo dan por hecho, y un acceso que se rompe a mitad de la baja deja el entorno a medio destruir.
 
-    *Pista:* `mc` no es un paquete de Debian sino un binario de `dl.min.io`, y el alias apunta a `http://10.10.0.30:9000`. Las cuentas de servicio de Grafana están en Administration → Users and access, y el token de Jenkins, en tu usuario → Security.
+    *Pista:* `mc` no es un paquete de Debian sino un binario de `dl.min.io`, y el alias apunta a `http://10.10.0.30:29000`. Las cuentas de servicio de Grafana están en Administration → Users and access, y el token de Jenkins, en tu usuario → Security.
 
 3. **Inventaría pre sistema por sistema.** Recorre los sistemas de [Inventario de rastros](#inventario-de-rastros), más los dashboards de Grafana con la etiqueta `pre`, y deja lo que encuentres en `$EV/00-inventario.txt`, con una sección por sistema. Lo que tiene API o vive en el puesto se pregunta desde el puesto; lo demás, por SSH: app01-pre (`10.20.2.10`), agent01 (`10.10.0.12`) y mon01 (`10.10.0.20`). Busca con las tres cadenas del apartado y pregunta a cada sistema por lo que existe, no solo por lo que dice su configuración: lo que salga aquí es lo único que se va a borrar. La carpeta `servicio/pre` de Jenkins nace mañana, en la A6.8 de Despliegue: hoy su sección sale con error, y la A8.2 la repite.
 
@@ -235,11 +235,11 @@ Hoy no borras nada. Primero preparas el puesto, porque el inventario se hace con
 
     *Pista:* lo que lista Proxmox y no está en el estado de OpenTofu (`router-pre` y las VNets) se destruye a mano y lleva sus propias filas. Lo que no esperabas va a "Incidencias durante la baja".
 
-5. **Decide qué se conserva y pide la aprobación.** Rellena "Qué se conserva" con motivo, dónde y hasta cuándo: el volcado de bloqueo, el repositorio `servicio` con su webhook y su Multibranch (dev los sigue usando), el token de OpenTofu, el repositorio restic (guarda más copias que las de pre) y el historial de despliegues de Jenkins. Es la parte del acta que protege de borrar de más. Haz commit del acta y de `ev/00-inventario.txt` y pide la aprobación con el enlace del commit en la tarea de la A8.1 en Aules, para que quien aprueba lea exactamente lo que se va a hacer. La respuesta del profesor, con su fecha, va a `ev/01-aprobacion.txt` antes del 9 de marzo: sin ella la A8.2 no empieza.
+5. **Decide qué se conserva y pide la aprobación.** Rellena "Qué se conserva" con motivo, dónde y hasta cuándo: el volcado de bloqueo, el repositorio `servicio` con su webhook y su Multibranch (dev los sigue usando), el token de OpenTofu, el repositorio restic (guarda más copias que las de pre) y el historial de despliegues de Jenkins. Es la parte del acta que protege de borrar de más. Haz commit del acta y de `ev/00-inventario.txt` y pide la aprobación al profesor en un mensaje de Aules con el enlace del commit, para que quien aprueba lea exactamente lo que se va a hacer. Su respuesta, con su fecha, va a `ev/01-aprobacion.txt` antes del 9 de marzo: sin ella la A8.2 no empieza.
 
 <span class="et et-com">Comprobación</span> `tunel` y las siete comprobaciones del paso 2 responden; `ev/00-inventario.txt` tiene todas sus secciones, con tres VM de pre en el estado de OpenTofu y cuatro en la franja 200 de Proxmox; la lista del acta empieza por la aprobación y el silencio y termina con la expiración del silencio y el cierre del acta; ninguna fila sin verificación.
 
-<span class="et et-ent">Entrega</span> `acta.md` y `ev/00-inventario.txt` en un commit del repositorio `operacion`, y la solicitud de aprobación en Aules.
+<span class="et et-ent">Para practicar</span> Deja `acta.md` y `ev/00-inventario.txt` en un commit de `operacion`, y la respuesta del profesor en `ev/01-aprobacion.txt`. Esa acta es la práctica evaluable.
 
 <span class="et et-ext">Si te sobra tiempo</span> Redacta en la identificación del acta la comunicación de la baja: el aviso a los usuarios, a soporte y a la guardia, con la fecha de cada uno.
 
@@ -247,11 +247,11 @@ Hoy no borras nada. Primero preparas el puesto, porque el inventario se hace con
 
 <p class="ut-meta" markdown>9 de marzo · Teoría y práctica · <span class="dur" tabindex="0" aria-label="El orden importa · 10 min&#10;Cómo se libera cada capa dentro de la VM · 15 min&#10;A8.2 Liberar el servicio y los contenedores · 85 min" data-dur="El orden importa · 10 min&#10;Cómo se libera cada capa dentro de la VM · 15 min&#10;A8.2 Liberar el servicio y los contenedores · 85 min">:material-school:<i class="dur-barra" style="--teoria:23%"></i>:material-flask:</span></p>
 
-Con la aprobación en `ev/01-aprobacion.txt` empieza la ejecución, y lo primero que hay que decidir no es cómo se borra cada cosa sino en qué orden: casi todos los errores graves de una baja son de orden (parar antes de silenciar, borrar antes de guardar, destruir antes de exportar las pruebas). Por eso la teoría empieza por la secuencia completa de la baja y por qué cada paso va antes que el siguiente, y solo después baja a lo de hoy, que es la primera mitad de la infraestructura: lo que vive dentro de las máquinas. Ahí se ve qué libera `docker compose down` y qué deja, y cómo se saca antes el volcado de bloqueo, la copia de los datos de pre que sobrevivirá a todo lo demás. La hoja recorre exactamente ese orden: pone al día el inventario, silencia, guarda, corta el despliegue, para y libera. Al terminar, las VM de pre siguen en pie a propósito: son el trabajo de la sesión siguiente, y mientras existan la baja todavía tiene vuelta atrás. Los bloques de comandos de la teoría son los que copia la hoja.
+Con la aprobación en `ev/01-aprobacion.txt` empieza la ejecución, y lo primero que hay que decidir no es cómo se borra cada cosa sino en qué orden: casi todos los errores graves de una baja son de orden (parar antes de silenciar, borrar antes de guardar, destruir antes de exportar las pruebas). Por eso la teoría empieza por la secuencia completa de la baja y por qué cada paso va antes que el siguiente, y solo después baja a lo de hoy, que es la primera mitad de la infraestructura: lo que vive dentro de las máquinas. Ahí se ve qué libera `docker compose down` y qué deja, y cómo se saca antes el volcado de bloqueo, la copia de los datos de pre que sobrevivirá a todo lo demás. La hoja recorre exactamente ese orden: pone al día el inventario, silencia, guarda, corta el despliegue, para y libera. Al terminar, las VM de pre siguen en pie a propósito: son el trabajo de la sesión siguiente, el 11 de marzo, y mientras existan la baja todavía tiene vuelta atrás. Los bloques de comandos de la teoría son los que copia la hoja.
 
 ### El orden importa
 
-**Por qué el orden decide.** Hay una secuencia correcta y no es "borrar de arriba abajo". Si el servicio se para antes de silenciar las alarmas, Alertmanager abre incidencias, el receptor webhook crea tickets y el equipo de guardia recibe un aviso a las diez de la noche por un servicio que se sabía que iba a apagarse. Si los volúmenes se borran antes de haber verificado que la copia bloqueada existe y se puede restaurar, ya no hay vuelta atrás. Si la VM se destruye antes de exportar las evidencias que están dentro (logs de auditoría, por ejemplo), el acta se queda sin pruebas. El silencio es el de la [UT2](ut2-alarmas.md#silencios): una inhibición temporal, creada a mano, de las alertas que cumplen unas etiquetas, con un comentario que dice por qué.
+**Por qué el orden decide.** Hay una secuencia correcta y no es "borrar de arriba abajo". Si el servicio se para antes de silenciar las alarmas, Alertmanager abre incidencias, el receptor webhook crea tickets y el equipo de guardia recibe un aviso a las diez de la noche por un servicio que se sabía que iba a apagarse. Si los volúmenes se borran antes de haber verificado que la copia bloqueada existe y se puede restaurar, ya no hay vuelta atrás. Si la VM se destruye antes de exportar las evidencias que están dentro (logs de auditoría, por ejemplo), el acta se queda sin pruebas. El silencio es un [silencio de Alertmanager](ut2-alarmas.md#silencios): una inhibición temporal, creada a mano, de las alertas que cumplen unas etiquetas, con un comentario que dice por qué.
 
 ```mermaid
 flowchart TD
@@ -279,9 +279,9 @@ flowchart TD
 
 **El periodo de gracia.** El paso E es opcional pero muy recomendable: el servicio está parado, nada se ha destruido, y si alguien grita ("el informe mensual tiraba de esa API") se levanta en un minuto. En una empresa una semana es lo habitual. En el laboratorio va del 9 al 11 de marzo: el servicio está parado y app01-pre vacía, pero db01-pre sigue intacta y la imagen sigue en el registry, así que volver atrás es habilitar el job de despliegue de pre y relanzarlo. Lo irreversible empieza el 11, con `tofu destroy`, y desde ese momento la única vuelta atrás es la copia bloqueada.
 
-**Cortar lo que lo puede volver a levantar.** Parar el servicio sirve de poco si algo automático lo puede arrancar otra vez. En el curso ese algo es el pipeline de Despliegue: su etapa `Deploy` lanza el job `despliegue` de la carpeta `servicio/pre` de Jenkins, y un lanzamiento con `RUN_DEPLOY` marcado volvería a llevar la imagen a app01-pre. Por eso ese job se deshabilita antes de parar el servicio. Deshabilitar no es borrar: el job y su historial siguen ahí, y durante el periodo de gracia volver atrás es habilitarlo y relanzarlo. Se borra con la carpeta en la sesión siguiente.
+**Cortar lo que lo puede volver a levantar.** Parar el servicio sirve de poco si algo automático lo puede arrancar otra vez. En el curso ese algo es el pipeline del servicio: su etapa `Deploy` lanza el job `despliegue` de la carpeta `servicio/pre` de Jenkins, y un lanzamiento con `RUN_DEPLOY` marcado volvería a llevar la imagen a app01-pre. Por eso ese job se deshabilita antes de parar el servicio. Deshabilitar no es borrar: el job y su historial siguen ahí, y durante el periodo de gracia volver atrás es habilitarlo y relanzarlo. Se borra con la carpeta el 11 de marzo.
 
-**Los silencios, al final.** Los silencios se quitan al final, no antes, y con criterio: si el silencio se retira con los targets todavía configurados, salta todo. Primero se retiran los targets y las reglas, se comprueba que no hay alertas pendientes, y entonces se expira el silencio. La [lista de comprobación completa](#lista-de-comprobacion-completa) de la sesión 35 sigue exactamente este orden.
+**Los silencios, al final.** Los silencios se quitan al final, no antes, y con criterio: si el silencio se retira con los targets todavía configurados, salta todo. Primero se retiran los targets y las reglas, se comprueba que no hay alertas pendientes, y entonces se expira el silencio. La [lista de comprobación completa](#lista-de-comprobacion-completa) sigue exactamente este orden.
 
 ### Cómo se libera cada capa dentro de la VM
 
@@ -291,7 +291,7 @@ flowchart TD
 |---|---|---|
 | Contenedores | `docker compose down` | `docker ps -a` vacío |
 | Volúmenes | `docker compose down -v`; `docker volume rm` | `docker volume ls` vacío |
-| Imágenes | `docker compose down --rmi all`; `docker image prune -a` en un host dedicado | `docker images` vacío; las del registry, en la sesión 38 |
+| Imágenes | `docker compose down --rmi all`; `docker image prune -a` en un host dedicado | `docker images` vacío |
 | Redes | `docker compose down`; `docker network rm` | `docker network ls` sin redes propias |
 
 #### Docker en app01-pre
@@ -307,11 +307,11 @@ docker ps -aq; docker volume ls -q; docker images -q          # vacíos
 
 **`prune`, solo en un host dedicado.** `docker image prune -a` borra todas las imágenes sin contenedor del host entero, no solo las del proyecto, y `docker system prune -af --volumes` además contenedores parados, redes sin usar, caché de build y volúmenes anónimos. En app01-pre, donde solo vive este servicio y que se destruye dos días después, es aceptable, y además necesario: `--rmi all` solo se lleva las imágenes que usa el compose actual, y en app01-pre quedan las de despliegues anteriores, con otras etiquetas, que solo el `prune` encuentra. En un host compartido no se ejecuta nunca, y se borra imagen por imagen con `docker image rm`.
 
-**Un volumen borrado no es un dato borrado.** Un volumen borrado es un `rm -rf` de `/var/lib/docker/volumes/<nombre>/_data`: los bloques siguen en el disco de la VM hasta que el disco se destruye, y el porqué está en la [sesión 38](#por-que-borrar-no-borra).
+**Un volumen borrado no es un dato borrado.** Un volumen borrado es un `rm -rf` de `/var/lib/docker/volumes/<nombre>/_data`: los bloques siguen en el disco de la VM hasta que el disco se destruye. El porqué se explica el 16 de marzo, en [Por qué borrar no borra](#por-que-borrar-no-borra).
 
 #### El volcado de bloqueo
 
-**Qué se guarda, y por qué antes que nada.** Lo que se conserva sale antes de destruir nada. Para pre es un volcado completo de su base de datos que queda bloqueado en el sentido del artículo 32 de la LOPDGDD, el de [Qué hay que conservar por obligación legal](#que-hay-que-conservar-por-obligacion-legal): solo lo abre el DPO y tiene fecha de destrucción en el acta. Cuando la A8.3 destruya db01-pre y la A8.4 borre las copias de restic, será la única copia que quede de esos datos.
+**Qué se guarda, y por qué antes que nada.** Lo que se conserva sale antes de destruir nada. Para pre es un volcado completo de su base de datos que queda bloqueado en el sentido del artículo 32 de la LOPDGDD, el de [Qué hay que conservar por obligación legal](#que-hay-que-conservar-por-obligacion-legal): nadie lo vuelve a usar y tiene fecha de destrucción en el acta. Cuando el 11 de marzo se destruya db01-pre y el 16 se borren sus copias de restic, será la única copia que quede de esos datos.
 
 **Cómo se saca sin dejar copias en claro.** Se pide desde el puesto de administración, de modo que el volcado viaja por SSH y se cifra al llegar, sin tocar ningún disco sin cifrar:
 
@@ -321,9 +321,9 @@ gpg -d ~/pre-bloqueo.dump.gpg | pg_restore -l | head -5     # el índice del vol
 sha256sum ~/pre-bloqueo.dump.gpg                             # la huella que va al acta
 ```
 
-**Qué demuestra cada línea.** `-Fc` es el formato propio de `pg_dump`, comprimido, que `pg_restore -l` sabe listar: esa lista es la prueba de que el volcado se puede restaurar, y sin ella no se destruye nada. La huella de `sha256sum` va al acta para que, mientras dure el bloqueo, se pueda comprobar que el fichero que guarda el DPO es el mismo que se verificó ese día.
+**Qué demuestra cada línea.** `-Fc` es el formato propio de `pg_dump`, comprimido, que `pg_restore -l` sabe listar: esa lista es la prueba de que el volcado se puede restaurar, y sin ella no se destruye nada. La huella de `sha256sum` va al acta para que, mientras dure el bloqueo, se pueda comprobar que el fichero que se conserva es el mismo que se verificó ese día.
 
-**Por qué cifrado, y cómo.** El volcado sale del sistema con datos personales dentro, y cifrarlo es lo que hace que no se pueda leer sin la clave, esté donde esté. Lo cifra `gpg` (GnuPG, la implementación libre del estándar de cifrado OpenPGP). `gpg -c` cifra con una frase de paso y no con la clave pública de nadie: en el laboratorio el DPO es el profesor, que recibe el fichero por un lado y la frase de paso por otro, de modo que quien intercepte uno de los dos no tiene nada. En una empresa se cifra para la clave del DPO (`gpg -e -r <su clave>`) y la frase no viaja. Si `gpg` falla con `Inappropriate ioctl for device`, no sabe en qué terminal pedir la frase: le falta `GPG_TTY`, que carga el fichero de la A8.1.
+**Por qué cifrado, y cómo.** El volcado sale del sistema con datos personales dentro, y cifrarlo es lo que hace que no se pueda leer sin la clave, esté donde esté. Lo cifra `gpg` (GnuPG, la implementación libre del estándar de cifrado OpenPGP). En una empresa se cifra para la clave pública del DPO (`gpg -e -r <su clave>`), que es quien lo custodia, y ninguna frase de paso tiene que viajar. En el laboratorio, `gpg -c` cifra con una frase de paso: el fichero se queda en el puesto de administración, fuera de cualquier repositorio, y la frase de paso, en el gestor de contraseñas, de modo que quien consiga uno de los dos no tiene nada. Si `gpg` falla con `Inappropriate ioctl for device`, no sabe en qué terminal pedir la frase: le falta `GPG_TTY`, que carga el fichero de la A8.1.
 
 ### A8.2 Liberar el servicio y los contenedores (sesión 36)
 
@@ -347,7 +347,7 @@ Sigues el orden de [El orden importa](#el-orden-importa) al pie de la letra, por
 
 2. **Silencia pre antes de tocar nada.** Desde hoy pre va a desaparecer a trozos, y en cuanto sus VM dejen de contestar `HostDown` saltaría por cada una. Crea un silencio con el matcher `env=pre`, autor `ops` y una duración que pase del 18 de marzo, que es cuando lo retira la A8.5, y guárdalo en `$EV/02-silencio.txt`.
 
-3. **Guarda lo que se conserva mientras todavía existe.** Saca el volcado de bloqueo de db01-pre (`10.20.3.10`) con el bloque de [El volcado de bloqueo](#el-volcado-de-bloqueo) y deja su índice y su huella en `$EV/03-dump-bloqueo.txt`: el índice demuestra que se puede restaurar, y la huella, que el fichero que entregas es ese. Si el inventario encontró dashboards de pre, exporta su JSON a `~/operacion/dashboards/pre/`, porque un dashboard bien hecho sirve para el siguiente servicio. El `.gpg` va a la tarea de la A8.2 en Aules y la frase de paso, al profesor en un mensaje aparte; ninguno de los dos va al repositorio. Hazlo bien: desde el 11 de marzo, la única copia al día de los datos de pre es esta.
+3. **Guarda lo que se conserva mientras todavía existe.** Saca el volcado de bloqueo de db01-pre (`10.20.3.10`) con el bloque de [El volcado de bloqueo](#el-volcado-de-bloqueo) y deja su índice y su huella en `$EV/03-dump-bloqueo.txt`: el índice demuestra que se puede restaurar, y la huella, que el fichero que guardas es ese. Si el inventario encontró dashboards de pre, exporta su JSON a `~/operacion/dashboards/pre/`, porque un dashboard bien hecho sirve para el siguiente servicio. El `.gpg` se queda en el puesto y la frase de paso, en el gestor de contraseñas; ninguno de los dos va al repositorio. Hazlo bien: desde el 11 de marzo, la única copia al día de los datos de pre es esta.
 
     *Pista:* `pg_restore` viene en `postgresql-client`, que no suele estar en el puesto.
 
@@ -355,7 +355,7 @@ Sigues el orden de [El orden importa](#el-orden-importa) al pie de la letra, por
 
     *Pista:* un job se deshabilita con un POST a su URL terminada en `/disable`, y su estado es el campo `color` de su `api/json`.
 
-5. **Para el servicio y libera lo que `down` deja.** Para el servicio y comprueba desde el puesto que la API (`http://10.20.2.10:8080/health`) ya no responde: es la prueba de que ha terminado, vista como la vería un cliente. Después libera volúmenes, imágenes y redes como en [Docker en app01-pre](#docker-en-app01-pre), incluido el `prune` que ese apartado solo admite en un host dedicado, y deja en `$EV/05-docker.txt` la API sin respuesta y las cuatro listas vacías.
+5. **Para el servicio y libera lo que `down` deja.** Para el servicio y comprueba desde el puesto que la API (`http://10.20.2.10:28080/health`) ya no responde: es la prueba de que ha terminado, vista como la vería un cliente. Después libera volúmenes, imágenes y redes como en [Docker en app01-pre](#docker-en-app01-pre), incluido el `prune` que ese apartado solo admite en un host dedicado, y deja en `$EV/05-docker.txt` la API sin respuesta y las cuatro listas vacías.
 
     *Pista:* el `prune` solo vale en app01-pre, que no aloja nada más; en app01 de dev se llevaría los volúmenes del servicio. Las redes propias se listan con `docker network ls --filter type=custom`.
 
@@ -363,7 +363,7 @@ Sigues el orden de [El orden importa](#el-orden-importa) al pie de la letra, por
 
 <span class="et et-com">Comprobación</span> `ev/02-silencio.txt` con el silencio activo y su fin después del 18 de marzo; `ev/03-dump-bloqueo.txt` con el índice del volcado y su huella; el job de despliegue en `disabled`; en `ev/05-docker.txt`, la API sin respuesta y las cuatro listas vacías. Las VM de pre siguen en pie: al acabar hoy, eso es lo correcto.
 
-<span class="et et-ent">Entrega</span> Commit en `operacion` con el acta al día y las evidencias `ev/00b` y `ev/02` a `ev/05`; el `pre-bloqueo.dump.gpg` en Aules y su frase de paso aparte.
+<span class="et et-ent">Para practicar</span> Haz commit en `operacion` del acta al día y de `ev/00b` y `ev/02` a `ev/05`, y deja `pre-bloqueo.dump.gpg` en el puesto, fuera de los repositorios, y su frase de paso en el gestor de contraseñas.
 
 ## Sesión 37 · Liberar la infraestructura: VM, red y credenciales
 
@@ -373,13 +373,13 @@ El periodo de gracia termina hoy. Hasta ahora la baja se podía deshacer, porque
 
 ### Destruir lo declarado no basta
 
-**El problema.** Con infraestructura como código, dar de baja un entorno parece trivial: el código describe pre, y `tofu destroy` deshace lo que el código describe. Para ver dónde falla hay que recordar cómo decide qué borrar. OpenTofu no le pregunta a Proxmox qué existe: lee su **estado**, el fichero en el que apunta cada recurso que ha creado con su identificador real (que `vm["web01"]` es la VM 210, por ejemplo), y que en el laboratorio vive en el bucket `tfstate` de MinIO desde la A5.4 de Despliegue; está explicado en [El estado a fondo](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/#el-estado-a-fondo). Así que `tofu destroy` deshace lo que el estado dice que se creó, ni más ni menos, y en esa frase caben cuatro trampas que aparecen en la hoja de esta sesión.
+**El problema.** Con infraestructura como código, dar de baja un entorno parece trivial: el código describe pre, y `tofu destroy` deshace lo que el código describe. Para ver dónde falla hay que recordar cómo decide qué borrar. OpenTofu no le pregunta a Proxmox qué existe: lee su **estado**, el fichero en el que apunta cada recurso que ha creado con su identificador real (que `vm["web01"]` es la VM 210, por ejemplo), y que en el laboratorio vive en el bucket `tfstate` de MinIO; está explicado en [El estado a fondo](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/#el-estado-a-fondo). Así que `tofu destroy` deshace lo que el estado dice que se creó, ni más ni menos, y en esa frase caben cuatro trampas que aparecen en la hoja de esta sesión.
 
-**Lo que se creó a mano no está en el estado.** `router-pre` y las cuatro VNets de pre se crearon a mano en la UT2 de Despliegue, dos meses antes de que existiera el código, y sobreviven intactos a `tofu destroy`; lo mismo la pata de `router-pre` en gestión y las rutas que la usan. Por eso el inventario de la A8.1 comparó el estado con lo que lista Proxmox, y por eso la verificación se hace contra el sistema y nunca contra el plan.
+**Lo que se creó a mano no está en el estado.** `router-pre` y las cuatro VNets de pre se crearon a mano en noviembre, dos meses antes de que existiera el código, y sobreviven intactos a `tofu destroy`; lo mismo la pata de `router-pre` en gestión y las rutas que la usan. Por eso el inventario de la A8.1 comparó el estado con lo que lista Proxmox, y por eso la verificación se hace contra el sistema y nunca contra el plan.
 
 **Y lo que está en el estado no siempre es de pre.** El caso contrario destruye de más: si un recurso compartido (una red, un usuario de API) entró en el estado de este entorno, `tofu destroy` se lo lleva, y con él el entorno que lo compartía. `tofu plan -destroy` es el único sitio donde eso se ve antes de que pase, y `tofu state rm` saca el recurso del estado sin tocarlo en el hipervisor.
 
-**`prevent_destroy` para el plan, y hace bien.** Las VM de pre llevan `lifecycle { prevent_destroy = true }` desde la A5.3 de Despliegue, puesto para que ningún plan, por error o a propósito, destruyera pre mientras otra asignatura dependía de él. Por eso `tofu plan -destroy` falla con `Instance cannot be destroyed` en lugar de destruir. La protección no se salta: se retira en una rama de `iac-lab` que cita la aprobación del acta, se destruye desde esa rama y la rama no se fusiona. `main` sigue protegiendo, y la rama queda como prueba de quién levantó la protección, cuándo y con qué permiso.
+**`prevent_destroy` para el plan, y hace bien.** Las VM de pre llevan `lifecycle { prevent_destroy = true }` desde que se crearon, puesto para que ningún plan, por error o a propósito, destruyera pre mientras otra asignatura dependía de él. Por eso `tofu plan -destroy` falla con `Instance cannot be destroyed` en lugar de destruir. La protección no se salta: se retira en una rama de `iac-lab` que cita la aprobación del acta, se destruye desde esa rama y la rama no se fusiona. `main` sigue protegiendo, y la rama queda como prueba de quién levantó la protección, cuándo y con qué permiso.
 
 **Revocar una credencial no es lo mismo que borrarla.** Un certificado borrado del servidor sigue siendo válido hasta su fecha de caducidad para cualquiera que conserve una copia de la clave privada; lo único que lo invalida es revocarlo y publicar la CRL. Con un token pasa al revés: muere en cuanto se borra del sistema que lo emitió, pero las copias que viajaron (un `.env` en un portátil, un workspace de Jenkins) no se borran solas y hay que pedir su destrucción por escrito. En el acta se anotan por separado las dos cosas: qué se revocó y a quién se le pidió destruir qué.
 
@@ -439,7 +439,7 @@ tofu state list                           # vacío
 
 #### Proxmox: lo que no está en el estado
 
-**Lo que se deshace a mano, y en qué orden.** `router-pre` (ID 200) y las VNets de pre se destruyen en el nodo con `qm` y `pvesh`, en ese orden, porque una VNet con una VM conectada no se deja borrar. Cada VNet lleva su subred, que se borra antes que la VNet, y los cambios del SDN no se aplican hasta `pvesh set /cluster/sdn`, igual que al crearlas en la A2.5 de Despliegue:
+**Lo que se deshace a mano, y en qué orden.** `router-pre` (ID 200) y las VNets de pre se destruyen en el nodo con `qm` y `pvesh`, en ese orden, porque una VNet con una VM conectada no se deja borrar. Cada VNet lleva su subred, que se borra antes que la VNet, y los cambios del SDN no se aplican hasta `pvesh set /cluster/sdn`, igual que al crearlas:
 
 ```bash
 qm stop 200 --timeout 60 && qm destroy 200 --purge
@@ -456,7 +456,7 @@ pvesh set /cluster/sdn
 
 #### Rutas, DNS y firewall
 
-**Por qué una ruta sobrante es un riesgo.** Gestión llega a pre por un camino que se abrió a propósito en la A5.3 de Despliegue: la pata de `router-pre` en `devmgmt` con la `10.10.0.2`, y una ruta a `10.20.0.0/16` por ella en cada máquina que lo necesitaba (el puesto de administración en su unidad `ruta-lab.service`; agent01 y mon01 en `ruta-pre.service`). La pata muere con `router-pre`; las rutas no, y una ruta hacia una red que ya no existe es un camino abierto para la próxima vez que alguien use ese rango:
+**Por qué una ruta sobrante es un riesgo.** Gestión llega a pre por un camino que se abrió a propósito en enero, al crear las VM de pre: la pata de `router-pre` en `devmgmt` con la `10.10.0.2`, y una ruta a `10.20.0.0/16` por ella en cada máquina que lo necesitaba (el puesto de administración en su unidad `ruta-lab.service`; agent01 y mon01 en `ruta-pre.service`). La pata muere con `router-pre`; las rutas no, y una ruta hacia una red que ya no existe es un camino abierto para la próxima vez que alguien use ese rango:
 
 ```bash
 sudo sed -i '/10\.20\.0\.0\/16/d' /etc/systemd/system/ruta-lab.service     # en el puesto
@@ -476,7 +476,7 @@ sudo ip route del 10.20.0.0/16
 
 **Por qué revocar.** Un certificado de un servicio dado de baja sigue siendo válido hasta su caducidad aunque la máquina haya desaparecido; si alguien conserva la clave privada (en un volumen, en una copia), puede suplantar el servicio. Revocar es lo único que lo impide, y solo funciona si los clientes consultan la CRL, la lista de certificados revocados que publica la CA.
 
-**En pre no hay nada que revocar, y se comprueba.** web01-pre se quedó como clon limpio, sin nginx ni certificado, así que en pre no hay nada que revocar, y eso se comprueba en el `index.txt` de la CA (`grep -i 'pre\.lab' ~/ca/index.txt` vacío), el registro de todo lo que ha firmado desde que nació en la UT3 de Despliegue. La revocación se explica igual, porque es lo que se hace con cualquier servicio que sí publicaba TLS.
+**En pre no hay nada que revocar, y se comprueba.** web01-pre se quedó como clon limpio, sin nginx ni certificado, así que en pre no hay nada que revocar, y eso se comprueba en el `index.txt` de la CA (`grep -i 'pre\.lab' ~/ca/index.txt` vacío), el registro de todo lo que ha firmado desde que nació, en noviembre. La revocación se explica igual, porque es lo que se hace con cualquier servicio que sí publicaba TLS.
 
 **Cómo se revoca con la CA del curso.** `openssl ca` busca el certificado en `index.txt`, lo marca con `R` y la fecha, y `-gencrl` escribe la lista nueva. Los certificados emitidos están en `~/ca/emitidos/`, con el número de serie como nombre:
 
@@ -493,7 +493,7 @@ El motivo `cessationOfOperation` es el correcto para una baja (no `keyCompromise
 
 **Qué es una credencial huérfana.** Cada sistema tiene las suyas, y un token que sobrevive a su servicio es una credencial huérfana: nadie lo rota, nadie lo audita y sigue siendo válido para quien lo tenga.
 
-**Lo que se borra en pre.** Son las de Jenkins que dejó la A6.8 de Despliegue: la carpeta `servicio/pre`, con la credencial `ssh-pre` (la clave con la que el job de despliegue entraba en app01-pre) y el propio job `despliegue`, más el job de prueba `ver-ssh-pre` que quedó en `servicio/dev`. Se borran por la API, guardando antes el historial de despliegues, que es la única prueba de qué versión se desplegó y cuándo, y que desaparece con la carpeta:
+**Lo que se borra en pre.** Son las que se crearon en Jenkins el 26 de febrero para desplegar en pre: la carpeta `servicio/pre`, con la credencial `ssh-pre` (la clave con la que el job de despliegue entraba en app01-pre) y el propio job `despliegue`, más el job de prueba `ver-ssh-pre` que quedó en `servicio/dev`. Se borran por la API, guardando antes el historial de despliegues, que es la única prueba de qué versión se desplegó y cuándo, y que desaparece con la carpeta:
 
 ```bash
 JP=https://jenkins.lab/job/servicio/job/pre
@@ -518,7 +518,7 @@ curl -X POST -u admin:$JENKINS_TOKEN "$JP/doDelete"
 
 - Entra en el puesto de administración con `ssh -A` y carga `. ~/baja-pre.env`.
 - Enciende `jenkins01` y `agent01`, porque hoy tocas Jenkins y la ruta de agent01, y apaga `web01` y `db01` de dev, como en la A8.1.
-- A8.2 terminada: pre silenciado, volcado de bloqueo entregado y app01-pre vacía.
+- A8.2 terminada: pre silenciado, volcado de bloqueo guardado y comprobado, y app01-pre vacía.
 - La consola del nodo Proxmox (Shell en la interfaz web) abierta en otra pestaña: solo el paso 2 se hace allí, y el resto, desde el puesto.
 - Lo explicado antes: [lo que `tofu destroy` no se lleva](#destruir-lo-declarado-no-basta) y [cómo se libera cada capa fuera de la VM](#como-se-libera-cada-capa-fuera-de-la-vm), cuyos bloques se copian aquí tal cual.
 
@@ -530,7 +530,7 @@ Vas de lo más grande a lo más pequeño y de lo declarado a lo hecho a mano: pr
 
     *Pista:* `grep -rn prevent_destroy modules/ envs/pre/` dice en qué fichero está el bloque `lifecycle`.
 
-2. **Destruye en el nodo lo que OpenTofu no conoce.** `router-pre` y las cuatro VNets de pre se crearon a mano en la A2.5 de Despliegue y han sobrevivido al paso 1. Destrúyelos en la consola del nodo con el bloque de [Proxmox: lo que no está en el estado](#proxmox-lo-que-no-esta-en-el-estado), tal cual, porque su orden es el que Proxmox exige. Desde el puesto, guarda en `$EV/09-proxmox.txt` la verificación desde fuera: la API de Proxmox sin nada de la franja 200 ni VNets `pre*`, y sin respuesta al `ping` la pata de gestión de `router-pre` (`10.10.0.2`) y app01-pre (`10.20.2.10`). El `ping` solo confirma, porque una VM apagada tampoco contesta: la prueba es la API.
+2. **Destruye en el nodo lo que OpenTofu no conoce.** `router-pre` y las cuatro VNets de pre se crearon a mano y han sobrevivido al paso 1. Destrúyelos en la consola del nodo con el bloque de [Proxmox: lo que no está en el estado](#proxmox-lo-que-no-esta-en-el-estado), tal cual, porque su orden es el que Proxmox exige. Desde el puesto, guarda en `$EV/09-proxmox.txt` la verificación desde fuera: la API de Proxmox sin nada de la franja 200 ni VNets `pre*`, y sin respuesta al `ping` la pata de gestión de `router-pre` (`10.10.0.2`) y app01-pre (`10.20.2.10`). El `ping` solo confirma, porque una VM apagada tampoco contesta: la prueba es la API.
 
 3. **Cierra los caminos que llevaban a pre.** Una ruta hacia una red que ya no existe es un camino abierto para quien reutilice ese rango. Quita la ruta a pre del puesto, de agent01 (`10.10.0.12`) y de mon01 (`10.10.0.20`), tanto la ruta como la unidad de systemd que la vuelve a poner en cada arranque, como en [Rutas, DNS y firewall](#rutas-dns-y-firewall). Guarda en `$EV/10-rutas-dns.txt` que `ip route show 10.20.0.0/16` sale vacío en las tres y que el DNS de gestión ya no resuelve `app01.pre.lab`.
 
@@ -546,7 +546,7 @@ Vas de lo más grande a lo más pequeño y de lo declarado a lo hecho a mano: pr
 
 <span class="et et-com">Comprobación</span> El plan dice `3 to destroy` y `tofu state list` sale vacío; la API de Proxmox no lista nada de la franja 200 ni VNets `pre*`; los dos `ping` fallan; `ip route show 10.20.0.0/16` vacío en las tres máquinas y `dig` sin respuesta; la carpeta de pre responde 404 y en `servicio` solo quedan `ci` y `dev`; `ev/13` vacío; la rama `baja-pre` está en Gitea y no en `main`.
 
-<span class="et et-ent">Entrega</span> Commit en `operacion` con el acta al día y las evidencias `ev/06` a `ev/13`; la rama `baja-pre` en `iac-lab`.
+<span class="et et-ent">Para practicar</span> Haz commit en `operacion` del acta al día y de `ev/06` a `ev/13`, y deja la rama `baja-pre` en `iac-lab`, sin fusionar.
 
 <span class="et et-ext">Si te sobra tiempo</span> Practica la revocación que pre no ha necesitado: emite en `~/ca` un certificado de prueba `prueba.pre.lab` con las dos órdenes de la A3.2 de Despliegue, revócalo con el bloque del apartado de certificados y guarda la salida de `openssl verify` (`certificate revoked`) en `ev/13b-revocacion.txt`. Anota en el acta que era de prueba y que se revocó el mismo día.
 
@@ -586,7 +586,7 @@ flowchart LR
 - **SSD y wear leveling.** El controlador del SSD reparte las escrituras entre celdas para que se desgasten por igual. Cuando `shred` escribe tres veces sobre el mismo LBA (la dirección lógica del bloque, lo que el sistema operativo cree que es "el mismo sitio"), el controlador escribe en tres páginas físicas distintas y deja la original marcada como inválida, legible con acceso al chip. TRIM (`fstrim`, `blkdiscard`) le dice al controlador que puede borrar esas páginas, pero "puede" no es "debe".
 - **Copy-on-write en ZFS y btrfs.** Estos sistemas de ficheros nunca sobrescriben un bloque en su sitio: escriben el nuevo en otro lugar y actualizan los punteros. `shred` en ZFS crea tres copias nuevas y deja la original intacta, y si hay un snapshot, el bloque original está referenciado y ni siquiera se marca libre. Los snapshots de LVM-thin, el almacenamiento del nodo del curso, se comportan igual.
 - **Versionado en el almacenamiento de objetos.** Un bucket S3 o MinIO con versionado activado no borra nunca: `DELETE` crea un marcador de borrado y la versión anterior sigue ahí. Con Object Lock en modo compliance, ni el administrador puede borrarla antes de que venza la retención.
-- **Snapshots del hipervisor y backups.** El snapshot de "antes de la actualización" de la UT7 contiene el disco completo con los datos recién borrados dentro de la VM. Lo mismo un vzdump de cada domingo.
+- **Snapshots del hipervisor y backups.** Un snapshot de "antes de la actualización" contiene el disco completo con los datos recién borrados dentro de la VM. Lo mismo un vzdump de cada domingo.
 
 **La consecuencia.** El borrado fiable de un soporte que no se controla físicamente (una VM, un bucket en un proveedor, un disco de un servidor alquilado) solo se consigue de una manera: que los datos nunca hayan estado en claro. De ahí el orden de opciones.
 
@@ -603,7 +603,7 @@ shred -u <fichero de contraseña>                         # y la contraseña, en
 restic snapshots                                        # Fatal: wrong password or no key found
 ```
 
-En el laboratorio no se puede hacer así, y conviene ver por qué: `s3:http://10.10.0.30:9000/backups` es un solo repositorio para todo el curso y guarda más copias que las de pre, así que destruir su clave se llevaría también las demás. El borrado criptográfico exige que cada servicio tenga su propio repositorio o su propia clave, y eso se decide al diseñar las copias, no al darlas de baja. Con otras herramientas cambia dónde está la clave, no la idea; los detalles, en [Para ampliar](../ampliacion.md#borrado-criptografico-con-borg-luks-y-kms):
+En el laboratorio no se puede hacer así, y conviene ver por qué: `s3:http://10.10.0.30:29000/backups` es un solo repositorio para todo el curso y guarda más copias que las de pre, así que destruir su clave se llevaría también las demás. El borrado criptográfico exige que cada servicio tenga su propio repositorio o su propia clave, y eso se decide al diseñar las copias, no al darlas de baja. Con otras herramientas cambia dónde está la clave, no la idea; los detalles, en [Para ampliar](../ampliacion.md#borrado-criptografico-con-borg-luks-y-kms):
 
 | Herramienta | Dónde está la clave | Cómo se destruye |
 |---|---|---|
@@ -631,7 +631,7 @@ mc rm --recursive --versions --non-current --force lab/backups   # solo si tiene
 mc replicate ls lab/backups                                      # sin réplicas
 ```
 
-El bucket `backups` se creó en la A5.2 de Despliegue con `mc mb`, sin versionado, así que lo que `prune` borra desaparece del bucket. Hacerlo versión por versión con la CLI de AWS está en [Para ampliar](../ampliacion.md#borrar-versiones-con-la-cli-de-aws). Si el bucket tiene Object Lock en modo *governance*, el borrado necesita `--bypass-governance-retention` y el permiso correspondiente; en modo *compliance* no hay forma de borrar antes de la fecha de retención, ni siquiera siendo root del proveedor. Eso es lo que se buscaba al activarlo contra el ransomware, y por eso la retención se decide contando con la baja: una retención de 90 días significa que el acta tendrá una fecha de destrucción 90 días posterior, y alguien tiene que volver a verificarla entonces.
+El bucket `backups` se creó con `mc mb`, sin versionado, así que lo que `prune` borra desaparece del bucket. Hacerlo versión por versión con la CLI de AWS está en [Para ampliar](../ampliacion.md#borrar-versiones-con-la-cli-de-aws). Si el bucket tiene Object Lock en modo *governance*, el borrado necesita `--bypass-governance-retention` y el permiso correspondiente; en modo *compliance* no hay forma de borrar antes de la fecha de retención, ni siquiera siendo root del proveedor. Eso es lo que se buscaba al activarlo contra el ransomware, y por eso la retención se decide contando con la baja: una retención de 90 días significa que el acta tendrá una fecha de destrucción 90 días posterior, y alguien tiene que volver a verificarla entonces.
 
 **4. Sobrescritura y destrucción del soporte.** Cuando el soporte es propio y sale de servicio, la referencia que se cita en cualquier pliego es NIST SP 800-88 rev. 1, que ordena los métodos en tres niveles:
 
@@ -645,7 +645,7 @@ El nivel exigible lo fija la normativa que aplique (ENS categoría alta, datos d
 
 **Dónde quedan los logs de pre.** Los logs del servicio están en tres sitios: en Loki, en los ficheros de cada host y en cualquier sitio al que se reenviaran, como el correo de las alarmas. Los de los hosts (`/var/log/`, el journal, los JSON del driver de logs de Docker) mueren con las VM. Los otros dos, no.
 
-**Loki: el borrado lo hace el compactor.** En Loki 3.x el borrado por consulta lo hace el **compactor**, el mismo componente que aplica la retención de 7 días desde la [UT1](ut1-observabilidad.md#loki), y hay que tenerlo configurado para ello:
+**Loki: el borrado lo hace el compactor.** En Loki 3.x el borrado por consulta lo hace el **compactor**, el mismo componente que aplica la [retención de 7 días](ut1-observabilidad.md#loki) del Loki del curso, y hay que tenerlo configurado para ello:
 
 ```yaml
 compactor:
@@ -661,10 +661,10 @@ limits_config:
       period: 24h
 ```
 
-Con eso, la petición de borrado se envía a la API del compactor y se ejecuta en el siguiente ciclo, después del periodo de cancelación (24 horas por defecto, `delete_request_cancel_period`), durante el cual se puede anular. No es inmediato, y eso se refleja en el acta. Desde la UT3 Loki pide certificado de cliente, así que las peticiones llevan el del puesto:
+Con eso, la petición de borrado se envía a la API del compactor y se ejecuta en el siguiente ciclo, después del periodo de cancelación (24 horas por defecto, `delete_request_cancel_period`), durante el cual se puede anular. No es inmediato, y eso se refleja en el acta. Loki pide certificado de cliente, así que las peticiones llevan el del puesto:
 
 ```bash
-T=~/tls-monitorizacion; L=https://10.10.0.20:3100/loki/api/v1/delete
+T=~/tls-monitorizacion; L=https://10.10.0.20:23100/loki/api/v1/delete
 curl -s -X POST -G --cert $T/logcli.crt --key $T/logcli.key $L \
   --data-urlencode 'query={host="app01-pre"}' --data-urlencode 'start=1700000000' --data-urlencode "end=$(date +%s)"
 curl -s --cert $T/logcli.crt --key $T/logcli.key $L | jq .          # received, y después processed
@@ -675,13 +675,13 @@ La `retention_stream` es el cinturón además de los tirantes: aunque llegue alg
 **Mailpit: borrar solo lo de pre.** La bandeja de Mailpit, en cambio, sí guarda correo de pre: cada alerta de pre que se notificó por correo lleva dentro su dirección `10.20.`. Se borra de forma selectiva, buscando esos mensajes y borrándolos por su identificador, porque la bandeja es de toda la pila. La API tiene una trampa que conviene conocer antes de usarla: `DELETE /api/v1/messages` sin lista de identificadores no falla, borra todos los mensajes. Por eso la orden va detrás de la comprobación de que la lista no está vacía:
 
 ```bash
-IDS=$(curl -s -G http://localhost:8025/api/v1/search --data-urlencode 'query=10.20.' | jq -c '[.messages[].ID]')
-[ "$IDS" != "[]" ] && curl -s -X DELETE -H 'Content-Type: application/json' -d "{\"IDs\": $IDS}" http://localhost:8025/api/v1/messages
+IDS=$(curl -s -G http://localhost:28025/api/v1/search --data-urlencode 'query=10.20.' | jq -c '[.messages[].ID]')
+[ "$IDS" != "[]" ] && curl -s -X DELETE -H 'Content-Type: application/json' -d "{\"IDs\": $IDS}" http://localhost:28025/api/v1/messages
 ```
 
 ### Borrar del registry
 
-**El rastro que más se olvida.** Borrar una imagen de app01-pre no la quita del registry de gitea01, y ese es el rastro que más se olvida: la imagen que corrió en pre, con todo lo que llevaba dentro, sigue ahí para quien la pida. El registry del laboratorio es Distribution (`registry:2`), que no borra por etiqueta sino por **digest**, el de la [UT7](ut7-actualizacion-vulnerabilidades.md#versiones-etiquetas-y-digests): la huella SHA-256 del manifiesto, el documento que dice qué capas forman la imagen. Y solo borra si arrancó con el borrado habilitado (`REGISTRY_STORAGE_DELETE_ENABLED=true`; si no, responde 405).
+**El rastro que más se olvida.** Borrar una imagen de app01-pre no la quita del registry de gitea01, y ese es el rastro que más se olvida: la imagen que corrió en pre, con todo lo que llevaba dentro, sigue ahí para quien la pida. El registry del laboratorio es Distribution (`registry:2`), que no borra por etiqueta sino por **digest**, el de [Versiones, etiquetas y digests](ut7-actualizacion-vulnerabilidades.md#versiones-etiquetas-y-digests): la huella SHA-256 del manifiesto, el documento que dice qué capas forman la imagen. Y solo borra si arrancó con el borrado habilitado (`REGISTRY_STORAGE_DELETE_ENABLED=true`; si no, responde 405).
 
 **Por digest, y mirando qué más se lleva.** Borrar por digest tiene una consecuencia que decide qué se borra: se lleva todas las etiquetas que apuntan a ese manifiesto. El pipeline sube cada imagen con dos, `app:<versión>` y `app:<commit>`, así que antes de borrar la etiqueta de un commit que llegó a pre se mira si comparte digest con otra que siga en uso. Si la comparte, no se borra y va al acta como conservada, con su motivo:
 
@@ -762,7 +762,7 @@ Vas sistema por sistema, de lo que más datos guarda a lo que menos: primero las
 
 <span class="et et-com">Comprobación</span> `restic snapshots --tag pre` vacío y `restic check` sin errores; el bucket sin versionado o sin versiones antiguas; cada DELETE del registry con `202` y esas etiquetas fuera de `tags/list`; Mailpit con 0 correos de pre y el resto de la bandeja intacto; `ev/19` vacío; el escenario `rm` recupera al menos un fichero con el volcado, el `shred` ninguno, y el snapshot conserva las 500 líneas.
 
-<span class="et et-ent">Entrega</span> Commit en `operacion` con el acta al día, `ev/14` a `ev/20` e `informe-photorec.md`.
+<span class="et et-ent">Para practicar</span> Haz commit en `operacion` del acta al día, `ev/14` a `ev/20` e `informe-photorec.md`.
 
 <span class="et et-ext">Si te sobra tiempo</span> Libera las capas de las imágenes borradas: en gitea01, el recolector de basura del apartado del registry, con el registry parado, guardando su salida en `ev/17b-gc.txt`, y quita del acta ese pendiente. Después, un cuarto escenario: una imagen con LUKS, `cryptsetup luksErase` y photorec sobre la imagen en bruto, que no encuentra ningún fichero.
 
@@ -776,7 +776,7 @@ Quedan dos familias de rastros, y van al final por motivos distintos. Los datos 
 
 **El caso de la empresa.** En el laboratorio la base de datos de pre murió con db01-pre el 11 de marzo, y su única copia es el volcado de bloqueo. Pero el caso habitual en una empresa es otro: la base de datos se conserva porque otros servicios la usan, y lo que hay que borrar son las tablas y los datos de un servicio o de un cliente concreto. Pasa sobre todo en las aplicaciones que atienden a varios clientes con una sola base de datos y marcan en una columna de quién es cada fila: cada cliente es un *tenant* (inquilino), y darlo de baja es borrar sus filas sin tocar las de los demás. Ahí es donde `DELETE` engaña, y por eso la hoja lo practica en una base de prueba del PostgreSQL de dev, con datos sintéticos de un tenant `pre`.
 
-**Por qué DELETE no borra.** PostgreSQL usa MVCC (control de concurrencia por versiones): cada modificación crea una versión nueva de la fila en vez de tocar la vieja, porque una transacción que empezó antes puede necesitar todavía la versión anterior; es lo que permite que una lectura no bloquee a una escritura. Por eso `DELETE` no borra la fila: marca la tupla (cada una de esas versiones) como muerta y la deja en la página hasta que `VACUUM` la recicla. Y por lo mismo, un `UPDATE` deja muerta la versión anterior de la fila, con el dato viejo dentro. `VACUUM` normal libera el espacio para que la propia tabla lo reutilice, pero ni lo devuelve al sistema operativo ni lo sobrescribe a propósito: los bytes pueden seguir en el fichero de la tabla hasta que otra fila ocupe su sitio, legibles con un editor hexadecimal por cualquiera con acceso al directorio de datos o a una copia del mismo. `DROP TABLE` desvincula los ficheros de la tabla, con lo que aplica lo de la sesión anterior.
+**Por qué DELETE no borra.** PostgreSQL usa MVCC (control de concurrencia por versiones): cada modificación crea una versión nueva de la fila en vez de tocar la vieja, porque una transacción que empezó antes puede necesitar todavía la versión anterior; es lo que permite que una lectura no bloquee a una escritura. Por eso `DELETE` no borra la fila: marca la tupla (cada una de esas versiones) como muerta y la deja en la página hasta que `VACUUM` la recicla. Y por lo mismo, un `UPDATE` deja muerta la versión anterior de la fila, con el dato viejo dentro. `VACUUM` normal libera el espacio para que la propia tabla lo reutilice, pero ni lo devuelve al sistema operativo ni lo sobrescribe a propósito: los bytes pueden seguir en el fichero de la tabla hasta que otra fila ocupe su sitio, legibles con un editor hexadecimal por cualquiera con acceso al directorio de datos o a una copia del mismo. `DROP TABLE` desvincula los ficheros de la tabla, con lo que vale lo dicho en [Por qué borrar no borra](#por-que-borrar-no-borra).
 
 ```sql
 -- Antes: ver cuánto hay muerto
@@ -841,24 +841,24 @@ Cada decisión del guion tiene su motivo:
 
 #### Si la base de datos se elimina entera
 
-**El soporte.** Se para el servicio, se borra el volumen o el disco y se aplica al soporte lo de la sesión anterior. Con el volumen cifrado con LUKS, se destruyen las claves y listo. Sin cifrado, la única garantía en una VM es la destrucción del disco virtual más la confianza en que el almacenamiento del hipervisor no lo conserve en snapshots, que conviene verificar antes de destruir con `qm listsnapshot <ID>`. Es lo que pasó con db01-pre.
+**El soporte.** Se para el servicio, se borra el volumen o el disco y se aplica al soporte lo visto en [Opciones de más a menos fiable](#opciones-de-mas-a-menos-fiable). Con el volumen cifrado con LUKS, se destruyen las claves y listo. Sin cifrado, la única garantía en una VM es la destrucción del disco virtual más la confianza en que el almacenamiento del hipervisor no lo conserve en snapshots, que conviene verificar antes de destruir con `qm listsnapshot <ID>`. Es lo que pasó con db01-pre.
 
 **Cachés y colas.** Quedan las cachés y las colas: Redis guarda en memoria y, si tiene persistencia, en `dump.rdb` y en el AOF (su fichero de registro de escrituras); `FLUSHDB` y borrar los ficheros. En RabbitMQ o similar, se purga la cola y se borra el vhost. Un mensaje encolado con datos de un cliente puede sobrevivir años en una cola muerta que nadie consume.
 
 ### Desconfigurar la monitorización y las alarmas
 
-**Por qué no basta con dejar de mirar.** Un servicio dado de baja que sigue en la monitorización genera alarmas eternas, ocupa retención y, lo peor, puede resucitar por error: alguien ve el target en rojo, piensa que se cayó y lo levanta desde una copia. El orden es el del diagrama de la sesión 36: se retiran los targets, se comprueba que no queda nada pendiente y solo entonces se expira el silencio.
+**Por qué no basta con dejar de mirar.** Un servicio dado de baja que sigue en la monitorización genera alarmas eternas, ocupa retención y, lo peor, puede resucitar por error: alguien ve el target en rojo, piensa que se cayó y lo levanta desde una copia. El orden es el del diagrama de [El orden importa](#el-orden-importa): se retiran los targets, se comprueba que no queda nada pendiente y solo entonces se expira el silencio.
 
-**Prometheus.** pre entró en la monitorización en la A7.4 como un grupo de targets con `env: pre` dentro del job `node` de `/opt/monitoring/prometheus.yml`; desde la UT7 de Despliegue ese job lee además sus targets de dev de un fichero propio, y el grupo de pre sigue escrito a mano. Se borra ese grupo, se valida con `promtool` y se recarga sin reiniciar (`POST /-/reload`, que admite el Prometheus del curso desde la UT2). Al retirar un target, sus series dejan de salir en las consultas instantáneas enseguida, pero las muestras siguen en el TSDB hasta que la retención las expulse, 45 días en el laboratorio: `count_over_time(up{env="pre"}[7d])` las sigue viendo. Si el acta necesita que desaparezcan ya, lo hace la API de administración, si Prometheus arrancó con `--web.enable-admin-api`:
+**Prometheus.** pre entró en la monitorización en la A7.4 como un grupo de targets con `env: pre` dentro del job `node` de `/opt/monitoring/prometheus.yml`; desde el 12 de marzo ese job lee además sus targets de dev de un fichero propio, y el grupo de pre sigue escrito a mano. Se borra ese grupo, se valida con `promtool` y se recarga sin reiniciar (`POST /-/reload`, que el Prometheus del curso admite). Al retirar un target, sus series dejan de salir en las consultas instantáneas enseguida, pero las muestras siguen en el TSDB hasta que la retención las expulse, 45 días en el laboratorio: `count_over_time(up{env="pre"}[7d])` las sigue viendo. Si el acta necesita que desaparezcan ya, lo hace la API de administración, si Prometheus arrancó con `--web.enable-admin-api`:
 
 ```bash
-curl -X POST -G http://localhost:9090/api/v1/admin/tsdb/delete_series --data-urlencode 'match[]={env="pre"}'
-curl -X POST http://localhost:9090/api/v1/admin/tsdb/clean_tombstones
+curl -X POST -G http://localhost:29090/api/v1/admin/tsdb/delete_series --data-urlencode 'match[]={env="pre"}'
+curl -X POST http://localhost:29090/api/v1/admin/tsdb/clean_tombstones
 ```
 
 `delete_series` marca las muestras como borradas; `clean_tombstones` reescribe los bloques para que desaparezcan del disco. Si no se hace, el acta lleva un pendiente con la fecha en que vence la retención.
 
-**Reglas y rutas.** Las alarmas de la UT2 son genéricas: `HostDown` vigila cualquier target del job `node`, por eso saltó para pre y lo cubrió el silencio. No hay reglas ni rutas propias de pre que retirar, y eso se comprueba con `git grep` en `alerting` y preguntando a la API de reglas. Si las hubiera, se retiran con un commit, con el silencio todavía activo para que el vaivén de la recarga no dispare nada.
+**Reglas y rutas.** Las alarmas del curso son genéricas: `HostDown` vigila cualquier target del job `node`, por eso saltó para pre y lo cubrió el silencio. No hay reglas ni rutas propias de pre que retirar, y eso se comprueba con `git grep` en `alerting` y preguntando a la API de reglas. Si las hubiera, se retiran con un commit, con el silencio todavía activo para que el vaivén de la recarga no dispare nada.
 
 **Alertmanager.** Con los targets fuera y ninguna alerta de pre activa ni silenciada (`amtool alert query -s env=pre` vacío), se expira el silencio con `amtool silence expire` y se comprueba dos minutos después que no ha vuelto nada.
 
@@ -866,7 +866,7 @@ curl -X POST http://localhost:9090/api/v1/admin/tsdb/clean_tombstones
 
 ### A8.5 Datos y monitorización (sesión 39)
 
-<span class="et et-obj">Objetivo</span> En una base de prueba del PostgreSQL de dev, los datos del tenant `pre` anonimizados y sus tablas borradas sin tuplas muertas; en la monitorización, ninguna referencia a pre, con el silencio expirado y sin alertas; y el acta de baja completa para entregar. Con esta hoja la baja termina: lo que al acabar quede sin evidencia o sin fecha es lo que el acta no podrá demostrar.
+<span class="et et-obj">Objetivo</span> En una base de prueba del PostgreSQL de dev, los datos del tenant `pre` anonimizados y sus tablas borradas sin tuplas muertas; en la monitorización, ninguna referencia a pre, con el silencio expirado y sin alertas; y el acta de baja completa, que es la práctica evaluable. Con esta hoja la baja termina: lo que al acabar quede sin evidencia o sin fecha es lo que el acta no podrá demostrar.
 
 <span class="et et-pre">Antes de empezar</span>
 
@@ -888,9 +888,9 @@ Primero los datos y después la monitorización, como en la teoría. En la base 
 
     *Pista:* las réplicas salen de `pg_stat_replication`, y los volcados, de buscar `*.sql*` y `*.dump` en `/tmp`, `/var/tmp`, `/home` y `/var/lib/postgresql`. Un volcado de dev es de dev y se queda.
 
-4. **Retira los targets de pre.** En mon01, quita del job `node` de `/opt/monitoring/prometheus.yml` el grupo de las tres `10.20.x.10:9100` con `env: pre`, valídalo con `promtool`, haz commit solo de ese fichero, ponle la etiqueta `entrega-5169-ut8` y sube commit y etiqueta: la etiqueta marca el estado de `monitoring` que se corrige en la práctica evaluable. Recarga Prometheus por el túnel y guarda en `$EV/24-prometheus.txt` que `count(up{env="pre"})` sale vacío.
+4. **Retira los targets de pre.** En mon01, quita del job `node` de `/opt/monitoring/prometheus.yml` el grupo de las tres `10.20.x.10:29100` con `env: pre`, valídalo con `promtool`, haz commit solo de ese fichero, ponle la etiqueta `entrega-5169-ut8` y sube commit y etiqueta: la etiqueta marca el estado de `monitoring` que se corrige en la práctica evaluable. Recarga Prometheus por el túnel y guarda en `$EV/24-prometheus.txt` que `count(up{env="pre"})` sale vacío.
 
-    *Pista:* el resto del job `node`, con los targets de dev de la UT7 de Despliegue, se queda como está, y el commit lleva solo `prometheus.yml` porque Despliegue trabaja en el mismo repositorio.
+    *Pista:* el resto del job `node`, con los targets de dev que lee de su fichero, se queda como está, y el commit lleva solo `prometheus.yml` porque Despliegue trabaja en el mismo repositorio.
 
 5. **Comprueba que no queda nada y solo entonces retira el silencio.** Busca referencias a pre en `alerting`, en las reglas de Prometheus y en Grafana (`$EV/25-reglas-dashboards.txt`); si sale algo, retíralo y repite. Solo entonces, sin alertas de pre activas ni silenciadas, expira el silencio y guarda en `$EV/26-alertas.txt` que dos minutos después `amt alert query env=pre` sigue vacío. Si lo expiras antes, cualquier resto de pre se convierte en una alarma real para la guardia.
 
@@ -900,13 +900,13 @@ Primero los datos y después la monitorización, como en la teoría. En la base 
 
 <span class="et et-com">Comprobación</span> `restos` a 0, sin `pre_sesiones` y `n_dead_tup` a 0 en `usuarios` y `comentarios`; `count(up{env="pre"})` devuelve `[]`; `ev/25` vacío; `amt alert query env=pre` vacío dos minutos después de expirar el silencio; la etiqueta `entrega-5169-ut8` en Gitea; la cuenta de servicio `baja-pre` ya no aparece en Grafana; ninguna fila del acta sin evidencia o sin fecha.
 
-<span class="et et-ent">Entrega</span> Commit en `operacion` con el acta completa, `anonimiza.sql` y `ev/21` a `ev/26`; commit y etiqueta `entrega-5169-ut8` en `monitoring`. Es la entrega de la práctica evaluable.
+<span class="et et-ent">Para practicar</span> Haz commit en `operacion` del acta completa, `anonimiza.sql` y `ev/21` a `ev/26`, y deja en `monitoring` el commit con la etiqueta `entrega-5169-ut8`.
 
 <span class="et et-ext">Si te sobra tiempo</span> Si Prometheus arrancó con `--web.enable-admin-api`, borra ya las series de pre con el bloque del apartado de monitorización, comprueba que `count_over_time(up{env="pre"}[30d])` sale vacío y quita ese pendiente del acta.
 
 ## Práctica evaluable
 
-La práctica evaluable de la unidad no tiene sesión propia ni pide trabajo nuevo: es el acta de baja que abres en la A8.1 y completas en cada hoja, con sus evidencias. Se evalúa el acta, y no cada hoja por separado, porque es lo que queda de una baja cuando ya no hay nada que mirar: la prueba, punto por punto, de que se hizo lo aprobado. Se entrega por Aules **antes del examen del 23 de marzo** (sesión 40): el enlace al commit de `operacion` con `baja/pre/acta.md`, `baja/pre/ev/`, `anonimiza.sql` e `informe-photorec.md`, y la etiqueta `entrega-5169-ut8` del repositorio `monitoring`. El módulo 5166 corrige otra etiqueta del mismo repositorio (`entrega-5166-ut7`); aquí solo se mira lo que retira esta unidad. Si después de poner la etiqueta corriges algo, la mueves: `git tag -f entrega-5169-ut8 && git push -f origin entrega-5169-ut8`.
+La práctica evaluable de la unidad no tiene sesión propia ni pide trabajo nuevo: es el acta de baja que abres en la A8.1 y completas en cada hoja, con sus evidencias. Se evalúa el acta, y no cada hoja por separado, porque es lo que queda de una baja cuando ya no hay nada que mirar: la prueba, punto por punto, de que se hizo lo aprobado. Se entrega por Aules **antes del examen del 23 de marzo**: el enlace al commit de `operacion` con `baja/pre/acta.md`, `baja/pre/ev/`, `anonimiza.sql` e `informe-photorec.md`, y la etiqueta `entrega-5169-ut8` del repositorio `monitoring`. El módulo 5166 corrige otra etiqueta del mismo repositorio (`entrega-5166-ut7`); aquí solo se mira lo que retira esta unidad. Si después de poner la etiqueta corriges algo, la mueves: `git tag -f entrega-5169-ut8 && git push -f origin entrega-5169-ut8`.
 
 ### Acta de baja
 
@@ -926,7 +926,7 @@ El acta es el entregable de la unidad y el documento que cierra la vida del serv
 ## Qué se conserva
 | Elemento | Motivo | Dónde | Hasta | Responsable de destruirlo |
 |---|---|---|---|---|
-| Volcado completo cifrado (bloqueo, LOPDGDD art. 32) | Posibles reclamaciones | Entregado al DPO, fuera de los repositorios | 2030-03-18 | DPO |
+| Volcado completo cifrado (bloqueo, LOPDGDD art. 32) | Posibles reclamaciones | Puesto de administración, fuera de los repositorios; la frase de paso, en el gestor de contraseñas | 2030-03-18 | DPO |
 | Repositorio servicio, su webhook y el Multibranch | Dev los sigue usando | Gitea ops/servicio; Jenkins servicio/ci | Indefinido | n/a |
 | Rama baja-pre de iac-lab | Evidencia de la aprobación | Gitea ops/iac-lab | Indefinido | n/a |
 | Historial de despliegues a pre | Trazabilidad | ev/11-despliegues-pre.json | Indefinido | n/a |

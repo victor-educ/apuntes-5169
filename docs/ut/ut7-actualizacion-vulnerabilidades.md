@@ -2,9 +2,9 @@
 
 <p class="ut-meta">14 h · Sesiones 28 a 34 · RA4 CE d, e, f, g, h, i</p>
 
-Hasta aquí el módulo ha tratado de mirar el servicio (UT1 a UT3) y de medirlo y probarlo (UT4). Todo eso da por hecho que el servicio no cambia. En esta unidad cambia: aparecen versiones nuevas de la imagen base, de las librerías y de la propia aplicación, aparecen vulnerabilidades en librerías que nadie sabía que llevaba el contenedor, y hay que decidir qué se actualiza, cuándo y cómo, sin romper nada y dejando rastro. Las pruebas de la UT4 se reutilizan tal cual como red de seguridad de cada actualización, y el plan B es una copia con restic contra el MinIO del laboratorio: el repositorio de copias del curso se inicializa en la sesión 31, que es la primera que lo necesita. Después de esta unidad viene la UT8, donde se da de baja el entorno pre que aquí se usa tanto. La práctica evaluable de la sesión 34 cierra la unidad el 23 de febrero y la UT8 arranca el 25, justo antes del parón de las fiestas de la Magdalena, del 1 al 5 de marzo.
+Hasta aquí el módulo ha tratado de mirar el servicio y de medirlo y probarlo. Todo eso da por hecho que el servicio no cambia. En esta unidad cambia: aparecen versiones nuevas de la imagen base, de las librerías y de la propia aplicación, aparecen vulnerabilidades en librerías que nadie sabía que llevaba el contenedor, y hay que decidir qué se actualiza, cuándo y cómo, sin romper nada y dejando rastro. Las pruebas de la UT4 se reutilizan tal cual como red de seguridad de cada actualización, y el plan B es una copia con restic contra el MinIO del laboratorio. La práctica evaluable cierra la unidad el 23 de febrero. Justo después, desde el 25 de febrero, la UT8 da de baja el entorno pre que esta unidad usa tanto.
 
-La unidad sigue el orden en que se trabaja en cualquier equipo de Sistemas, y cada sesión contesta a la pregunta que deja abierta la anterior. Primero, qué hay desplegado exactamente y cómo enterarse de que sale algo nuevo (sesión 28). Después, si alguna de esas piezas tiene un fallo de seguridad publicado (29) y qué se hace con cada uno (30). Con la decisión tomada, cómo se actualiza sin perder nada (31) y qué se hace cuando la actualización falla (32). Y al final, cómo queda escrito todo para poder reconstruirlo meses después, y cómo se automatiza el escaneo para que ninguna imagen se lo salte (33).
+La unidad sigue el orden en que se trabaja en cualquier equipo de Sistemas, y cada sesión contesta a la pregunta que deja abierta la anterior. Primero, qué hay desplegado exactamente y cómo enterarse de que sale algo nuevo. Después, si alguna de esas piezas tiene un fallo de seguridad publicado y qué se hace con cada uno. Con la decisión tomada, cómo se actualiza sin perder nada y qué se hace cuando la actualización falla. Y al final, cómo queda escrito todo para poder reconstruirlo meses después, y cómo se automatiza el escaneo para que ninguna imagen se lo salte.
 
 ## Sesión 28 · Inventario de versiones y seguimiento automático
 
@@ -108,7 +108,7 @@ Fijar tiene un precio: una versión fijada no recibe ningún parche hasta que al
 
 **Qué son las imágenes oficiales.** Son las de Docker Hub que no llevan delante el nombre de un usuario o de una organización: `python`, `postgres`, `nginx`. Las mantiene un equipo de Docker junto con cada proyecto, a partir de un repositorio público (`docker-library/official-images`), y se reconstruyen cuando se actualiza la distribución de debajo, que es justo lo que mueve el digest de una etiqueta que no ha cambiado.
 
-**Por qué hay tantas etiquetas para una misma versión.** Cada versión se publica en varias variantes, según la distribución base y lo que traen instalado, y cada variante con varios alias (`17`, `17.6`, `17.6-bookworm`). Escoger la variante decide cuántos paquetes entran en la imagen sin que nadie los haya pedido, y cada paquete es un candidato a vulnerabilidad: por eso escogerla bien es una de las [cuatro soluciones](#las-cuatro-soluciones-y-el-registro-de-excepciones) a una vulnerabilidad que se ven en la sesión 30. Lo que significa cada sufijo:
+**Por qué hay tantas etiquetas para una misma versión.** Cada versión se publica en varias variantes, según la distribución base y lo que traen instalado, y cada variante con varios alias (`17`, `17.6`, `17.6-bookworm`). Escoger la variante decide cuántos paquetes entran en la imagen sin que nadie los haya pedido, y cada paquete es un candidato a vulnerabilidad: por eso escogerla bien es también una forma de evitar vulnerabilidades. Lo que significa cada sufijo:
 
 | Variante | Base | Tamaño orientativo | Cuándo |
 |---|---|---|---|
@@ -119,7 +119,7 @@ Fijar tiene un precio: una versión fijada no recibe ningún parche hasta que al
 
 Por debajo de alpine hay bases todavía más pequeñas, sin shell ni gestor de paquetes dentro, que dejan el recuento de hallazgos casi a cero a cambio de no poder entrar a depurar con `docker exec`; se describen en [Para ampliar](../ampliacion.md#bases-minimas-distroless-y-chainguard).
 
-**Para qué se usa en el curso.** Una regla práctica: para el escáner, cada paquete que no está no puede ser vulnerable. Pasar la API del curso de `python:3.13` a `python:3.13-slim` quita de un plumazo cientos de hallazgos que venían de `gcc`, `perl` o `imagemagick` que nadie usaba. Se mide en la actividad A7.3, y antes la A7.1 fija el sufijo de Debian, para que el cambio de variante no traiga además, sin que nadie lo decida, un cambio de distribución.
+**Para qué se usa en el curso.** Una regla práctica: para el escáner, cada paquete que no está no puede ser vulnerable. Pasar la API del curso de `python:3.13` a `python:3.13-slim` quita de un plumazo cientos de hallazgos que venían de `gcc`, `perl` o `imagemagick` que nadie usaba. Ese cambio lo hace la A7.3, el 9 de febrero, y por eso la A7.1 fija antes el sufijo de Debian: así el cambio de variante no trae además, sin que nadie lo decida, un cambio de distribución.
 
 ### Seguir la aparición de versiones
 
@@ -136,7 +136,7 @@ Por debajo de alpine hay bases todavía más pequeñas, sin shell ni gestor de p
 ```bash
 docker run --rm \
   -e RENOVATE_PLATFORM=gitea \
-  -e RENOVATE_ENDPOINT=http://gitea.lab:3001/api/v1 \
+  -e RENOVATE_ENDPOINT=http://gitea.lab:23001/api/v1 \
   -e RENOVATE_TOKEN=$TOKEN_BOT \
   -e RENOVATE_REPOSITORIES=ops/servicio \
   -e LOG_LEVEL=info \
@@ -192,7 +192,7 @@ Lo que hace cada bloque:
 - `automerge` solo para `patch` y `digest`, y solo si el pipeline está en verde: Renovate no fusiona nada sin pruebas que hayan pasado, así que, mientras el repositorio no tenga pipeline, no fusiona nada solo. Una menor o una mayor la fusiona una persona después de leer las notas.
 - `groupName` junta varias actualizaciones en un PR para no tener quince abiertos el lunes.
 - `ignoreDeps` saca de la vigilancia la imagen `app`: hasta el 19 de febrero es local, Renovate la buscaría en Docker Hub y cada pasada acabaría con un error de búsqueda.
-- `vulnerabilityAlerts` configura los PR que corrigen una vulnerabilidad conocida: se abren en cuanto se detectan, sin esperar a su horario, y con la etiqueta `seguridad`. Ojo: Renovate solo lee esos avisos de GitHub. En Gitea el bloque no tiene efecto, y la alternativa, `osvVulnerabilityAlerts` (que consulta la base abierta de vulnerabilidades OSV), es todavía experimental y solo cubre las dependencias directas del lenguaje. En el curso, las vulnerabilidades no se vigilan con Renovate, sino con el escaneo de la sesión 29 y la puerta del pipeline de la sesión 33.
+- `vulnerabilityAlerts` configura los PR que corrigen una vulnerabilidad conocida: se abren en cuanto se detectan, sin esperar a su horario, y con la etiqueta `seguridad`. Ojo: Renovate solo lee esos avisos de GitHub. En Gitea el bloque no tiene efecto, y la alternativa, `osvVulnerabilityAlerts` (que consulta la base abierta de vulnerabilidades OSV), es todavía experimental y solo cubre las dependencias directas del lenguaje. En el curso, las vulnerabilidades no se vigilan con Renovate, sino con escáneres como Trivy.
 
 Desde el 19 de febrero la imagen del servicio vive en el registry propio (`registry.lab:5000/app`). Entonces se quita de `ignoreDeps` y se le dan a Renovate credenciales de lectura del registry en `hostRules`, por variable de entorno y nunca en el repositorio (`RENOVATE_HOST_RULES`). Sin ellas ignora esa imagen en silencio y parece cubierta cuando no lo está; con `LOG_LEVEL=debug` se ve `skipping` con el motivo.
 
@@ -212,8 +212,8 @@ Sin Renovate, un job programado en Jenkins puede hacer lo mismo a mano: comparar
 
 - Frecuencia de revisión: Renovate abre PR a diario; una persona revisa los abiertos cada lunes.
 - Quién aprueba: parches y digests, el pipeline; menores, quien esté de mantenimiento; mayores, el responsable del servicio y aviso al equipo de desarrollo.
-- Ventana de mantenimiento, el rato pactado en que se admiten cortes: martes de 7:00 a 8:00, fuera de ella solo emergencias. Cómo se trabaja dentro de ella está en [Ventanas de mantenimiento](#ventanas-de-mantenimiento).
-- Qué salta la cola: CVE CRITICAL con parche disponible o cualquier entrada en KEV (los CVE, su gravedad y la lista KEV de vulnerabilidades que se están explotando se explican en [la sesión 29](#cve-cvss-epss-y-kev)); se aplica en pre el mismo día y en producción en la siguiente ventana, o antes si hay explotación activa.
+- Ventana de mantenimiento, el rato pactado en que se admiten cortes: martes de 7:00 a 8:00, fuera de ella solo emergencias.
+- Qué salta la cola: CVE CRITICAL con parche disponible o cualquier entrada en KEV, la lista de vulnerabilidades que se están explotando; se aplica en pre el mismo día y en producción en la siguiente ventana, o antes si hay explotación activa. La gravedad de un CVE y la lista KEV se explican el 4 de febrero, en [CVE, CVSS, EPSS y KEV](#cve-cvss-epss-y-kev).
 - Qué espera al ciclo: todo lo demás, agrupado cada dos semanas.
 - Cuánto tiempo se da a una actualización que falla antes de volver atrás: 40 minutos en pre, 20 en producción.
 
@@ -226,7 +226,7 @@ Cada respuesta evita una discusión en el peor momento: a mitad de una ventana n
 <span class="et et-pre">Antes de empezar</span>
 
 - app01 con el servicio arrancado y la copia de trabajo de `servicio` en `/opt/servicio`. No sale a Internet desde el 27 de noviembre, ni le hace falta hoy: solo se miran imágenes que ya tiene.
-- El repositorio `ops/servicio` en `gitea.lab` (hoy, el contenedor de mon01 en el 3001). Usa siempre ese nombre, nunca la dirección: el 12 de febrero Gitea se muda a `gitea01` y solo cambian el host override y el endpoint.
+- El repositorio `ops/servicio` en `gitea.lab` (hoy, el contenedor de mon01 en el 23001). Usa siempre ese nombre, nunca la dirección: el 12 de febrero Gitea se muda a `gitea01` y solo cambian el host override y el endpoint.
 - Trabajo que se puede traer hecho: en Gitea, el usuario técnico `renovate-bot` con permiso de escritura en `ops/servicio` y su token en el gestor de contraseñas; en mon01, la imagen `renovate/renovate:41` (o la mayor vigente, nunca `latest`), que pesa varios cientos de MB.
 - Explicado antes: [Versiones, etiquetas y digests](#versiones-etiquetas-y-digests), [Versionado semántico](#versionado-semantico), [Políticas de etiquetas de las imágenes oficiales](#politicas-de-etiquetas-de-las-imagenes-oficiales), [Renovate a fondo](#renovate-a-fondo) y [La política escrita](#la-politica-escrita).
 
@@ -246,11 +246,11 @@ La hoja tiene dos mitades, y el orden importa. En la primera averiguas qué corr
 
     *Pista:* a la orden del apartado le falta `--network host`, para que el contenedor resuelva `gitea.lab` como lo hace mon01.
 
-4. **Escribe qué se hace con lo que proponga.** Renovate solo avisa; lo que decide es la política. Escribe en `main` `docs/politica-actualizacion.md` con los seis puntos de [La política escrita](#la-politica-escrita) como encabezados y, en cada uno, una o dos líneas decididas para tu servicio. Se cierra en la práctica evaluable de la sesión 34.
+4. **Escribe qué se hace con lo que proponga.** Renovate solo avisa; lo que decide es la política. Escribe en `main` `docs/politica-actualizacion.md` con los seis puntos de [La política escrita](#la-politica-escrita) como encabezados y, en cada uno, una o dos líneas decididas para tu servicio. La terminas en la práctica evaluable, el 23 de febrero.
 
 <span class="et et-com">Comprobación</span> Las líneas `image:` y `FROM` de `compose.yml` y `api/Dockerfile` ya no llevan etiquetas flotantes; `docker image inspect python:3.13-<debian>@sha256:<digest>` encuentra la imagen en app01, así que el digest está bien copiado; en Gitea hay un PR de `renovate-bot` con la etiqueta `actualizacion` y las notas de la versión; en `renovate.log` la base del Dockerfile aparece entre las dependencias detectadas y `app` no da error de búsqueda.
 
-<span class="et et-ent">Entrega</span> El PR fusionado con `docs/inventario.md` y el Dockerfile fijado; `renovate.json` y `docs/politica-actualizacion.md` en `main`; la captura del PR de Renovate y `renovate.log` en la carpeta de la práctica.
+<span class="et et-ent">Para practicar</span> Deja en `main` el PR fusionado con `docs/inventario.md` y el Dockerfile fijado, `renovate.json` y `docs/politica-actualizacion.md`, y guarda la captura del PR de Renovate y `renovate.log` en la carpeta de la práctica: la evaluable parte de ahí.
 
 <span class="et et-ext">Si te sobra tiempo</span> Fija también con digest las imágenes de `/opt/agentes/compose.yml` que el paso 1 marcó como flotantes, y añade un `packageRule` con `versioning` explícito para alguna imagen que no siga semver.
 
@@ -258,7 +258,7 @@ La hoja tiene dos mitades, y el orden importa. En la primera averiguas qué corr
 
 <p class="ut-meta" markdown>4 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Vulnerabilidades en los componentes · 20 min&#10;A7.2 Escaneo · 90 min" data-dur="Vulnerabilidades en los componentes · 20 min&#10;A7.2 Escaneo · 90 min">:material-school:<i class="dur-barra" style="--teoria:18%"></i>:material-flask:</span></p>
 
-La sesión 28 dejó escrito qué versión lleva cada pieza del servicio. Ese inventario sirve para hacerse la segunda pregunta de la unidad: ¿alguna de esas piezas tiene un fallo de seguridad publicado? A mano no se puede contestar, porque una imagen lleva cientos de paquetes y cada semana se publican cientos de fallos nuevos: hay que cruzar las dos listas de forma automática. La teoría sigue el orden en que se construye ese cruce. Primero, el vocabulario con el que se nombra y se pesa un fallo (CVE, CVSS, EPSS y KEV); después, el inventario completo de una imagen (el SBOM); luego, cómo lo cruza un escáner con una base de datos de vulnerabilidades, y al final qué hace cada escáner y con qué opciones. De Trivy, que ya se usó en la UT4, solo se ve lo nuevo. La hoja aplica todo eso a la imagen del servicio y a la de un agente y termina en una tabla de hallazgos graves; qué se hace con cada uno queda para la sesión 30.
+El inventario de la A7.1 dejó escrito qué versión lleva cada pieza del servicio. Sirve para hacerse la segunda pregunta de la unidad: ¿alguna de esas piezas tiene un fallo de seguridad publicado? A mano no se puede contestar, porque una imagen lleva cientos de paquetes y cada semana se publican cientos de fallos nuevos: hay que cruzar las dos listas de forma automática. La teoría sigue el orden en que se construye ese cruce. Primero, el vocabulario con el que se nombra y se pesa un fallo (CVE, CVSS, EPSS y KEV); después, el inventario completo de una imagen (el SBOM); luego, cómo lo cruza un escáner con una base de datos de vulnerabilidades, y al final qué hace cada escáner y con qué opciones. De Trivy, que ya se usó en la UT4, solo se ve lo nuevo. La hoja aplica todo eso a la imagen del servicio y a la de un agente y termina en una tabla de hallazgos graves. Qué se hace con cada uno se decide en la sesión siguiente, el 9 de febrero.
 
 ### Vulnerabilidades en los componentes
 
@@ -303,7 +303,7 @@ Es el peor caso: ejecución remota de código sin autenticación. Si el mismo fa
 
 #### SBOM: el inventario
 
-**Por qué no basta el inventario de la sesión 28.** El inventario de la A7.1 dice qué imágenes corren y qué paquetes de Python lleva la API, pero una imagen trae además cientos de paquetes del sistema que nadie ha pedido uno a uno. Y cuando dentro de unos meses salga un fallo en uno de ellos, la pregunta será qué versiones desplegadas lo llevaban, sin tener que reconstruirlas para mirarlo.
+**Por qué no basta el inventario de versiones.** El inventario de la A7.1 dice qué imágenes corren y qué paquetes de Python lleva la API, pero una imagen trae además cientos de paquetes del sistema que nadie ha pedido uno a uno. Y cuando dentro de unos meses salga un fallo en uno de ellos, la pregunta será qué versiones desplegadas lo llevaban, sin tener que reconstruirlas para mirarlo.
 
 **Qué es.** Un **SBOM** (Software Bill of Materials, la lista de materiales del software) es la lista de todo lo que hay dentro de una imagen: paquetes del SO con versión, librerías del lenguaje con versión, ficheros binarios detectados y el origen de cada uno, en un formato que lee una máquina. La idea viene de la industria, donde cada producto lleva su lista de materiales, y en software se generalizó a partir de 2021, cuando el gobierno de Estados Unidos la incluyó entre lo que pide a sus proveedores; el Reglamento europeo de Ciberresiliencia, aprobado en 2024, la incluye también entre las obligaciones de los fabricantes. Hay dos formatos estándar: **CycloneDX** (de OWASP, más orientado a seguridad) y **SPDX** (de la Linux Foundation, más orientado a licencias). Cualquiera de los dos lo entienden todos los escáneres.
 
@@ -330,12 +330,12 @@ jq '.components | group_by(.type) | map({type: .[0].type, n: length})' sbom-app-
 - Sin base de datos al día no hay cruce: un escáner sin acceso a Internet, o con la base de hace un mes, no ve los CVE nuevos. Por eso en el curso se escanea en el puesto de administración, que sale a Internet, y no en app01.
 - Si la imagen no tiene la base de datos de su gestor de paquetes (una imagen construida desde `scratch`, o una a la que se le ha borrado para ahorrar espacio), el escáner no ve los paquetes del sistema, y el informe sale casi vacío sin que la imagen esté limpia.
 - Cada escáner compone su base a su manera y empareja los nombres de paquete con sus propias reglas. Por eso Trivy y Grype nunca dan la misma lista, y un hallazgo que solo ve uno de los dos puede ser un falso positivo (el escáner atribuye el CVE a un paquete o a una versión que no lo tiene) o un fallo que el otro se pierde.
-- La versión corregida y el estado del parche (`fixed`, `will_not_fix`...) los da la distribución, y dicen si basta con reconstruir la imagen sobre una base al día. Cómo se leen se ve en la sesión 30.
+- La versión corregida y el estado del parche (`fixed`, `will_not_fix`...) los da la distribución, y dicen si basta con reconstruir la imagen sobre una base al día. Cómo se leen se explica el 9 de febrero, al decidir qué se hace con cada hallazgo.
 - Como el inventario y el cruce son pasos separados, se puede escanear un SBOM archivado sin tener la imagen: el cruce se repite con la base de datos de hoy.
 
 #### Escanear con Trivy
 
-!!! otra "Repaso"
+!!! consulta "Repaso"
     `trivy image` con `--severity`, `--ignore-unfixed`, `--format json` y `--exit-code 1` se explicó en la [sesión 25](ut4-kpi-pruebas.md#seguridad-zap-baseline-y-trivy-image), y la A4.6 lo dejó instalado en el puesto de administración. Aquí solo se añade lo nuevo: escanear una imagen que no está en ningún registry, los otros modos de Trivy y qué informe se archiva.
 
 **Qué cambia respecto a la UT4.** Hasta el 19 de febrero la imagen del servicio vive solo en el Docker de app01. Se saca a un fichero y se escanea en el puesto de administración, que tiene Trivy y salida a Internet para su base de datos. Y además de la imagen, Trivy tiene otros modos que miran el repositorio: con ellos se cubren las tres cosas que pide el CE e (código, binarios y librerías):
@@ -359,14 +359,14 @@ trivy image --input app-1.4.2.tar --format json -o trivy-app-1.4.2.json
 trivy image --input app-1.4.2.tar --format sarif -o trivy-app-1.4.2.sarif
 ```
 
-Lo nuevo respecto a la UT4:
+Lo nuevo de esas órdenes:
 
 - `--input` lee la imagen de un fichero de `docker save`: la máquina que escanea no necesita Docker ni acceso a ningún registry.
 - El informe que se archiva va sin `--severity` ni `--ignore-unfixed`. La lista de trabajo se filtra; el archivo no, porque un hallazgo sin parche hoy puede tenerlo mañana y hay que poder buscarlo en el informe de esta versión.
 - `--format sarif` escribe SARIF (un formato normalizado de resultados de análisis de código), que es el que entienden Gitea, GitLab y GitHub para pintar los hallazgos junto al código.
 - `--scanners vuln,secret` hace que `trivy fs` busque, además de vulnerabilidades en los ficheros de dependencias, *secretos*: contraseñas, tokens o claves que alguien dejó escritos en un fichero del repositorio.
 
-`trivy config` avisa además de cosas de la 5166: contenedor que corre como root, `ADD` con URL, puerto 22 expuesto.
+`trivy config` avisa además de malas prácticas de despliegue: contenedor que corre como root, `ADD` con URL, puerto 22 expuesto.
 
 #### Grype, Docker Scout y los escáneres del lenguaje
 
@@ -391,7 +391,7 @@ Los demás son la misma idea para otros lenguajes o para otro sitio:
 | `osv-scanner scan --lockfile <fichero>` | Ficheros de dependencias de casi cualquier lenguaje, contra OSV (la base abierta de avisos por paquete) | Repositorios con varios lenguajes |
 | `docker scout cves <imagen>` | Imágenes, desde Docker Desktop o Docker Hub | Cómodo en un portátil con Docker Desktop, que lo trae; pide iniciar sesión con una cuenta de Docker |
 
-**Dos filtros a distinta altura.** pip-audit mira las dependencias declaradas antes de construir, y Trivy la imagen ya construida. En el curso los dos se pasan en la A7.2; en el pipeline de la A7.6 entra solo Trivy.
+**Dos filtros a distinta altura.** pip-audit mira las dependencias declaradas antes de construir, y Trivy la imagen ya construida. En el curso los dos se pasan en la A7.2.
 
 ### A7.2 Escaneo (sesión 29)
 
@@ -435,7 +435,7 @@ Vas del inventario al juicio, en ese orden. Primero sacas las imágenes de app01
 
 <span class="et et-com">Comprobación</span> La cabecera de cada informe de imagen de Trivy reconoce el sistema base (`(debian 12.x)` o `(debian 13.x)`); `hallazgos.tsv` no está vacío; la tabla tiene ocho filas (o todas las CRITICAL y las HIGH con parche, si salen menos de ocho) con las dos columnas manuales rellenas y el recuento por severidad encima; `pip-audit.txt` y `trivy-fs.json` existen y su resultado está resumido en `hallazgos.md`; hay al menos un CVE anotado que solo aparece en uno de los escáneres.
 
-<span class="et et-ent">Entrega</span> Commit con `seguridad/` (los dos SBOM, los JSON de los escáneres, `pip-audit.txt` y `hallazgos.md`), sin los `.tar`. Es la base de A7.3.
+<span class="et et-ent">Para practicar</span> Haz commit de `seguridad/` (los dos SBOM, los JSON de los escáneres, `pip-audit.txt` y `hallazgos.md`), sin los `.tar`: es la base de la A7.3 y de la práctica evaluable.
 
 ## Sesión 30 · Investigar y decidir
 
@@ -466,7 +466,7 @@ Total: 1 (HIGH: 1, CRITICAL: 0)
 │ setuptools     │ CVE-2024-6345  │ HIGH     │ fixed        │ 65.5.1            │ 70.0.0        │ pypa/setuptools: remote code exec.. │
 ```
 
-**Las columnas que deciden.** `Status` dice qué ha decidido la distribución sobre ese fallo: `fixed`, hay versión corregida en sus repositorios; `affected`, afectado y todavía sin parche; `fix_deferred`, afectado, y se arreglará más adelante; `will_not_fix`, afectado, pero la distribución no piensa arreglarlo, normalmente porque el fallo no se da tal como ella compila el paquete o porque lo considera menor. `Fixed Version` dice a qué versión hay que subir: si es un paquete del sistema, basta con reconstruir la imagen sobre una base al día; si es una librería del lenguaje, hay que subirla en `requirements.txt`. Y fuera de la tabla está lo que más pesa, lo que se sabe del servicio. Por cada fila, las preguntas del diagrama:
+**Las columnas que deciden.** `Status` dice qué ha decidido la distribución sobre ese fallo: `fixed`, hay versión corregida en sus repositorios; `affected`, afectado y todavía sin parche; `fix_deferred`, afectado y con el arreglo aplazado; `will_not_fix`, afectado, pero la distribución no piensa arreglarlo, normalmente porque el fallo no se da tal como ella compila el paquete o porque lo considera menor. `Fixed Version` dice a qué versión hay que subir: si es un paquete del sistema, basta con reconstruir la imagen sobre una base al día; si es una librería del lenguaje, hay que subirla en `requirements.txt`. Y fuera de la tabla está lo que más pesa, lo que se sabe del servicio. Por cada fila, las preguntas del diagrama:
 
 ```mermaid
 flowchart TD
@@ -545,12 +545,12 @@ flowchart TB
 
 1. **Actualizar** la imagen base o el paquete afectado. Reconstruir con `FROM python:3.13-slim-bookworm` al día (y `apt-get upgrade` en el Dockerfile si la base oficial va por detrás de Debian) o subir la versión de la librería en el lockfile.
 2. **Cambiar a una base más pequeña**: `-slim`, `-alpine`, distroless o Chainguard. Menos paquetes, menos hallazgos y menos superficie de ataque real. Tiene coste: puede que falten librerías nativas, que no haya shell para depurar o que cambie el comportamiento de DNS en Alpine.
-3. **Mitigar** sin tocar la versión: desinstalar el componente en el Dockerfile (`apt-get purge curl`), deshabilitar la función vulnerable en la configuración (un módulo de nginx, un protocolo de TLS), o limitar por red con las reglas de la 5166 UT3 para que el componente no sea alcanzable.
+3. **Mitigar** sin tocar la versión: desinstalar el componente en el Dockerfile (`apt-get purge curl`), deshabilitar la función vulnerable en la configuración (un módulo de nginx, un protocolo de TLS), o limitar por red con las reglas del cortafuegos para que el componente no sea alcanzable.
 4. **Aceptar el riesgo** por escrito, con motivo, responsable y fecha de revisión. Es legítimo, pero solo si está documentado.
 
 Un falso positivo, cuando el escáner atribuye el CVE a un paquete o a una versión que no lo tiene, no es una quinta salida: se registra como una aceptación más, y su motivo es la ficha que demuestra que no aplica.
 
-**El registro de excepciones.** Las excepciones aceptadas van a `.trivyignore`, un fichero de texto con un CVE por línea que Trivy lee para no volver a mostrar esos hallazgos. Va en la raíz del repositorio porque Trivy lo busca en el directorio desde el que se ejecuta, y desde ahí se ejecuta también la etapa del pipeline de la sesión 33: el mismo fichero vale en el puesto y en Jenkins. Es la misma idea que la supresión justificada de un hallazgo de checkov que se vio en la UT5 de Despliegue. Trivy admite comentarios y fechas de caducidad, y hay que usar las dos cosas:
+**El registro de excepciones.** Las excepciones aceptadas van a `.trivyignore`, un fichero de texto con un CVE por línea que Trivy lee para no volver a mostrar esos hallazgos. Es la misma idea que las supresiones justificadas de checkov en Despliegue. Va en la raíz del repositorio porque Trivy lo busca en el directorio desde el que se ejecuta. Trivy admite comentarios y fechas de caducidad, y hay que usar las dos cosas:
 
 ```text
 # CVE-2023-45853: MiniZip no se compila en zlib1g de Debian. Debian: will_not_fix.
@@ -562,7 +562,7 @@ CVE-2023-45853 exp:2027-08-01
 CVE-2024-6345 exp:2027-03-15
 ```
 
-**Cada excepción, con su porqué y su fecha.** El comentario dice el motivo, quién lo decidió y dónde (`#142` es una incidencia de Gitea y `!57`, un PR; la notación se explica en [Trazabilidad](#trazabilidad)). Con `exp:`, a partir de esa fecha Trivy vuelve a mostrar el hallazgo, y alguien tiene que revisarlo de nuevo en lugar de que la excepción se quede para siempre. Una línea sin comentario ni fecha es una excepción que nadie revisará, y en seis meses el fichero tiene ochenta líneas que ya no significan nada. En la práctica evaluable, un `.trivyignore` sin justificaciones cuenta como no entregado.
+**Cada excepción, con su porqué y su fecha.** El comentario dice el motivo, quién lo decidió y dónde (`#142` es una incidencia de Gitea y `!57`, un PR). Con `exp:`, a partir de esa fecha Trivy vuelve a mostrar el hallazgo, y alguien tiene que revisarlo de nuevo en lugar de que la excepción se quede para siempre. Una línea sin comentario ni fecha es una excepción que nadie revisará, y en seis meses el fichero tiene ochenta líneas que ya no significan nada. En la práctica evaluable, un `.trivyignore` sin justificaciones cuenta como no entregado.
 
 ### Fuentes y cómo se leen
 
@@ -615,7 +615,7 @@ Primero investigas y decides, y solo después tocas la imagen, porque reconstrui
 
 <span class="et et-com">Comprobación</span> Cuatro entradas con las preguntas del diagrama respondidas y la fuente enlazada; Trivy con `--ignorefile` muestra menos filas que sin él y ninguna línea del `.trivyignore` va sin comentario ni fecha; la fila temporal ya no está en OPNsense; `app:1.4.3` responde en el `/health` de app01 y tiene menos hallazgos que la 1.4.2.
 
-<span class="et et-ent">Entrega</span> PR de `base-slim` con `seguridad/decisiones.md`, `.trivyignore`, el Dockerfile con la base nueva y `compose.yml` en la 1.4.3. No lo fusiones todavía: se fusiona al empezar la A7.4, después de dos días de la 1.4.3 en dev y antes de llevarla a pre.
+<span class="et et-ent">Para practicar</span> Deja abierto el PR de `base-slim` con `seguridad/decisiones.md`, `.trivyignore`, el Dockerfile con la base nueva y `compose.yml` en la 1.4.3. No lo fusiones todavía: se fusiona al empezar la A7.4, después de dos días de la 1.4.3 en dev y antes de llevarla a pre.
 
 <span class="et et-ext">Si te sobra tiempo</span> Repite la reconstrucción del paso 4 y la medida del paso 6 con `python:3.13-alpine` (con la fila temporal abierta solo mientras dura el build) y anota qué se rompió. O quita `setuptools` de la imagen final y comprueba si desaparece una fila del informe.
 
@@ -671,7 +671,7 @@ En el laboratorio no hay producción: el ciclo se recorre hasta pre, y la mitad 
 Lo que hace seguro cada tramo del ciclo, en el orden en que se hace:
 
 1. **Fuente.** La versión nueva sale de un repositorio: el registry de `gitea01` para la aplicación (desde el 19 de febrero, reconstruida por el pipeline con la base actualizada) o Docker Hub para las oficiales, y se comprueba el digest contra el publicado. Mientras no hay registry, la imagen viaja con `docker save | docker load` desde la máquina que la construyó, nunca desde el portátil de alguien, y se comprueba que el ID de imagen es el mismo en los dos lados.
-2. **Cambio en el repositorio, no en el servidor.** La versión se cambia en el `compose.yml` del repositorio a través de un PR o de un commit revisable; en pre, en la variable `app_image` del playbook de la 5166 UT5, que la escribe en el `.env` de `app01-pre` (el compose de pre lee la imagen de ahí). Editar el compose a mano en la máquina es la forma más rápida de que nadie sepa qué hay desplegado.
+2. **Cambio en el repositorio, no en el servidor.** La versión se cambia en el `compose.yml` del repositorio a través de un PR o de un commit revisable; en pre, en la variable `app_image` del playbook de `iac-lab`, que la escribe en el `.env` de `app01-pre` (el compose de pre lee la imagen de ahí). Editar el compose a mano en la máquina es la forma más rápida de que nadie sepa qué hay desplegado.
 3. **Dev primero, luego pre.** En dev se ve si arranca; en pre, con datos parecidos a producción, se ve si funciona. Nunca directamente en producción, ni para un parche.
 4. **Copia de seguridad previa** con el restic del laboratorio, anotando el nombre del snapshot o del volcado. Es el plan B de los datos y tiene que existir antes de tocar nada; cómo se hace está en [La copia previa con restic](#la-copia-previa-con-restic).
 5. **Plan de vuelta atrás escrito** antes de empezar. Para el servicio del curso es la etiqueta y el digest anteriores (o el ID de imagen, mientras no hay registry) apuntados en la incidencia, y el comando exacto para volver:
@@ -685,7 +685,7 @@ Lo que hace seguro cada tramo del ciclo, en el orden en que se hace:
 
     En pre, donde la imagen sale de `APP_IMAGE` en el `.env`, lo que se guarda es ese fichero (`.env.anterior`), y la vuelta atrás es `docker compose --env-file /opt/servicio/.env.anterior -f /opt/servicio/compose.yml up -d app`. Con imágenes de un registry conviene guardarlo con `docker compose config --resolve-image-digests > compose.anterior.yml`, que deja escritos los digests. Si la actualización lleva migraciones de esquema, se decide antes si son reversibles o si la vuelta atrás pasa por restaurar la copia, no a los 35 minutos.
 
-6. **Despliegue.** En dev, a mano con `docker compose up -d app`; en pre, el playbook de la 5166 UT5, y desde el 26 de febrero la etapa Deploy del pipeline de la UT6, que hace lo mismo y además deja el log del despliegue enlazable.
+6. **Despliegue.** En dev, a mano con `docker compose up -d app`; en pre, con el playbook de `iac-lab`, o con la etapa de despliegue del pipeline cuando la hay, que hace lo mismo y además deja el log del despliegue enlazable.
 7. **Migraciones.** Una migración es el cambio de estructura de la base de datos (tablas o columnas nuevas, por ejemplo) que una versión trae consigo. La API del curso crea su esquema al arrancar y no las lleva. Cuando una aplicación sí las lleva, o cuando lo que se actualiza es el propio PostgreSQL, hay que comprobar que han terminado antes de dar la actualización por buena; cómo se hace en cada caso está en [Para ampliar](../ampliacion.md#migraciones-y-actualizaciones-de-postgresql).
 8. **Verificación** con las pruebas de la UT4 (la suite funcional, k6 con sus umbrales, ZAP en modo baseline) más la verificación de integridad de datos de abajo.
 9. **Producción en ventana**, con la misma copia previa, la misma verificación y la misma persona que hizo pre, que es la que sabe qué esperar.
@@ -708,7 +708,7 @@ ssh ops@10.20.3.10 'sudo -u postgres pg_dump -Fc servicio' \
 
 La orden se lanza en el puesto de administración: el volcado sale de db01-pre por SSH y entra en restic sin pasar por el disco de nadie. Dentro del snapshot queda como un fichero, `/servicio-pre.dump`, que es lo que se saca para restaurar.
 
-**Cómo se usa en el curso.** Hay un solo repositorio para todo el laboratorio, `s3:http://10.10.0.30:9000/backups`, en el bucket que nació con el propio MinIO el 18 de diciembre, y se maneja desde el puesto de administración, que está en la misma subred que MinIO y llega a pre por SSH. Se inicializa una sola vez en todo el curso, en la A7.4, y las copias de pre llevan la etiqueta `pre`: por esa etiqueta las borra la UT8 cuando da de baja el entorno, sin tocar el resto del repositorio. La referencia completa (retención, verificación, restauración) está en [restic a fondo](ut6-copias-seguridad.md#restic-a-fondo), en la UT6, que se cursa en la empresa.
+**Cómo se usa en el curso.** Hay un solo repositorio para todo el laboratorio, `s3:http://10.10.0.30:29000/backups`, en el bucket que nació con el propio MinIO el 18 de diciembre, y se maneja desde el puesto de administración, que está en la misma subred que MinIO y llega a pre por SSH. Se inicializa una sola vez en todo el curso, en la A7.4, y las copias de pre llevan la etiqueta `pre`. La referencia completa (retención, verificación, restauración) está en [restic a fondo](ut6-copias-seguridad.md#restic-a-fondo). En marzo, cuando la UT8 da de baja pre, esa etiqueta es la que permite borrar sus copias sin tocar el resto del repositorio.
 
 #### Verificación de integridad de datos
 
@@ -747,7 +747,7 @@ ssh ops@10.20.3.10 'sudo -u postgres psql -d servicio' < scripts/integridad.sql 
 
 Después de actualizar se repite con `integridad-despues.txt`, y un `diff` entre las dos tiene que salir vacío.
 
-**Lo que solo se ve desde fuera.** Una prueba de lectura y escritura de extremo a extremo (crear un item con `POST /items` y leerlo), que es lo que hace la suite funcional, y los KPI de la UT4 (p95, tasa de errores) comparados con la línea base. Una actualización que "funciona" pero dobla la latencia es una degradación.
+**Lo que solo se ve desde fuera.** Una prueba de lectura y escritura de extremo a extremo (crear un item con `POST /items` y leerlo), que es lo que hace la suite funcional, y los KPI del servicio (p95, tasa de errores) comparados con su línea base. Una actualización que "funciona" pero dobla la latencia es una degradación.
 
 #### Ventanas de mantenimiento
 
@@ -785,27 +785,27 @@ Sigues el ciclo de la teoría en su orden, y cada paso deja preparado el siguien
 
 2. **Haz que mon01 vea pre.** pre está aislado del resto del laboratorio, y desde gestión solo se llega a él por la pata de `router-pre` (10.10.0.2): el puesto ya tiene esa ruta, mon01 todavía no. Pon en mon01 la ruta a `10.20.0.0/16` por `router-pre` en una unidad `ruta-pre.service`, para que sobreviva a un reinicio, y añade al job `node` de Prometheus un grupo nuevo con las tres VM de pre, cada una con su `host` (`web01-pre`, `app01-pre`, `db01-pre`) y la etiqueta `env: pre`. Sube el cambio a `monitoring`. Desde ese momento, si la actualización tumba una máquina de pre, lo ves.
 
-    *Pista:* la unidad es la `ruta-lab.service` del puesto con solo la línea de `10.20.0.0/16` y la tarjeta de mon01, `ens18`. La UT8 retira pre por `env="pre"`: escríbela exactamente así.
+    *Pista:* la unidad es la `ruta-lab.service` del puesto con solo la línea de `10.20.0.0/16` y la tarjeta de mon01, `ens18`. En marzo, la UT8 retira pre de la monitorización buscando `env="pre"`: escríbela exactamente así.
 
-3. **Prepara el plan B de los datos.** Crea en el puesto el repositorio de copias del laboratorio, `s3:http://10.10.0.30:9000/backups`, con `restic init`, **una sola vez en todo el curso**: es un repositorio único para todo el laboratorio, y la contraseña que se le pone al crearlo es la que lo abre. Su configuración va en `/etc/restic/`, del usuario `ops` y con permisos 700, en dos ficheros con permisos 600: `pass`, una contraseña aleatoria que copias al gestor de contraseñas antes de seguir, porque sin ella las copias son ilegibles; y `env`, con las cuatro variables (el repositorio, `RESTIC_PASSWORD_FILE` y la credencial `restic` de MinIO en `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`). Después haz la copia previa con la etiqueta `pre`, como en [La copia previa con restic](#la-copia-previa-con-restic), apunta el id del snapshot en la incidencia y, desde la raíz de tu clon, toma la foto de integridad de antes con las consultas de [Verificación de integridad de datos](#verificacion-de-integridad-de-datos), guardadas en `scripts/integridad.sql`. Las dos se piden desde el puesto, porque pre no abre conexiones hacia gestión.
+3. **Prepara el plan B de los datos.** Crea en el puesto el repositorio de copias del laboratorio, `s3:http://10.10.0.30:29000/backups`, con `restic init`, **una sola vez en todo el curso**: es un repositorio único para todo el laboratorio, y la contraseña que se le pone al crearlo es la que lo abre. Su configuración va en `/etc/restic/`, del usuario `ops` y con permisos 700, en dos ficheros con permisos 600: `pass`, una contraseña aleatoria que copias al gestor de contraseñas antes de seguir, porque sin ella las copias son ilegibles; y `env`, con las cuatro variables (el repositorio, `RESTIC_PASSWORD_FILE` y la credencial `restic` de MinIO en `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`). Después haz la copia previa con la etiqueta `pre`, como en [La copia previa con restic](#la-copia-previa-con-restic), apunta el id del snapshot en la incidencia y, desde la raíz de tu clon, toma la foto de integridad de antes con las consultas de [Verificación de integridad de datos](#verificacion-de-integridad-de-datos), guardadas en `scripts/integridad.sql`. Las dos se piden desde el puesto, porque pre no abre conexiones hacia gestión.
 
     *Pista:* restic solo ve las variables de `env` si se exportan al cargar el fichero: `set -a; . /etc/restic/env; set +a`. Si `restic init` dice que el repositorio ya existe, no lo crees de nuevo: mira [Errores frecuentes](#errores-frecuentes-en-el-laboratorio).
 
 4. **Lleva la 1.4.3 a pre por el repositorio.** pre no llega al registry ni a gestión, así que la imagen se le empuja: pasa de app01 a app01-pre con `docker save | docker load` a través del puesto, y tiene que llegar con el mismo ID, que es la prueba de que es la misma que ha corrido dos días en dev. Guarda antes el `.env` de app01-pre como `/opt/servicio/.env.anterior`: es el plan B de la imagen. Después cambia la versión donde vive de verdad, en `app_image` de `ansible/group_vars/all.yml` de `iac-lab`, súbelo y pasa el playbook de la A5.5 limitado a `app`. Así el repositorio dice siempre lo que corre en pre.
 
-    *Pista:* en pre la imagen no está en el compose: el playbook la escribe como `APP_IMAGE` en el `.env` de app01-pre. La API responde en el 8080, sin nginx delante.
+    *Pista:* en pre la imagen no está en el compose: el playbook la escribe como `APP_IMAGE` en el `.env` de app01-pre. La API responde en el 28080, sin nginx delante.
 
-5. **Comprueba los datos y después el servicio.** Toma la foto de integridad de después (`integridad-despues.txt`) y compárala con la de antes: tiene que ser idéntica, porque la 1.4.3 cambia la base de la imagen, no los datos. Luego pasa contra pre la suite funcional de la A4.4 con `API_URL=http://10.20.2.10:8080`. El orden importa: la suite escribe en la base, y pasada antes estropearía la comparación.
+5. **Comprueba los datos y después el servicio.** Toma la foto de integridad de después (`integridad-despues.txt`) y compárala con la de antes: tiene que ser idéntica, porque la 1.4.3 cambia la base de la imagen, no los datos. Luego pasa contra pre la suite funcional de la A4.4 con `API_URL=http://10.20.2.10:28080`. El orden importa: la suite escribe en la base, y pasada antes estropearía la comparación.
 
 6. **Cierra el expediente con el plan B y el paso a producción.** Completa la incidencia, que es lo que se revisa en la A7.6 y en la evaluable. Enlaza el PR de la A7.3, el commit de `iac-lab`, el snapshot, las dos salidas de integridad y el resultado de la suite. Escribe la vuelta atrás con sus órdenes exactas, la de la imagen y la de los datos, con el plan B comprobado: `compose.anterior.yml` en app01, `.env.anterior` en app01-pre y el id del snapshot. Añade el plan de paso a producción, que en el laboratorio no existe como entorno: cinco o seis líneas con el orden de [Ventanas de mantenimiento](#ventanas-de-mantenimiento) aplicado a esta actualización (ventana, aviso, silencio en Alertmanager con fecha de fin, copia, despliegue, la misma verificación que en pre y el reloj de 20 minutos). Se queda abierta hasta la A7.6.
 
     *Pista:* la vuelta atrás de la imagen en pre está en [Paso a paso](#paso-a-paso); la de los datos es el camino inverso de la copia, de `restic dump` del snapshot a `pg_restore --clean` en db01-pre.
 
-<span class="et et-com">Comprobación</span> `up{env="pre"}` da las tres VM de pre a 1; `restic snapshots --tag pre` lista la copia previa; app01-pre corre `app:1.4.3` con el mismo ID de imagen que app01 y responde en `http://10.20.2.10:8080/health`; el `diff` de integridad sale vacío; la suite funcional pasa contra pre; la incidencia lleva todos los enlaces, la vuelta atrás y el plan de paso a producción.
+<span class="et et-com">Comprobación</span> `up{env="pre"}` da las tres VM de pre a 1; `restic snapshots --tag pre` lista la copia previa; app01-pre corre `app:1.4.3` con el mismo ID de imagen que app01 y responde en `http://10.20.2.10:28080/health`; el `diff` de integridad sale vacío; la suite funcional pasa contra pre; la incidencia lleva todos los enlaces, la vuelta atrás y el plan de paso a producción.
 
-<span class="et et-ent">Entrega</span> La incidencia abierta con los enlaces, la vuelta atrás y el plan de paso a producción; `scripts/integridad.sql` en `servicio`; los commits de `iac-lab` y de `monitoring`; `integridad-antes.txt`, `integridad-despues.txt` y el informe de la suite en la carpeta de la práctica.
+<span class="et et-ent">Para practicar</span> Deja la incidencia abierta con los enlaces, la vuelta atrás y el plan de paso a producción; `scripts/integridad.sql` en `servicio`; los commits de `iac-lab` y de `monitoring`; y `integridad-antes.txt`, `integridad-despues.txt` y el informe de la suite en la carpeta de la práctica.
 
-<span class="et et-ext">Si te sobra tiempo</span> Pasa `carga.js` de la A4.5 contra pre (`API_URL=http://10.20.2.10:8080`) y compara p95 y tasa de errores con la línea base. Después actualiza PostgreSQL de db01-pre a la versión menor siguiente con la misma disciplina, copia previa y foto de integridad antes y después: `ssh ops@10.20.3.10 'sudo apt-get update && sudo apt-get install -y --only-upgrade postgresql-17 && sudo systemctl restart postgresql@17-main'`, y `show server_version` al terminar.
+<span class="et et-ext">Si te sobra tiempo</span> Pasa `carga.js` de la A4.5 contra pre (`API_URL=http://10.20.2.10:28080`) y compara p95 y tasa de errores con la línea base. Después actualiza PostgreSQL de db01-pre a la versión menor siguiente con la misma disciplina, copia previa y foto de integridad antes y después: `ssh ops@10.20.3.10 'sudo apt-get update && sudo apt-get install -y --only-upgrade postgresql-17 && sudo systemctl restart postgresql@17-main'`, y `show server_version` al terminar.
 
 ## Sesión 32 · Fallo provocado
 
@@ -845,7 +845,7 @@ En la A7.4 la actualización salió bien. Hoy sale mal a propósito: el profesor
 **Clasificación:** bloqueante. **Decisión:** rollback a 1.4.3 a las 09:41 (26 min).
 
 ### Síntoma
-El contenedor `app` se reinicia cada 8 s y `curl http://10.20.2.10:8080/health` da `Connection refused`.
+El contenedor `app` se reinicia cada 8 s y `curl http://10.20.2.10:28080/health` da `Connection refused`.
 
 ### Pasos para reproducir
 1. Con la base de datos de pre (copia restic del 2027-02-16 09:10), cambiar la imagen a app:1.5.0 en el compose.
@@ -873,7 +873,7 @@ Con eso, quien lo lea reproduce el fallo sin preguntar nada; si falta un bloque,
 
 ### A7.5 Fallo provocado (sesión 32)
 
-<span class="et et-obj">Objetivo</span> Comprobar que el plan B funciona cuando hace falta. El profesor entrega una versión de la aplicación que falla al actualizar: tienes que diagnosticarla en pre, tomar la decisión (rollback o parche) dentro de los 40 minutos y entregar un reporte que el equipo de desarrollo pueda reproducir sin preguntarte nada.
+<span class="et et-obj">Objetivo</span> Comprobar que el plan B funciona cuando hace falta. El profesor te da una versión de la aplicación que falla al actualizar: tienes que diagnosticarla en pre, tomar la decisión (rollback o parche) dentro de los 40 minutos y escribir un reporte que el equipo de desarrollo pueda reproducir sin preguntarte nada.
 
 <span class="et et-pre">Antes de empezar</span>
 
@@ -888,7 +888,7 @@ Repites la actualización de la A7.4 con la misma disciplina, para que el plan B
 
 1. **Actualiza a la 1.5.0 con la misma disciplina.** Apunta la hora de inicio en la incidencia: desde ella corren los 40 minutos. Después repite la preparación de la A7.4: copia previa e `integridad-antes.txt` como en el paso 3 de la A7.4, el `.env` de app01-pre (que ahora apunta a la 1.4.3) guardado como `.env.anterior`, y el cambio de `app_image` con su pasada del playbook como en el paso 4 de la A7.4. Sin esa preparación no hay decisión posible en plazo.
 
-2. **Guarda las pruebas del fallo antes de tocar nada.** Si `app` se reinicia, guarda sus últimas 200 líneas de log en `fallo-logs.txt` y la respuesta completa de `/health` en el 8080 de app01-pre. Hazlo antes de cualquier arreglo: al volver atrás, el contenedor se recrea y sus logs desaparecen, y son lo que necesita el reporte.
+2. **Guarda las pruebas del fallo antes de tocar nada.** Si `app` se reinicia, guarda sus últimas 200 líneas de log en `fallo-logs.txt` y la respuesta completa de `/health` en el 28080 de app01-pre. Hazlo antes de cualquier arreglo: al volver atrás, el contenedor se recrea y sus logs desaparecen, y son lo que necesita el reporte.
 
     *Pista:* pídelo todo desde el puesto por SSH, con `sudo` y el compose en `/opt/servicio/compose.yml`; así `fallo-logs.txt` queda en el puesto.
 
@@ -902,9 +902,9 @@ Repites la actualización de la A7.4 con la misma disciplina, para que el plan B
 
 6. **Reporta y cierra.** Redacta el reporte en `docs/reportes/2027-02-16-app-1.5.0.md` con todos los bloques de la plantilla y los minutos de la decisión, para que alguien que no estaba pueda reproducir el fallo. Cierra la incidencia con la etiqueta `revertida` (sin ella si parcheaste) y el enlace al reporte: es lo que buscará la auditoría de la A7.6.
 
-<span class="et et-com">Comprobación</span> `curl http://10.20.2.10:8080/health` responde con la versión que hayas dejado; alguien que no estuvo en clase puede reproducir el fallo con el reporte; la decisión consta con hora y dentro del plazo; `app_image` en `ansible/group_vars/all.yml` de `iac-lab` dice la misma versión que corre en app01-pre.
+<span class="et et-com">Comprobación</span> `curl http://10.20.2.10:28080/health` responde con la versión que hayas dejado; alguien que no estuvo en clase puede reproducir el fallo con el reporte; la decisión consta con hora y dentro del plazo; `app_image` en `ansible/group_vars/all.yml` de `iac-lab` dice la misma versión que corre en app01-pre.
 
-<span class="et et-ent">Entrega</span> Reporte en el repositorio, incidencia cerrada con estado y enlaces, y `fallo-logs.txt` en la carpeta de la práctica.
+<span class="et et-ent">Para practicar</span> Deja el reporte en el repositorio, la incidencia cerrada con su estado y sus enlaces, y `fallo-logs.txt` en la carpeta de la práctica.
 
 <span class="et et-ext">Si te sobra tiempo</span> Si hiciste rollback, prueba ahora el parche sin reloj y anota en el reporte si confirma la causa.
 
@@ -912,7 +912,7 @@ Repites la actualización de la A7.4 con la misma disciplina, para que el plan B
 
 <p class="ut-meta" markdown>18 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Trazabilidad · 15 min&#10;A7.6 Trazabilidad · 95 min" data-dur="Trazabilidad · 15 min&#10;A7.6 Trazabilidad · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
 
-Las sesiones 31 y 32 dejaron dos actualizaciones, una verificada y otra revertida, con su rastro repartido entre incidencias, PR, commits y ficheros. Dentro de unos meses alguien preguntará qué cambió en el servicio, cuándo, por qué y qué se comprobó, y la respuesta tiene que poder reconstruirse sin depender de la memoria de nadie. Eso es la trazabilidad, y se construye en tres sitios que se enlazan entre sí: la incidencia de cada actualización, el CHANGELOG del servicio, que cuenta lo mismo por versiones, y el pipeline, que desde ahora escanea cada imagen nueva sin que nadie tenga que acordarse. La teoría y la hoja siguen ese orden; la etapa de escaneo se prueba hoy en un job aparte, porque la etapa `Package` del pipeline de Despliegue, donde va a vivir, no existe hasta mañana.
+La A7.4 y la A7.5 dejaron dos actualizaciones, una verificada y otra revertida, con su rastro repartido entre incidencias, PR, commits y ficheros. Dentro de unos meses alguien preguntará qué cambió en el servicio, cuándo, por qué y qué se comprobó, y la respuesta tiene que poder reconstruirse sin depender de la memoria de nadie. Eso es la trazabilidad, y se construye en tres sitios que se enlazan entre sí: la incidencia de cada actualización, el CHANGELOG del servicio, que cuenta lo mismo por versiones, y el pipeline, que desde ahora escanea cada imagen nueva sin que nadie tenga que acordarse. La teoría y la hoja siguen ese orden. La etapa de escaneo se prueba hoy en un job aparte, porque la parte del pipeline donde va a vivir todavía no existe.
 
 ### Trazabilidad
 
@@ -921,7 +921,7 @@ Las sesiones 31 y 32 dejaron dos actualizaciones, una verificada y otra revertid
 - Título: `Actualizar app 1.4.2 → 1.4.3 (pre)`.
 - Etiquetas: `actualizacion`, y una de `seguridad` / `funcionalidad` / `ciclo` según el motivo; `mayor` si lo es; `revertida` si acaba así.
 - Cuerpo: versión origen y destino con digest (o ID de imagen, mientras no hay registry), motivo (el CVE o la funcionalidad, con enlace a la ficha), entornos, fecha prevista, responsable, plan de vuelta atrás y, mientras no se haya hecho, el plan de paso a producción.
-- Enlaces, que en Gitea se hacen con `#número` para incidencias, `!número` para PR y URL para el resto: al PR de Renovate o al del cambio de versión, al commit o al pipeline que desplegó, al informe de Trivy antes y después, a la salida de las pruebas de la UT4 y del script de integridad, y al snapshot de la copia previa.
+- Enlaces, que en Gitea se hacen con `#número` para incidencias, `!número` para PR y URL para el resto: al PR de Renovate o al del cambio de versión, al commit o al pipeline que desplegó, al informe de Trivy antes y después, a la salida de las pruebas funcionales y del script de integridad, y al snapshot de la copia previa.
 - Estado: abierta mientras la actualización está en curso y cerrada al verificarla, o cerrada con la etiqueta `revertida`, la causa y el enlace al reporte a desarrollo si se deshace. En una empresa es habitual un tablero de proyecto con una columna por estado (`planificada`, `en pre`, `en producción`, `verificada`); en el laboratorio basta el estado de la incidencia y, como no hay producción, la de pre se cierra con el plan de paso a producción escrito.
 
 Las etiquetas no son decoración: dentro de un año, `label:seguridad label:revertida` responde en un segundo a "¿cuántas actualizaciones de seguridad ha habido que deshacer?", que es exactamente lo que se pregunta en una auditoría.
@@ -943,13 +943,13 @@ Las etiquetas no son decoración: dentro de un año, `label:seguridad label:reve
 - ...
 ```
 
-Con la incidencia, el PR y el CHANGELOG cruzados entre sí, cualquiera puede reconstruir semanas después qué cambió, cuándo, por qué y qué se comprobó. Sin eso, "¿desde cuándo va lenta la API?" se responde con arqueología de `docker history` y la memoria de quien estuviera de guardia.
+Con la incidencia, el PR y el CHANGELOG cruzados entre sí, cualquiera puede reconstruir meses después qué cambió, cuándo, por qué y qué se comprobó. Sin eso, "¿desde cuándo va lenta la API?" se responde con arqueología de `docker history` y la memoria de quien estuviera de guardia.
 
 #### La etapa de escaneo en el Jenkinsfile
 
-**El problema: escanear a mano depende de acordarse.** Hasta ahora cada imagen se ha escaneado porque una hoja lo pedía. En un servicio vivo, una imagen construida con prisa llega al registry sin que nadie la haya mirado. La solución es una puerta en el pipeline: una etapa que escanea cada imagen nueva antes de publicarla y no la deja pasar si trae algo grave que tenga arreglo. Aplica sola lo que se decidió en la sesión 30, porque lee el mismo `.trivyignore`.
+**El problema: escanear a mano depende de acordarse.** Hasta ahora cada imagen se ha escaneado porque una hoja lo pedía. En un servicio vivo, una imagen construida con prisa llega al registry sin que nadie la haya mirado. La solución es una puerta en el pipeline: una etapa que escanea cada imagen nueva antes de publicarla y no la deja pasar si trae algo grave que tenga arreglo. Aplica sola las excepciones decididas en la A7.3, porque lee el mismo `.trivyignore`.
 
-**Dónde va.** El pipeline de la 5166 UT6, definido en el `Jenkinsfile` del repositorio del servicio, construye la imagen y la sube al registry en la etapa `Package`, que tiene dos etapas anidadas, `Construir` y `Subir`, en el mismo agente (`agent { label 'docker' }`). Entre las dos deja marcado con un comentario el hueco de la puerta de seguridad: una etapa que escanea la imagen recién construida, que todavía solo existe en el Docker del agente, falla con cualquier CRITICAL corregible, archiva el informe completo y respeta el `.trivyignore` del repositorio. Usa las mismas variables que el resto del `Jenkinsfile`: `IMAGEN`, el nombre de la imagen (`registry.lab:5000/app`), y `TAG`, los siete primeros caracteres del commit, que fija la etapa `Checkout`:
+**Dónde va.** El pipeline del servicio, definido en el `Jenkinsfile` de su repositorio, construye la imagen y la sube al registry en la etapa `Package`, que tiene dos etapas anidadas, `Construir` y `Subir`, en el mismo agente (`agent { label 'docker' }`). Entre las dos deja marcado con un comentario el hueco de la puerta de seguridad: una etapa que escanea la imagen recién construida, que todavía solo existe en el Docker del agente, falla con cualquier CRITICAL corregible, archiva el informe completo y respeta el `.trivyignore` del repositorio. Usa las mismas variables que el resto del `Jenkinsfile`: `IMAGEN`, el nombre de la imagen (`registry.lab:5000/app`), y `TAG`, los siete primeros caracteres del commit, que fija la etapa `Checkout`:
 
 ```groovy
 // Dentro de stage('Package') { stages { ... } }, entre 'Construir' y 'Subir'
@@ -977,7 +977,7 @@ stage('Escaneo de vulnerabilidades') {
 
 **Tres decisiones más.** El JSON se genera siempre, falle o no la puerta, porque es lo que se enlaza desde la incidencia, mientras que el SARIF es el que leen las interfaces de revisión de código. `--ignore-unfixed` va en la puerta, para no bloquear el pipeline por algo que nadie puede arreglar hoy, pero no en el informe archivado. Y el umbral empieza en CRITICAL: tras un mes con la puerta en verde, se baja a `HIGH,CRITICAL`. Empezar en HIGH el primer día es la forma de que el equipo desactive la etapa la primera semana.
 
-**Hasta que exista `Package`.** `Package` se monta en Despliegue el 19 de febrero, un día después de la sesión 33. Hasta entonces la etapa se prueba en un job aparte que solo construye y escanea, con las mismas variables: `IMAGEN` es `app`, porque la imagen se queda en el Docker del agente, y `TAG` sale del commit como en el `Jenkinsfile` de Despliegue. Desde el 19, la etapa se pega tal cual en el hueco de `Package`, sin cambiar nada. El job aparte, en el fichero `Jenkinsfile.escaneo` del repositorio:
+**Hasta que exista `Package`.** `Package` se monta en Despliegue el 19 de febrero, el día después de esta sesión. Hasta entonces la etapa se prueba en un job aparte que solo construye y escanea, con las mismas variables: `IMAGEN` es `app`, porque la imagen se queda en el Docker del agente, y `TAG` sale del commit como en el `Jenkinsfile` del servicio. Desde el 19, la etapa se pega tal cual en el hueco de `Package`, sin cambiar nada. El job aparte, en el fichero `Jenkinsfile.escaneo` del repositorio:
 
 ```groovy
 pipeline {
@@ -1030,7 +1030,7 @@ Primero dejas completo el rastro de lo que ya ha pasado: las dos incidencias y e
 
 <span class="et et-com">Comprobación</span> En Gitea, `label:actualizacion` lista las dos incidencias y sus enlaces abren; `CHANGELOG.md` tiene versión, fecha y solo las categorías fijas; en el job `escaneo` hay un build rojo con `bloqueada por CRITICAL` y uno verde, ambos con JSON y SARIF archivados; las tres búsquedas de auditoría devuelven lo que esperabas.
 
-<span class="et et-ent">Entrega</span> Commit con `CHANGELOG.md` y `Jenkinsfile.escaneo`; capturas de los dos builds y de las tres búsquedas en la carpeta de la práctica; incidencias en su estado final.
+<span class="et et-ent">Para practicar</span> Haz commit de `CHANGELOG.md` y `Jenkinsfile.escaneo`, deja las incidencias en su estado final y guarda en la carpeta de la práctica las capturas de los dos builds y de las tres búsquedas.
 
 <span class="et et-ext">Si te sobra tiempo</span> Monta el índice de actualizaciones en `docs/actualizaciones/README.md`: una fila por actualización con fecha, versiones, motivo, estado y los enlaces a la incidencia, al PR, al escaneo, a las pruebas y a la copia, enlazado desde el `CHANGELOG.md`. O baja el umbral a `HIGH,CRITICAL` en una rama y cuenta las excepciones que harían falta.
 

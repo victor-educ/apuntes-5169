@@ -4,19 +4,19 @@
 
 La UT1 dejó mon01 recogiendo los cuatro flujos del contenedor de referencia: en Prometheus, las métricas de recursos de cAdvisor y node_exporter, las de la propia API y las de postgres_exporter; en Loki, los logs y los eventos del demonio Docker. La A1.6 demostró además que llegan enteros y a tiempo. Pero todo eso es todavía un almacén: solo sirve si alguien está mirando el dashboard en el momento en que algo falla, y a las tres de la madrugada no mira nadie. Esta unidad convierte esos datos en alarmas: condiciones que se evalúan solas, que avisan a quien tiene que actuar, cuando toca y sin repetirse sin necesidad, y que dejan rastro en un gestor de incidencias.
 
-La unidad monta la cadena en el orden en que la recorre una alarma: qué condiciones merece la pena vigilar en las métricas (sesión 8) y en los logs (sesión 9), cómo se calculan una sola vez los indicadores sobre los que se vigila (sesión 10), cómo se convierten las condiciones en reglas que se evalúan solas (sesión 11), quién decide a quién se avisa y cuándo (sesión 12) y dónde queda registrada cada alarma (sesión 13). La sesión 14 prueba la cadena entera de punta a punta, y la 15 cierra la práctica evaluable. Después, la UT3 protege esta pila (autenticación, TLS, quién puede silenciar qué) en tres sesiones, y con ella se cierra la primera evaluación, cuyo examen es el 10 de diciembre y entra UT1, UT2 y UT3 completas. Ya en la segunda, la UT4 escribe el catálogo de alarmas y sus runbooks (el procedimiento escrito de qué hacer cuando suena cada una) a partir de lo que se monta aquí.
+La unidad monta la cadena en el orden en que la recorre una alarma: qué condiciones merece la pena vigilar en las métricas y en los logs, cómo se calculan una sola vez los indicadores sobre los que se vigila, cómo se convierten las condiciones en reglas que se evalúan solas, quién decide a quién se avisa y cuándo, y dónde queda registrada cada alarma. La última sesión antes de la práctica evaluable prueba la cadena entera de punta a punta.
 
 ## Sesión 8 · Umbrales sobre contadores
 
 <p class="ut-meta" markdown>29 de octubre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="De la métrica a la alarma · 10 min&#10;Umbrales sobre contadores · 15 min&#10;A2.1 Umbrales sobre contadores · 85 min" data-dur="De la métrica a la alarma · 10 min&#10;Umbrales sobre contadores · 15 min&#10;A2.1 Umbrales sobre contadores · 85 min">:material-school:<i class="dur-barra" style="--teoria:23%"></i>:material-flask:</span></p>
 
-Hasta ahora, para enterarse de que el servicio iba mal había que estar mirando: las terminales de la A1.1, los paneles de Grafana del resto de la UT1. Una alarma empieza por lo contrario: una condición escrita de antemano que el sistema pueda comprobar sin nadie delante. Esta sesión escribe las primeras, las que salen de las métricas de Prometheus, y la teoría sigue el orden en que se construyen. Primero, el mapa de la cadena que monta la unidad y el criterio para decidir qué merece ser alarma, porque un aviso que no exige actuar es ruido. Después, las herramientas de PromQL para escribir la condición: casi todo lo que interesa vigilar sale de contadores que solo crecen, y antes de compararlos con un número hay que convertirlos en velocidades, dividir unos entre otros y saber qué significa que una consulta salga vacía. Por último, los seis umbrales del contenedor de referencia y cuánto tiempo tiene que durar una condición antes de avisar. La hoja mide el valor normal de cada indicador con tráfico real y fija cada umbral con la documentación del servicio delante.
+Hasta ahora, para enterarse de que el servicio iba mal había que estar mirando: las terminales de la A1.1, los paneles de Grafana. Una alarma empieza por lo contrario: una condición escrita de antemano que el sistema pueda comprobar sin nadie delante. Esta sesión escribe las primeras, las que salen de las métricas de Prometheus, y la teoría sigue el orden en que se construyen. Primero, el mapa de la cadena que monta la unidad y el criterio para decidir qué merece ser alarma, porque un aviso que no exige actuar es ruido. Después, las herramientas de PromQL para escribir la condición: casi todo lo que interesa vigilar sale de contadores que solo crecen, y antes de compararlos con un número hay que convertirlos en velocidades, dividir unos entre otros y saber qué significa que una consulta salga vacía. Por último, los seis umbrales del contenedor de referencia y cuánto tiempo tiene que durar una condición antes de avisar. La hoja mide el valor normal de cada indicador con tráfico real y fija cada umbral con la documentación del servicio delante.
 
 ### De la métrica a la alarma
 
 **Qué es una alarma.** Una alarma es una condición sobre los datos que, mantenida durante un tiempo, exige que alguien haga algo. Las cuatro palabras importantes son *condición*, *tiempo*, *alguien* y *algo*, y si falta cualquiera no es una alarma. Sin una condición escrita, es un panel que alguien tiene que estar mirando; sin un tiempo mínimo, un pico de diez segundos despierta a alguien para nada; sin alguien a quien avisar, no se entera nadie; y sin algo que hacer, el aviso solo molesta.
 
-**Por qué es una cadena de piezas.** Entre un número que sube en Prometheus y un mensaje en el móvil hay seis eslabones, y la unidad dedica una sesión a casi cada uno. No es un programa único porque cada pieza hace un trabajo distinto: quien calcula (Prometheus, el ruler de Loki) no necesita saber a quién se avisa, y quien avisa (Alertmanager, un programa aparte del mismo proyecto Prometheus) no necesita saber calcular. Gracias a ese reparto se puede cambiar el canal de guardia sin tocar una sola regla, o añadir una fuente de alertas nueva, como Loki en la sesión 9, sin tocar los avisos.
+**Por qué es una cadena de piezas.** Entre un número que sube en Prometheus y un mensaje en el móvil hay seis eslabones, y la unidad dedica una sesión a casi cada uno. No es un programa único porque cada pieza hace un trabajo distinto: quien calcula (Prometheus, el ruler de Loki) no necesita saber a quién se avisa, y quien avisa (Alertmanager, un programa aparte del mismo proyecto Prometheus) no necesita saber calcular. Gracias a ese reparto se puede cambiar el canal de guardia sin tocar una sola regla, o añadir una fuente de alertas nueva, como Loki, sin tocar los avisos.
 
 ```mermaid
 flowchart TB
@@ -41,16 +41,16 @@ flowchart TB
 
 <p class="pie" markdown>El único paso que no es técnico es el umbral, y es el que más se discute: lo decide el servicio, no la herramienta.</p>
 
-| Eslabón | Qué es | Dónde se escribe (repositorio `alerting`) | Sesión |
+| Eslabón | Qué es | Dónde se escribe (repositorio `alerting`) | Cuándo |
 |---|---|---|---|
-| Métrica o log | Lo que ya se recoge desde la UT1 | En Prometheus y Loki, sin cambios | UT1 |
-| Indicador | Una fórmula sobre las métricas: el ratio de errores, el percentil de latencia | `prometheus/rules.yml`, como recording rules | 10 |
-| Umbral | El número que separa lo normal de lo que no, con su justificación | `docs/umbrales.md` y `docs/cadenas.md` | 8 y 9 |
-| Regla de alerta | Indicador, umbral y duración juntos, con las etiquetas que la clasifican | `prometheus/alerts.yml` y `loki/loki-alerts.yml` | 11 |
-| Alertmanager | Recibe las alertas disparadas y decide a quién avisar, cuándo y cuántas veces | `alertmanager/alertmanager.yml` | 12 |
-| Notificación e incidencia | El aviso a una persona (correo, Telegram) y, en paralelo, la incidencia en Gitea | Los receptores de `alertmanager.yml` y el receptor `tickets/` | 12 y 13 |
+| Métrica o log | Lo que ya se recoge del contenedor de referencia | En Prometheus y Loki, sin cambios | Ya está |
+| Indicador | Una fórmula sobre las métricas: el ratio de errores, el percentil de latencia | `prometheus/rules.yml`, como recording rules | 5 nov |
+| Umbral | El número que separa lo normal de lo que no, con su justificación | `docs/umbrales.md` y `docs/cadenas.md` | 29 oct y 3 nov |
+| Regla de alerta | Indicador, umbral y duración juntos, con las etiquetas que la clasifican | `prometheus/alerts.yml` y `loki/loki-alerts.yml` | 10 nov |
+| Alertmanager | Recibe las alertas disparadas y decide a quién avisar, cuándo y cuántas veces | `alertmanager/alertmanager.yml` | 12 nov |
+| Notificación e incidencia | El aviso a una persona (correo, Telegram) y, en paralelo, la incidencia en Gitea | Los receptores de `alertmanager.yml` y el receptor `tickets/` | 12 y 17 nov |
 
-El umbral no se inventa: sale de la documentación del servicio o de un acuerdo de nivel de servicio (lo que el servicio se compromete a cumplir con quien lo usa, que se trabaja en la UT4). Alertmanager forma parte de la pila mínima desde la A1.1, pero con una configuración de partida que no avisa a nadie; en la sesión 12 se le dice a quién. Y la incidencia la abre un webhook (una llamada HTTP que un programa hace a otro para avisarle de que ha pasado algo), que deja la alarma guardada en un sitio que no depende de Alertmanager.
+El umbral no se inventa: sale de la documentación del servicio o de un acuerdo de nivel de servicio (lo que el servicio se compromete a cumplir con quien lo usa). Alertmanager forma parte de la pila mínima desde la A1.1, pero con una configuración de partida que no avisa a nadie. Y la incidencia la abre un webhook (una llamada HTTP que un programa hace a otro para avisarle de que ha pasado algo), que deja la alarma guardada en un sitio que no depende de Alertmanager.
 
 #### Alertar por síntomas, no por causas
 
@@ -70,26 +70,26 @@ El umbral no se inventa: sale de la documentación del servicio o de un acuerdo 
 
 ### Umbrales sobre contadores
 
-![Prometheus](../img/prometheus-logo.svg){ .logo-inline } **Qué es un umbral en PromQL.** Una condición de alarma es una consulta con una comparación al final. En PromQL la comparación no devuelve verdadero o falso: funciona como un filtro. De todas las series que calcula la consulta, deja pasar solo las que cumplen la comparación, con su valor; si no pasa ninguna, el resultado está vacío y no hay nada de qué avisar. Se ve bien con `up`, la métrica que según la UT1 vale 1 cuando el último [scrape](ut1-observabilidad.md#enviar-las-metricas-a-un-sistema-remoto-scrape-y-remote_write) de un target funcionó y 0 cuando no:
+![Prometheus](../img/prometheus-logo.svg){ .logo-inline } **Qué es un umbral en PromQL.** Una condición de alarma es una consulta con una comparación al final. En PromQL la comparación no devuelve verdadero o falso: funciona como un filtro. De todas las series que calcula la consulta, deja pasar solo las que cumplen la comparación, con su valor; si no pasa ninguna, el resultado está vacío y no hay nada de qué avisar. Se ve bien con `up`, la métrica que vale 1 cuando el último [scrape](ut1-observabilidad.md#enviar-las-metricas-a-un-sistema-remoto-scrape-y-remote_write) de un target funcionó y 0 cuando no:
 
 ```promql
 up{job="node"}          # una serie por máquina: 1 si su node_exporter responde, 0 si no
 up{job="node"} == 0     # solo las máquinas que no responden; con todas en pie, ninguna
 ```
 
-Cuando en la sesión 11 esta consulta se convierta en regla, cada serie que pase el filtro será una alerta.
+Por eso, en una regla de alerta, cada serie que pasa el filtro es una alerta.
 
-**El problema de los contadores.** La mayor parte de lo que hay que vigilar en el servicio (peticiones, errores, segundos de CPU) llega a Prometheus como contador, el tipo de métrica que solo sube ([Tipos de métrica](ut1-observabilidad.md#tipos-de-metrica), en la UT1). Un umbral sobre un contador nunca se escribe sobre su valor: `app_http_requests_total` vale 4 831 220 y mañana valdrá más, y ese número solo dice cuánto tiempo lleva arrancado el proceso. Lo que se compara con un umbral es su velocidad, cuánto sube por segundo, o cuánto ha subido en una ventana de tiempo. Las métricas que no son contadores, como la memoria o las conexiones abiertas, son medidores (gauges): suben y bajan, y esas sí se comparan tal cual.
+**El problema de los contadores.** La mayor parte de lo que hay que vigilar en el servicio (peticiones, errores, segundos de CPU) llega a Prometheus como contador, el tipo de métrica que solo sube ([Tipos de métrica](ut1-observabilidad.md#tipos-de-metrica)). Un umbral sobre un contador nunca se escribe sobre su valor: `app_http_requests_total` vale 4 831 220 y mañana valdrá más, y ese número solo dice cuánto tiempo lleva arrancado el proceso. Lo que se compara con un umbral es su velocidad, cuánto sube por segundo, o cuánto ha subido en una ventana de tiempo. Las métricas que no son contadores, como la memoria o las conexiones abiertas, son medidores (gauges): suben y bajan, y esas sí se comparan tal cual.
 
 Los apartados siguen el orden en que se escribe una condición: convertir el contador en una velocidad con la ventana adecuada, dividir unas series entre otras para obtener un ratio, entender por qué una consulta puede salir vacía y, con eso, fijar los seis umbrales del servicio y cuánto tiempo tiene que cumplirse cada uno.
 
 #### rate, increase y la ventana
 
-**De dónde se parte.** `rate()` no es nuevo: en la UT1 convirtió los segundos de CPU en núcleos para el panel de la sesión 2 ([Las consultas del panel](ut1-observabilidad.md#las-consultas-del-panel)) y sirvió en la [A1.3](ut1-observabilidad.md#a13-instrumentar-la-aplicacion-sesion-3) para el p95 y el porcentaje de errores. Para alertar se usa igual, pero hace falta saber dos cosas más: qué hace exactamente con los reinicios y con los bordes de la ventana, y qué ventana conviene cuando el resultado puede despertar a alguien.
+**De dónde se parte.** `rate()` no es nuevo: convirtió los segundos de CPU en núcleos para el panel de recursos ([Las consultas del panel](ut1-observabilidad.md#las-consultas-del-panel)) y sirvió en la [A1.3](ut1-observabilidad.md#a13-instrumentar-la-aplicacion-sesion-3) para el p95 y el porcentaje de errores. Para alertar se usa igual, pero hace falta saber dos cosas más: qué hace exactamente con los reinicios y con los bordes de la ventana, y qué ventana conviene cuando el resultado puede despertar a alguien.
 
 **Qué calculan.** `rate(c[5m])` es la velocidad media por segundo del contador `c` en los últimos cinco minutos. `increase(c[5m])` es exactamente `rate(c[5m]) * 300`: lo que ha subido en total en esa ventana. Las dos corrigen los reinicios: si el contenedor arranca de nuevo y el contador vuelve a cero, lo detectan y no lo toman por una bajada. Y las dos extrapolan: las muestras casi nunca caen justo en los bordes de la ventana, así que Prometheus estima cuánto habría subido en la ventana completa prolongando la tendencia hasta los bordes. Por eso `increase` puede devolver 2,7 aunque el contador suba de uno en uno: para compararlo con un umbral da igual, pero no sirve para contar sucesos sueltos.
 
-**La ventana importa más que la función.** Con un `scrape_interval` (cada cuánto Prometheus recoge muestras) de 15 s, `rate(c[1m])` solo tiene cuatro muestras y va a dar picos y agujeros; `rate(c[5m])` tiene veinte y da una curva suave. La regla de la UT1 sigue valiendo, la ventana al menos cuatro veces el intervalo de scrape, y para alertas se añade otra: entre 2 y 10 minutos. Con menos, y poco tráfico, un par de peticiones fallidas pesan tanto que parecen una avería; con más, la media se suaviza tanto que la alarma llega tarde. El curso usa `[5m]` en todos los indicadores. `irate` toma solo las dos últimas muestras y sirve para gráficas de detalle, nunca para alertar.
+**La ventana importa más que la función.** Con un `scrape_interval` (cada cuánto Prometheus recoge muestras) de 15 s, `rate(c[1m])` solo tiene cuatro muestras y va a dar picos y agujeros; `rate(c[5m])` tiene veinte y da una curva suave. La regla de las gráficas sigue valiendo, la ventana al menos cuatro veces el intervalo de scrape, y para alertas se añade otra: entre 2 y 10 minutos. Con menos, y poco tráfico, un par de peticiones fallidas pesan tanto que parecen una avería; con más, la media se suaviza tanto que la alarma llega tarde. El curso usa `[5m]` en todos los indicadores. `irate` toma solo las dos últimas muestras y sirve para gráficas de detalle, nunca para alertar.
 
 **Una tercera función para los reinicios.** Para saber cuántas veces se ha reiniciado la API no hay ningún contador. Lo que hay es una marca de tiempo: la librería que instrumenta la API publica, además de las métricas de la A1.3, unas cuantas del propio proceso, y una de ellas es `process_start_time_seconds`, la hora a la que arrancó, en segundos desde 1970. Es un gauge, y no sube de uno en uno: salta a una hora nueva cada vez que la API vuelve a arrancar. Como la serie es siempre la misma, la del job `app`, Prometheus ve cada salto. `increase` sobre ella no significa nada; la función correcta es `changes(v[1h])`, que cuenta cuántas veces ha cambiado el valor en la ventana, es decir, cuántos arranques ha habido en la última hora:
 
@@ -115,7 +115,7 @@ Si es `counter`, se usa `rate` o `increase`; si es `gauge`, el valor tal cual o,
 **Cómo divide PromQL.** Una división entre dos consultas no divide números, divide series: para cada serie de la izquierda, PromQL busca en la derecha la que tenga exactamente las mismas etiquetas (sin contar el nombre de la métrica) y divide sus valores. Las series que no encuentran pareja desaparecen del resultado sin dar ningún error. Por eso una división con las etiquetas mal emparejadas no falla: devuelve vacío ("no data" en Grafana), y una alarma escrita sobre ella no saltará nunca. Hay tres situaciones habituales:
 
 - **Las etiquetas coinciden tras agregar.** `sum by (service)(rate(errores)) / sum by (service)(rate(total))`: las dos partes se quedan solo con `service`, así que se emparejan sin más. Es el caso limpio, y es el del ratio de errores.
-- **Una etiqueta sobra o no coincide en un lado.** `a / ignoring(id) b` empareja sin mirar `id`, y `a / on(service) b` empareja solo por `service`. El ratio de memoria lleva `ignoring(id)` en la sesión 10: sus dos métricas salen del mismo cAdvisor y casi siempre coinciden en todo, pero `id`, la ruta del cgroup, es la etiqueta más larga y la primera sospechosa cuando una división de cAdvisor sale vacía.
+- **Una etiqueta sobra o no coincide en un lado.** `a / ignoring(id) b` empareja sin mirar `id`, y `a / on(service) b` empareja solo por `service`. Con cAdvisor el primer sospechoso es `id`: dos métricas suyas, como las del ratio de memoria, casi siempre coinciden en todo, pero `id`, la ruta del cgroup, es la etiqueta más larga y la primera que hay que ignorar cuando una división de cAdvisor sale vacía.
 - **Un lado tiene varias series y el otro una (muchos a uno).** `pg_stat_activity_count / on(service) group_left pg_settings_max_connections`: a la izquierda hay varias series, por base de datos y estado de la conexión, y a la derecha una sola, el máximo de conexiones. `group_left` dice que el lado izquierdo es el que tiene varias series y que la del derecho se reutiliza para cada una. Sin él, PromQL se niega a emparejar una serie con varias y la consulta da error. La consulta de conexiones de la tabla suma antes la izquierda por servicio, así que allí queda una serie a cada lado y el `group_left` no hace falta, aunque tampoco estorba.
 
 #### Una consulta vacía no es un cero
@@ -125,13 +125,13 @@ Si es `counter`, se usa `rate` o `increase`; si es `gauge`, el valor tal cual o,
 - **La comparación ha filtrado todo.** Es el caso bueno: `up{job="node"} == 0` sale vacía porque todas las máquinas responden.
 - **La serie todavía no existe.** La librería de la API crea la serie de cada combinación de etiquetas la primera vez que la usa: hasta que la API no devuelve su primer error 5xx desde que arrancó, no hay ninguna serie con `status` 5xx. Mientras tanto, la parte de arriba del ratio de errores sale vacía, y la división también, en lugar de dar 0.
 - **La serie ha dejado de existir.** Si un target desaparece de la configuración de Prometheus, o deja de listarlo el descubrimiento que lo generaba, su serie `up` desaparece con él, y `up{job="app"} == 0` no devuelve nada aunque la API lleve horas sin responder. Para eso está `absent()`: `absent(up{job="app"})` devuelve una serie con valor 1 precisamente cuando no existe ninguna serie que coincida, y nada cuando sí existe. Por eso la condición de servicio caído es `up{job="app"} == 0 or absent(up{job="app"})`, que cubre los dos casos. `absent_over_time(serie[10m])` hace lo mismo para "no ha habido ninguna muestra en 10 minutos".
-- **La métrica no se guarda.** El bloque `keep` del job de cAdvisor de la [UT1](ut1-observabilidad.md#etiquetas-y-cardinalidad) solo deja pasar diez métricas. Una consulta sobre cualquier otra métrica de cAdvisor sale vacía para siempre, sin error: hay que añadirla antes a esa lista.
+- **La métrica no se guarda.** El bloque `keep` del [job de cAdvisor](ut1-observabilidad.md#etiquetas-y-cardinalidad) solo deja pasar diez métricas. Una consulta sobre cualquier otra métrica de cAdvisor sale vacía para siempre, sin error: hay que añadirla antes a esa lista.
 
 La forma de saber en cuál se está es siempre la misma: ejecutar la consulta sin la comparación y, si sigue vacía, cada parte de la división por separado, hasta encontrar la que no devuelve nada.
 
 #### Tabla de umbrales del contenedor de referencia
 
-**De dónde salen los números.** Con las herramientas anteriores ya se pueden escribir las seis condiciones del servicio. Los umbrales orientativos salen de la documentación del servicio del curso: límite de memoria de 512 MiB para `app`, objetivo de latencia p95 de 500 ms (el p95 es el tiempo por debajo del cual quedan el 95 % de las peticiones, como se vio en la UT1), disponibilidad del 99 %, que equivale a admitir un 1 % de errores, y el `max_connections` de PostgreSQL, que en el servicio `db` es el valor por defecto, 100.
+**De dónde salen los números.** Con las herramientas anteriores ya se pueden escribir las seis condiciones del servicio. Los umbrales orientativos salen de la documentación del servicio del curso: límite de memoria de 512 MiB para `app`, objetivo de latencia p95 de 500 ms (el p95 es el tiempo por debajo del cual quedan el 95 % de las peticiones), disponibilidad del 99 %, que equivale a admitir un 1 % de errores, y el `max_connections` de PostgreSQL, que en el servicio `db` es el valor por defecto, 100.
 
 | Indicador | Consulta | Umbral orientativo | Severidad |
 |---|---|---|---|
@@ -142,15 +142,15 @@ La forma de saber en cuál se está es siempre la misma: ejecutar la consulta si
 | Reinicios | `changes(process_start_time_seconds{job="app"}[1h])` | > 3 en 1 h | warning |
 | Conexiones a PostgreSQL | `sum by (service)(pg_stat_activity_count) / on(service) group_left pg_settings_max_connections` | > 80 % | warning |
 
-**Por qué cada umbral.** Los dos primeros traducen la documentación tal cual: más de un 1 % de errores sostenido es incumplir la disponibilidad prometida, y un p95 por encima de 500 ms, el objetivo de latencia. El de servicio ausente no tiene número: basta con que la API no conteste durante dos minutos de scrapes seguidos. Los tres restantes son causas, y por eso son `warning`, pero causas que anuncian un síntoma cercano. La memoria se mide con el working set, el número que la [UT1](ut1-observabilidad.md#memory-usage-frente-a-working-set) explicó como el que de verdad acerca al contenedor a su límite, y si llega al límite el kernel mata su proceso; como el umbral es un porcentaje, vale igual con el `mem_limit` que tenga `app` en el compose de app01. Más de tres arranques en una hora es un contenedor que se cae y vuelve una y otra vez, algo que la política `restart` del compose del servicio disimula. Y al llegar a `max_connections`, PostgreSQL rechaza las conexiones nuevas y la API empieza a devolver errores.
+**Por qué cada umbral.** Los dos primeros traducen la documentación tal cual: más de un 1 % de errores sostenido es incumplir la disponibilidad prometida, y un p95 por encima de 500 ms, el objetivo de latencia. El de servicio ausente no tiene número: basta con que la API no conteste durante dos minutos de scrapes seguidos. Los tres restantes son causas, y por eso son `warning`, pero causas que anuncian un síntoma cercano. La memoria se mide con el [working set](ut1-observabilidad.md#memory-usage-frente-a-working-set), el número que de verdad acerca al contenedor a su límite, y si llega al límite el kernel mata su proceso; como el umbral es un porcentaje, vale igual con el `mem_limit` que tenga `app` en el compose de app01. Más de tres arranques en una hora es un contenedor que se cae y vuelve una y otra vez, algo que la política `restart` del compose del servicio disimula. Y al llegar a `max_connections`, PostgreSQL rechaza las conexiones nuevas y la API empieza a devolver errores.
 
-**Con qué etiquetas se eligen las series.** En las consultas sobre cAdvisor los contenedores se eligen con `service="app"`, la etiqueta que la UT1 copia del servicio de compose, y no con `name`, que lleva el nombre largo del contenedor (`servicio-app-1`) y cambia si se escala o se renombra. En las de la API y de PostgreSQL se usan `job` o `service`, las etiquetas que pone el scrape.
+**Con qué etiquetas se eligen las series.** En las consultas sobre cAdvisor los contenedores se eligen con `service="app"`, la etiqueta que el job de cAdvisor copia del servicio de compose, y no con `name`, que lleva el nombre largo del contenedor (`servicio-app-1`) y cambia si se escala o se renombra. En las de la API y de PostgreSQL se usan `job` o `service`, las etiquetas que pone el scrape.
 
-**De valores orientativos a definitivos.** Los valores de partida vienen de la documentación; los definitivos se ajustan con una o dos semanas de datos reales. Un umbral del 1 % de errores es absurdo si el servicio lleva un 0,8 % permanente por un endpoint de salud mal configurado: primero se arregla eso, luego se pone el umbral. Para ver la distribución histórica de un indicador antes de fijarlo, `quantile_over_time(0.99, app:errors:ratio5m[7d])` (con la métrica grabada que se crea en la sesión 10) da el valor que solo se supera el 1 % del tiempo.
+**De valores orientativos a definitivos.** Los valores de partida vienen de la documentación; los definitivos se ajustan con una o dos semanas de datos reales. Un umbral del 1 % de errores es absurdo si el servicio lleva un 0,8 % permanente por un endpoint de salud mal configurado: primero se arregla eso, luego se pone el umbral. Para ver la distribución histórica de un indicador antes de fijarlo, `quantile_over_time(0.99, app:errors:ratio5m[7d])` da el valor que solo se supera el 1 % del tiempo. `app:errors:ratio5m` es el ratio de errores guardado como métrica propia, que se crea el 5 de noviembre con las recording rules.
 
 #### Cómo elegir el for
 
-**El problema: los picos.** Una condición puede cumplirse un momento por pura casualidad: un par de peticiones lentas, un scrape que llega tarde. Si cada vez que se cumple se avisara a alguien, la fatiga de alertas estaría garantizada. El `for` es el filtro contra esos picos: el tiempo que la condición tiene que mantenerse cierta, sin interrupción, antes de que la alerta se notifique. Cuando en la sesión 11 estas consultas se conviertan en reglas, Prometheus las evaluará cada 15 s (el `evaluation_interval` de la pila mínima); mientras la condición se cumple pero todavía no ha pasado el `for`, la alerta está en espera (`pending`), y solo cuando lo cumple pasa a disparada (`firing`) y se notifica. Los estados completos se ven en la sesión 11.
+**El problema: los picos.** Una condición puede cumplirse un momento por pura casualidad: un par de peticiones lentas, un scrape que llega tarde. Si cada vez que se cumple se avisara a alguien, la fatiga de alertas estaría garantizada. El `for` es el filtro contra esos picos: el tiempo que la condición tiene que mantenerse cierta, sin interrupción, antes de que la alerta se notifique. Prometheus evalúa cada regla de alerta cada 15 s (el `evaluation_interval` de la pila mínima); mientras la condición se cumple pero todavía no ha pasado el `for`, la alerta está en espera (`pending`), y solo cuando lo cumple pasa a disparada (`firing`) y se notifica. Estas consultas se convierten en reglas el 10 de noviembre, y ese día se ven todos los estados de una alerta.
 
 ```mermaid
 flowchart LR
@@ -183,11 +183,11 @@ Tres criterios para elegirlo:
 
 ### A2.1 Umbrales sobre contadores (sesión 8)
 
-<span class="et et-obj">Objetivo</span> Las seis condiciones que la unidad va a convertir en alarmas, escritas en PromQL, probadas con tráfico real y con un umbral que se puede defender: el valor normal medido en tu servicio y la cifra de la documentación de la que sale. Al terminar tienes `docs/umbrales.md`, la base de las reglas de la sesión 11 y lo primero que mira la práctica evaluable en el criterio b.
+<span class="et et-obj">Objetivo</span> Las seis condiciones que la unidad va a convertir en alarmas, escritas en PromQL, probadas con tráfico real y con un umbral que se puede defender: el valor normal medido en tu servicio y la cifra de la documentación de la que sale. Al terminar tienes `docs/umbrales.md`, la base de las reglas de alerta del 10 de noviembre y lo primero que mira la práctica evaluable en el criterio b.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- `app01` y `mon01` de la UT1 encendidas, con todos los targets de `http://mon01:9090` en UP.
+- `app01` y `mon01` encendidas, con todos los targets de `http://mon01:29090` en UP.
 - Los nombres `app01` y `mon01` en el `/etc/hosts` de tu puesto y de mon01, como los dejó la A1.4 (hasta el 27 de noviembre nadie más los resuelve); si el DHCP les ha cambiado la IP, corrígela.
 - La documentación del servicio (la da el profesor): límite de memoria, latencia p95, disponibilidad y `max_connections`.
 - Explicado al principio: [De la métrica a la alarma](#de-la-metrica-a-la-alarma) y [Alertar por síntomas](#alertar-por-sintomas-no-por-causas), para el criterio; [rate, increase y la ventana](#rate-increase-y-la-ventana), [Operadores con etiquetas](#operadores-con-etiquetas) y [Una consulta vacía no es un cero](#una-consulta-vacia-no-es-un-cero), para las consultas; la [tabla de umbrales](#tabla-de-umbrales-del-contenedor-de-referencia) y [Cómo elegir el for](#como-elegir-el-for), para los números.
@@ -196,9 +196,9 @@ Tres criterios para elegirlo:
 
 Primero preparas el terreno: el repositorio donde va a vivir todo lo de la unidad y un tráfico de fondo constante, sin el cual los ratios no tienen nada que dividir. Después mides cuánto vale cada indicador en un día normal, provocas fallos para ver que las consultas reaccionan y, solo al final, fijas los umbrales. El orden importa: un umbral fijado sin conocer el valor normal acaba siendo una alarma permanente o una que no suena nunca.
 
-1. **Crea el repositorio de la unidad.** Todo lo que se escribe en la UT2 (umbrales, cadenas, reglas, la configuración de Alertmanager y el receptor de incidencias) va al repositorio `alerting`, en `/opt/alerting` de mon01, y es lo que entregas en la práctica evaluable. Créalo hoy con `secrets/` en el `.gitignore` desde el primer commit, porque ahí irán en las sesiones 12 y 13 el token del bot de Telegram y el de Gitea, y con un `README` que anote que todavía no tiene remoto: lo recibe en la A2.6.
+1. **Crea el repositorio de la unidad.** Todo lo que se escribe en esta unidad (umbrales, cadenas, reglas, la configuración de Alertmanager y el receptor de incidencias) va al repositorio `alerting`, en `/opt/alerting` de mon01, y es lo que entregas en la práctica evaluable. Créalo hoy con `secrets/` en el `.gitignore` desde el primer commit, porque ahí irán el 12 y el 17 de noviembre el token del bot de Telegram y el de Gitea, y con un `README` que anote que todavía no tiene remoto: lo recibe en la A2.6.
 
-2. **Pon tráfico de fondo.** Deja en tu puesto, toda la sesión, un bucle de peticiones contra `http://app01/items` que meta de vez en cuando una ruta inexistente. Sin tráfico, la velocidad de las peticiones es cero, los ratios dividen entre cero y no hay valor normal que medir; las rutas inexistentes sirven para comprobar que un 404 no cuenta como error del servicio. Las hojas siguientes cuentan con este bucle.
+2. **Pon tráfico de fondo.** Deja en tu puesto, toda la sesión, un bucle de peticiones contra `http://app01:20080/items` que meta de vez en cuando una ruta inexistente. Sin tráfico, la velocidad de las peticiones es cero, los ratios dividen entre cero y no hay valor normal que medir; las rutas inexistentes sirven para comprobar que un 404 no cuenta como error del servicio. Las hojas siguientes cuentan con este bucle.
 
     *Pista:* con `curl -s` el bucle falla en silencio, así que comprueba antes que la API da 200.
 
@@ -210,19 +210,19 @@ Primero preparas el terreno: el repositorio donde va a vivir todo lo de la unida
 
     *Pista:* el medio minuto es para que Prometheus llegue a hacer scrape de cada arranque; con menos, alguno puede escapársele.
 
-5. **Fija los umbrales y justifícalos.** Con el valor normal y la documentación delante, decide el umbral, el `for` y la severidad de cada indicador, con los criterios de [Cómo elegir el for](#como-elegir-el-for) y de [Alertar por síntomas](#alertar-por-sintomas-no-por-causas). Escríbelo en `docs/umbrales.md`, con la tabla `Indicador | Consulta | Valor normal | Umbral | for | Severidad | De dónde sale` (la página o el parámetro de la documentación), y haz commit en el repositorio. Es el documento del que saldrán las reglas en la sesión 11.
+5. **Fija los umbrales y justifícalos.** Con el valor normal y la documentación delante, decide el umbral, el `for` y la severidad de cada indicador, con los criterios de [Cómo elegir el for](#como-elegir-el-for) y de [Alertar por síntomas](#alertar-por-sintomas-no-por-causas). Escríbelo en `docs/umbrales.md`, con la tabla `Indicador | Consulta | Valor normal | Umbral | for | Severidad | De dónde sale` (la página o el parámetro de la documentación), y haz commit en el repositorio. Es el documento del que saldrán las reglas de alerta.
 
     *Pista:* un umbral por debajo del valor normal es una alarma permanente.
 
 <span class="et et-com">Comprobación</span> Las seis consultas devuelven una serie con el tráfico de fondo y reaccionan al paso 4; `docs/umbrales.md` está comprometido en el repositorio con las siete columnas rellenas.
 
-<span class="et et-ent">Entrega</span> `docs/umbrales.md` en el repositorio `alerting`.
+<span class="et et-ent">Para practicar</span> Guarda `docs/umbrales.md` en el repositorio `alerting`.
 
 ## Sesión 9 · Cadenas en logs y eventos
 
 <p class="ut-meta" markdown>3 de noviembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Cadenas en logs y eventos · 20 min&#10;A2.2 Cadenas en logs y eventos · 90 min" data-dur="Cadenas en logs y eventos · 20 min&#10;A2.2 Cadenas en logs y eventos · 90 min">:material-school:<i class="dur-barra" style="--teoria:18%"></i>:material-flask:</span></p>
 
-Las condiciones de la sesión 8 vigilan números, y hay fallos que no aparecen en ningún número porque la aplicación no los cuenta: una excepción concreta, un tiempo de espera agotado al hablar con la base de datos, un contenedor que el kernel ha matado por falta de memoria. Esos fallos sí dejan rastro en texto, en los logs de la API y en los eventos del demonio Docker que la UT1 llevó a Loki, y hoy se escriben las condiciones sobre ese texto. En la UT1 se usó LogQL, el lenguaje de consulta de Loki, solo para comprobar que los logs llegaban; ahora hace falta encontrar una línea concreta entre miles y convertir su aparición en un número, porque una alarma, como se vio en la sesión 8, es una comparación con un umbral. La teoría sigue el orden en que se escribe una de estas consultas: elegir de qué flujos se lee, filtrar las líneas, extraer los campos de cada una y contar las que quedan. El último apartado presenta el ruler de Loki, el componente que en la sesión 11 evaluará estas consultas solo, igual que Prometheus las suyas.
+Los umbrales de la A2.1 vigilan números, y hay fallos que no aparecen en ningún número porque la aplicación no los cuenta: una excepción concreta, un tiempo de espera agotado al hablar con la base de datos, un contenedor que el kernel ha matado por falta de memoria. Esos fallos sí dejan rastro en texto, en los logs de la API y en los eventos del demonio Docker que ya llegan a Loki, y hoy se escriben las condiciones sobre ese texto. Hasta ahora LogQL, el lenguaje de consulta de Loki, solo se ha usado para comprobar que los logs llegaban; ahora hace falta encontrar una línea concreta entre miles y convertir su aparición en un número, porque una alarma es una comparación con un umbral. La teoría sigue el orden en que se escribe una de estas consultas: elegir de qué flujos se lee, filtrar las líneas, extraer los campos de cada una y contar las que quedan. El último apartado presenta el ruler de Loki, el componente que evalúa estas consultas solo, igual que Prometheus las suyas.
 
 ### Cadenas en logs y eventos
 
@@ -230,7 +230,7 @@ Las condiciones de la sesión 8 vigilan números, y hay fallos que no aparecen e
 
 #### Selectores de stream y filtros de línea
 
-**Lo barato y lo caro.** Como se vio en la UT1 ([Loki](ut1-observabilidad.md#loki)), Loki solo indexa las etiquetas. Cada combinación distinta de etiquetas es un *stream*, un flujo de líneas que se guarda junto en bloques comprimidos, y el texto de las líneas no tiene índice. De ahí sale la forma de toda consulta LogQL, en dos partes. La primera es el **selector de stream**, entre llaves, que elige qué flujos se leen por sus etiquetas, igual que en Prometheus; es lo único que usa el índice, y por eso es barato. La segunda es una tubería de filtros y parsers que se aplican línea a línea a lo que el selector ha dejado; eso obliga a descomprimir y recorrer cada línea, y es lo caro. Por eso el selector debe ser lo más estrecho posible.
+**Lo barato y lo caro.** Loki solo indexa las etiquetas, como se vio al [montarlo](ut1-observabilidad.md#loki). Cada combinación distinta de etiquetas es un *stream*, un flujo de líneas que se guarda junto en bloques comprimidos, y el texto de las líneas no tiene índice. De ahí sale la forma de toda consulta LogQL, en dos partes. La primera es el **selector de stream**, entre llaves, que elige qué flujos se leen por sus etiquetas, igual que en Prometheus; es lo único que usa el índice, y por eso es barato. La segunda es una tubería de filtros y parsers que se aplican línea a línea a lo que el selector ha dejado; eso obliga a descomprimir y recorrer cada línea, y es lo caro. Por eso el selector debe ser lo más estrecho posible.
 
 ```text
 {service="app"}                                     # todo el log de la API
@@ -243,7 +243,7 @@ Las condiciones de la sesión 8 vigilan números, y hay fallos que no aparecen e
 
 **Los filtros de línea.** Son cuatro: `|=` (contiene), `!=` (no contiene), `|~` (cumple una expresión regular) y `!~` (no la cumple). Las expresiones regulares usan la sintaxis RE2, la de Go. Se encadenan y se evalúan en orden, así que conviene poner primero el que descarte más líneas.
 
-**Qué etiquetas hay.** Las del selector son las que pone el Promtail de la UT1: `host`, `service`, `container` y `level`, y en los eventos de Docker, además, `action`. Si se cambiaron, cambian aquí; `logcli labels` dice las que existen de verdad. Un detalle que rompe muchas reglas: los filtros de línea distinguen mayúsculas. La API escribe el nivel en minúsculas (`"level":"error"`), así que `|= "ERROR"` no encuentra nada. Para el nivel se usa la etiqueta `level`, que la UT1 ya sube al índice, y para un texto del que no se sabe cómo está escrito, una expresión regular que empiece por `(?i)`, que no distingue mayúsculas.
+**Qué etiquetas hay.** Las del selector son las que pone Promtail en app01: `host`, `service`, `container` y `level`, y en los eventos de Docker, además, `action`. Si se cambiaron, cambian aquí; `logcli labels` dice las que existen de verdad. Un detalle que rompe muchas reglas: los filtros de línea distinguen mayúsculas. La API escribe el nivel en minúsculas (`"level":"error"`), así que `|= "ERROR"` no encuentra nada. Para el nivel se usa la etiqueta `level`, que Promtail ya sube al índice, y para un texto del que no se sabe cómo está escrito, una expresión regular que empiece por `(?i)`, que no distingue mayúsculas.
 
 #### Parsers: json y logfmt
 
@@ -257,7 +257,7 @@ Las condiciones de la sesión 8 vigilan números, y hay fallos que no aparecen e
 
 Conviene fijarse en tres cosas. `msg=~"timeout.*"` después del parser es un filtro de etiqueta (comparación exacta o con expresión regular) sobre un campo extraído, no un filtro de línea, y los campos numéricos se pueden comparar como números. `level` no hace falta extraerlo: ya es etiqueta del stream, y filtrar por él en el selector es más barato. Y `line_format` reescribe la línea con los campos extraídos, con una plantilla de huecos entre dobles llaves, útil para que la notificación lleve solo lo que importa.
 
-**Los otros formatos.** En el laboratorio todo lo que llega a Loki es JSON (la API, nginx desde la A1.4 y los eventos de Docker), así que `| json` basta. Fuera de él aparecen otros dos casos. `| logfmt` hace lo mismo con el formato `clave=valor clave2="valor con espacios"` que usan Docker, Loki, Grafana y buena parte del software escrito en Go: el demonio Docker, si llega a Loki a través de journald (el registro del sistema de systemd), escribe así. Y para formatos propios, como el log de acceso de nginx sin el cambio de la UT1, está `| pattern "<ip> - - <_> \"<method> <path> <_>\" <status> <_>"`, que extrae campos por su posición sin escribir una expresión regular.
+**Los otros formatos.** En el laboratorio todo lo que llega a Loki es JSON (la API, nginx desde la A1.4 y los eventos de Docker), así que `| json` basta. Fuera de él aparecen otros dos casos. `| logfmt` hace lo mismo con el formato `clave=valor clave2="valor con espacios"` que usan Docker, Loki, Grafana y buena parte del software escrito en Go: el demonio Docker, si llega a Loki a través de journald (el registro del sistema de systemd), escribe así. Y para formatos propios, como el log de acceso de nginx en su formato de fábrica, está `| pattern "<ip> - - <_> \"<method> <path> <_>\" <status> <_>"`, que extrae campos por su posición sin escribir una expresión regular.
 
 **El coste.** `| json` sobre un stream de 2 000 líneas por segundo se nota. Conviene estrechar primero con el selector (`level="error"`) o con un filtro de línea barato (`|= "timeout"`, que solo busca una subcadena) y parsear después solo las líneas que sobreviven.
 
@@ -272,7 +272,7 @@ sum by (host)(count_over_time({service="docker-events", action="oom"} [10m])) > 
 sum(rate({service="nginx"} | json | status >= 500 [5m]))
 ```
 
-**Qué función para qué.** `count_over_time` cuenta líneas en la ventana, y es la de casi todas las alarmas de cadenas, porque la pregunta es "¿ha aparecido?" o "¿ha aparecido más de N veces?". `rate` divide esa cuenta entre los segundos de la ventana. `bytes_over_time` y `bytes_rate` miden volumen, útil para detectar un contenedor que se pone a escribir sin control. El `sum` de fuera junta los streams, igual que en PromQL; con `sum by (host)` se conserva la máquina, que es la etiqueta que la sesión 12 usa para saber de qué host es cada alarma.
+**Qué función para qué.** `count_over_time` cuenta líneas en la ventana, y es la de casi todas las alarmas de cadenas, porque la pregunta es "¿ha aparecido?" o "¿ha aparecido más de N veces?". `rate` divide esa cuenta entre los segundos de la ventana. `bytes_over_time` y `bytes_rate` miden volumen, útil para detectar un contenedor que se pone a escribir sin control. El `sum` de fuera junta los streams, igual que en PromQL; con `sum by (host)` se conserva la máquina, que es la etiqueta que dice de qué host es cada alarma.
 
 **Latencias sin instrumentar.** Si se ha extraído un campo numérico con un parser, `| unwrap duration_s` lo convierte en el valor de la muestra, y entonces `quantile_over_time(0.95, {service="nginx"} | json | unwrap duration_s [5m])` da un p95 de latencia calculado desde los logs de nginx, sin instrumentar nada. Es más caro que un histograma de Prometheus y menos preciso, pero funciona con aplicaciones que no exponen métricas, que es la mayoría de las heredadas que se encuentran en una empresa.
 
@@ -280,7 +280,7 @@ sum(rate({service="nginx"} | json | status >= 500 [5m]))
 
 #### Alertas en el ruler de Loki
 
-**El problema.** Las consultas de arriba se ejecutan a mano, en Grafana o con `logcli`. Para que sean alarmas, alguien tiene que evaluarlas cada minuto y avisar cuando se cumplen, como hará Prometheus con las suyas. Loki lleva para eso un componente propio, el **ruler**: evalúa reglas escritas con la misma estructura que las de Prometheus, pero con expresiones LogQL, y manda las que se cumplen al mismo Alertmanager. Así las alarmas sobre texto entran en la misma cadena que las de métricas, con las mismas rutas, silencios e incidencias, sin pasar por Grafana. La hoja de hoy no lo usa: este apartado es la referencia para la A2.4, en la sesión 11.
+**El problema.** Las consultas de arriba se ejecutan a mano, en Grafana o con `logcli`. Para que sean alarmas, alguien tiene que evaluarlas cada minuto y avisar cuando se cumplen, como hará Prometheus con las suyas. Loki lleva para eso un componente propio, el **ruler**: evalúa reglas escritas con la misma estructura que las de Prometheus, pero con expresiones LogQL, y manda las que se cumplen al mismo Alertmanager. Así las alarmas sobre texto entran en la misma cadena que las de métricas, con las mismas rutas, silencios e incidencias, sin pasar por Grafana. La hoja de hoy no lo usa: el ruler se pone en marcha el 10 de noviembre, en la A2.4, junto con las reglas de alerta de Prometheus.
 
 **Cómo se activa.** Con un bloque `ruler` en `loki.yml`:
 
@@ -291,7 +291,7 @@ ruler:
     local:
       directory: /loki/rules
   rule_path: /tmp/loki-rules-scratch
-  alertmanager_url: http://alertmanager:9093
+  alertmanager_url: http://alertmanager:29093
   enable_api: true
   evaluation_interval: 1m
 ```
@@ -301,10 +301,10 @@ Cada opción responde a una pregunta:
 - `storage` dice de dónde lee las reglas: del disco local, en `/loki/rules`.
 - `rule_path` es un directorio de trabajo donde el ruler deja copias temporales de las reglas mientras las evalúa; no hay que tocarlo.
 - `alertmanager_url` dice a quién manda las alertas: al Alertmanager de la misma pila, por su nombre de servicio en la red de compose.
-- `enable_api` publica la API con la que se consultan las reglas cargadas, la que usa la comprobación de la A2.4.
+- `enable_api` publica la API con la que se consultan las reglas cargadas, para comprobar que el ruler las ha leído.
 - `evaluation_interval` es cada cuánto evalúa las reglas.
 
-**Dónde van las reglas.** Loki está pensado para servir a varios clientes a la vez (*inquilinos*) y guarda las reglas de cada uno en un subdirectorio con su nombre. Con la autenticación multiinquilino desactivada (`auth_enabled: false`, como en el laboratorio) solo hay un inquilino y se llama `fake`, así que las reglas van en `/loki/rules/fake/`. El fichero `loki-alerts.yml` de ese directorio tiene la misma forma que uno de Prometheus, con dos cosas que conviene ver: las expresiones son LogQL, y cada regla lleva las etiquetas de categorización que se explican en la sesión 11 (`severity`, `team`, `service`, `origen` y `env`):
+**Dónde van las reglas.** Loki está pensado para servir a varios clientes a la vez (*inquilinos*) y guarda las reglas de cada uno en un subdirectorio con su nombre. Con la autenticación multiinquilino desactivada (`auth_enabled: false`, como en el laboratorio) solo hay un inquilino y se llama `fake`, así que las reglas van en `/loki/rules/fake/`. El fichero `loki-alerts.yml` de ese directorio tiene la misma forma que uno de Prometheus, con dos cosas que conviene ver: las expresiones son LogQL, y cada regla lleva las cinco etiquetas de categorización de todas las alarmas del curso (`severity`, `team`, `service`, `origen` y `env`):
 
 ```yaml
 groups:
@@ -348,7 +348,7 @@ groups:
 
 **Lo que dicen las tres reglas.** `AppLogErrorsBurst` avisa de una racha de errores en el log de la API, más de diez en cinco minutos, con un `for` corto. `AppDbTimeout` vigila una cadena concreta, y basta con que aparezca una vez. `ContainerOOM` no lleva `for` porque un OOM ya ha pasado, como se vio en [Cómo elegir el for](#como-elegir-el-for), y agrupa por `host` para que la alarma diga en qué máquina ha sido. La cadena de `AppDbTimeout` es un ejemplo: la buena es la que diga el código de la API, y sale de la A2.2.
 
-**Cómo se comprueba.** El fichero se valida antes de cargarlo con `lokitool rules lint`. `lokitool` es la utilidad de línea de comandos de Loki para trabajar con reglas; no viene en la imagen de Loki, sino como binario aparte en la misma *release* que `logcli`, y se instala igual. Sin más opciones, `lint` además reescribe el fichero con su propio formato (ordena las claves y cambia la sangría); con `-n` (prueba en seco) solo comprueba y no toca nada. Las reglas se aplican reiniciando el contenedor de Loki, y las activas se ven en `GET /loki/api/v1/rules` y en `/prometheus/api/v1/alerts`, que Loki expone imitando la API de Prometheus. El ruler también admite `record:` para recording rules sobre logs, cuyo resultado puede escribirse en Prometheus con `remote_write` (el mecanismo con el que Prometheus acepta series enviadas desde fuera, que la [UT1](ut1-observabilidad.md#enviar-las-metricas-a-un-sistema-remoto-scrape-y-remote_write) presentó); aquí no se usa, pero es la forma de tener un contador de errores de log en Prometheus sin instrumentar la aplicación.
+**Cómo se comprueba.** El fichero se valida antes de cargarlo con `lokitool rules lint`. `lokitool` es la utilidad de línea de comandos de Loki para trabajar con reglas; no viene en la imagen de Loki, sino como binario aparte en la misma *release* que `logcli`, y se instala igual. Sin más opciones, `lint` además reescribe el fichero con su propio formato (ordena las claves y cambia la sangría); con `-n` (prueba en seco) solo comprueba y no toca nada. Las reglas se aplican reiniciando el contenedor de Loki, y las activas se ven en `GET /loki/api/v1/rules` y en `/prometheus/api/v1/alerts`, que Loki expone imitando la API de Prometheus. El ruler también admite `record:` para recording rules sobre logs, cuyo resultado puede escribirse en Prometheus con `remote_write` (el [mecanismo](ut1-observabilidad.md#enviar-las-metricas-a-un-sistema-remoto-scrape-y-remote_write) con el que Prometheus acepta series enviadas desde fuera); aquí no se usa, pero es la forma de tener un contador de errores de log en Prometheus sin instrumentar la aplicación.
 
 ### A2.2 Cadenas en logs y eventos (sesión 9)
 
@@ -356,9 +356,9 @@ groups:
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Loki con los logs de `app` y los eventos Docker de la UT1, `logcli` en tu puesto con `LOKI_ADDR=http://mon01:3100` y el bucle de tráfico de la A2.1 corriendo.
+- Loki con los logs de `app` y los eventos Docker, `logcli` en tu puesto con `LOKI_ADDR=http://mon01:23100` y el bucle de tráfico de la A2.1 corriendo.
 - El código de la API (`/opt/servicio/api/` en app01) o su documentación.
-- Explicado al principio: [Cadenas en logs y eventos](#cadenas-en-logs-y-eventos), hasta [Métricas sobre logs](#metricas-sobre-logs). El ruler es para la sesión 11.
+- Explicado al principio: [Cadenas en logs y eventos](#cadenas-en-logs-y-eventos), hasta [Métricas sobre logs](#metricas-sobre-logs). El ruler no hace falta hoy.
 
 <span class="et et-pas">Pasos</span>
 
@@ -370,7 +370,7 @@ Vas del origen a la métrica. Primero buscas en el código qué mensajes puede e
 
     *Pista:* saca el selector de `logcli labels`, no de memoria. Con `db` parada treinta segundos, la API escribe errores.
 
-3. **Provoca los dos eventos de Docker y encuéntralos.** Un evento no se espera a que pase: se provoca. En app01, provoca un `oom` y un `unhealthy` con dos contenedores de usar y tirar, encuéntralos en Loki con las consultas de [eventos de la UT1](ut1-observabilidad.md#eventos-del-demonio-docker) y borra después el contenedor enfermo, que si no seguiría ahí.
+3. **Provoca los dos eventos de Docker y encuéntralos.** Un evento no se espera a que pase: se provoca. En app01, provoca un `oom` y un `unhealthy` con dos contenedores de usar y tirar, encuéntralos en Loki con las consultas de [Eventos del demonio Docker](ut1-observabilidad.md#eventos-del-demonio-docker) y borra después el contenedor enfermo, que si no seguiría ahí.
 
     *Pista:* `docker run --rm -m 32m python:3-slim python -c "x = bytearray(200 * 1024 * 1024)"` muere por falta de memoria; el `unhealthy` sale de `--health-cmd "exit 1"` con un intervalo corto. Su `action` lleva el estado dentro (`health_status: unhealthy`): se filtra con una expresión regular.
 
@@ -380,13 +380,13 @@ Vas del origen a la métrica. Primero buscas en el código qué mensajes puede e
 
 <span class="et et-com">Comprobación</span> Cada consulta de `docs/cadenas.md` devuelve al menos una línea con `logcli`; las de eventos encuentran el `oom` y el `unhealthy` provocados; las tres métricas dan más de cero.
 
-<span class="et et-ent">Entrega</span> `docs/cadenas.md` en el repositorio `alerting`.
+<span class="et et-ent">Para practicar</span> Guarda `docs/cadenas.md` en el repositorio `alerting`: lo pide la práctica evaluable.
 
 ## Sesión 10 · Recording rules
 
 <p class="ut-meta" markdown>5 de noviembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Agregación y correlación: recording rules · 15 min&#10;A2.3 Recording rules · 95 min" data-dur="Agregación y correlación: recording rules · 15 min&#10;A2.3 Recording rules · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
 
-Las seis consultas de la sesión 8 funcionan, pero en cuanto se usan de verdad aparecen tres problemas. Son largas y se copian en cada panel y en cada alerta, y en cuanto una copia cambia un detalle (una ventana de 2 minutos donde las demás tienen 5) el panel y la alarma dejan de decir lo mismo. Algunas son caras, como el percentil de latencia, y se recalculan enteras cada vez que alguien abre el dashboard. Y el indicador que importa, el ratio de errores, no existe como métrica en ningún sitio: hay que reconstruirlo cada vez a partir de dos contadores. Esta sesión resuelve los tres a la vez con las **recording rules**, que calculan cada indicador una sola vez y lo guardan como una métrica nueva con nombre propio. La teoría va en orden: por qué precalcular, cómo se nombran las métricas que resultan y el fichero que las define. La hoja carga ese fichero en Prometheus y cambia el dashboard de la UT1 para que use las métricas nuevas, que serán también las que usen las alarmas de la sesión 11.
+Las seis consultas de la [tabla de umbrales](#tabla-de-umbrales-del-contenedor-de-referencia) funcionan, pero en cuanto se usan de verdad aparecen tres problemas. Son largas y se copian en cada panel y en cada alerta, y en cuanto una copia cambia un detalle (una ventana de 2 minutos donde las demás tienen 5) el panel y la alarma dejan de decir lo mismo. Algunas son caras, como el percentil de latencia, y se recalculan enteras cada vez que alguien abre el dashboard. Y el indicador que importa, el ratio de errores, no existe como métrica en ningún sitio: hay que reconstruirlo cada vez a partir de dos contadores. Esta sesión resuelve los tres a la vez con las **recording rules**, que calculan cada indicador una sola vez y lo guardan como una métrica nueva con nombre propio. La teoría va en orden: por qué precalcular, cómo se nombran las métricas que resultan y el fichero que las define. La hoja carga ese fichero en Prometheus y cambia el dashboard de la A1.2 para que use las métricas nuevas. Son también las que usarán las reglas de alerta, que se escriben el 10 de noviembre.
 
 ### Agregación y correlación: recording rules
 
@@ -441,7 +441,7 @@ groups:
         expr: sum by (service)(pg_stat_activity_count) / on(service) group_left pg_settings_max_connections
 ```
 
-Conviene fijarse en tres cosas, que son la sesión 8 aplicada: el nombre de cada regla sigue la convención, el `sum by (service)` agrega por servicio, y la memoria y las conexiones llevan los `ignoring` y `group_left` de [Operadores con etiquetas](#operadores-con-etiquetas). El `interval: 30s` hace que el grupo se evalúe cada 30 segundos en lugar de cada 15, el `evaluation_interval` general: con ventanas de 5 minutos el indicador apenas cambia en 15 segundos, y así se calcula la mitad de veces.
+Conviene fijarse en tres cosas, que aplican lo visto con los umbrales: el nombre de cada regla sigue la convención, el `sum by (service)` agrega por servicio, y la memoria y las conexiones llevan los `ignoring` y `group_left` de [Operadores con etiquetas](#operadores-con-etiquetas). El `interval: 30s` hace que el grupo se evalúe cada 30 segundos en lugar de cada 15, el `evaluation_interval` general: con ventanas de 5 minutos el indicador apenas cambia en 15 segundos, y así se calcula la mitad de veces.
 
 **El orden dentro de un grupo.** Todas las reglas de un grupo se evalúan en secuencia, cada `interval`, así que dentro de un grupo una regla puede usar el resultado de la anterior en la misma pasada. Entre grupos no hay orden garantizado.
 
@@ -451,18 +451,18 @@ Conviene fijarse en tres cosas, que son la sesión 8 aplicada: el nombre de cada
 
 ### A2.3 Recording rules (sesión 10)
 
-<span class="et et-obj">Objetivo</span> Que los indicadores del servicio existan en Prometheus como métricas con nombre propio, calculadas una sola vez, y que el dashboard las use. Al terminar tienes un `rules.yml` cargado en Prometheus con las cinco métricas grabadas del ejemplo, visibles en el explorador y usadas en el dashboard de Grafana, y las alarmas de la sesión 11 tienen ya sobre qué escribirse. Es la evidencia del criterio c.
+<span class="et et-obj">Objetivo</span> Que los indicadores del servicio existan en Prometheus como métricas con nombre propio, calculadas una sola vez, y que el dashboard las use. Al terminar tienes un `rules.yml` cargado en Prometheus con las cinco métricas grabadas del ejemplo, visibles en el explorador y usadas en el dashboard de Grafana, y las reglas de alerta tienen ya sobre qué escribirse. Es la evidencia del criterio c.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Las consultas de A2.1 funcionando; `prometheus.yml` y `compose.yml` de mon01; el dashboard de la UT1 en Grafana.
+- Las consultas de A2.1 funcionando; `prometheus.yml` y `compose.yml` de mon01; el dashboard de la A1.2 en Grafana.
 - Explicado al principio: [Por qué precalcular](#por-que-precalcular), [Convención de nombres](#convencion-de-nombres) y [El fichero rules.yml](#el-fichero-rulesyml).
 
 <span class="et et-pas">Pasos</span>
 
 Escribes las reglas, haces que Prometheus las cargue y, antes de usarlas en ningún sitio, compruebas que cada métrica grabada da lo mismo que la consulta de la que sale: una regla mal escrita da un número creíble y equivocado, y en un panel no se nota. Solo entonces cambias el dashboard para que las use.
 
-1. **Escribe las reglas.** Crea `prometheus/rules.yml` en el repositorio `alerting` con las cinco reglas de [El fichero rules.yml](#el-fichero-rulesyml), ajustando etiquetas (`name`, `job`, `service`) y consultas a las tuyas de la A2.1. Las reglas son tus consultas de la sesión 8 con nombre propio: si allí tuviste que corregir una etiqueta para que no saliera vacía, la corrección va también aquí.
+1. **Escribe las reglas.** Crea `prometheus/rules.yml` en el repositorio `alerting` con las cinco reglas de [El fichero rules.yml](#el-fichero-rulesyml), ajustando etiquetas (`name`, `job`, `service`) y consultas a las tuyas de la A2.1. Las reglas son tus consultas de la A2.1 con nombre propio: si allí tuviste que corregir una etiqueta para que no saliera vacía, la corrección va también aquí.
 
 2. **Haz que Prometheus las cargue desde el repositorio.** Las reglas viven en `alerting` y Prometheus en la pila de `/opt/monitoring`, así que el fichero se monta en el contenedor, de solo lectura, en `/etc/prometheus/rules.yml`, y se referencia en `rule_files`. La pila mínima ya arranca Prometheus con `--web.enable-lifecycle`, así que acepta recargas en caliente. Valida el fichero con `promtool` antes de cada recarga: una recarga con errores no tumba Prometheus, pero tampoco carga nada.
 
@@ -472,23 +472,23 @@ Escribes las reglas, haces que Prometheus las cargue y, antes de usarlas en ning
 
     *Pista:* nacen en la primera evaluación del grupo; espera un minuto.
 
-4. **Pásale el dashboard a las métricas grabadas.** En el dashboard de la UT1, cambia la consulta del porcentaje del límite de memoria por `app:memory:ratio` y añade dos paneles, uno con `app:errors:ratio5m` y otro con `app:latency_p95:5m`: desde hoy el panel y las alarmas de la sesión 11 leen la misma serie, como pide la [coherencia](#por-que-precalcular). Exporta el dashboard a `grafana/dashboard.json` y haz commit de `rules.yml`, el dashboard y una copia de `prometheus.yml`.
+4. **Pásale el dashboard a las métricas grabadas.** En el dashboard de la A1.2, cambia la consulta del porcentaje del límite de memoria por `app:memory:ratio` y añade dos paneles, uno con `app:errors:ratio5m` y otro con `app:latency_p95:5m`: así el panel y las alarmas leerán la misma serie, como pide la [coherencia](#por-que-precalcular). Exporta el dashboard a `grafana/dashboard.json` y haz commit de `rules.yml`, el dashboard y una copia de `prometheus.yml`.
 
 <span class="et et-com">Comprobación</span> `promtool check rules` responde `SUCCESS`; las cinco métricas aparecen en *Graph* con valor; el panel de memoria pinta lo mismo que antes y los dos nuevos tienen datos.
 
-<span class="et et-ent">Entrega</span> `prometheus/rules.yml` y `grafana/dashboard.json` en el repositorio `alerting`.
+<span class="et et-ent">Para practicar</span> Guarda `prometheus/rules.yml` y `grafana/dashboard.json` en el repositorio `alerting`.
 
 ## Sesión 11 · Reglas de alerta
 
 <p class="ut-meta" markdown>10 de noviembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Reglas de alerta · 15 min&#10;A2.4 Reglas de alerta · 95 min" data-dur="Reglas de alerta · 15 min&#10;A2.4 Reglas de alerta · 95 min">:material-school:<i class="dur-barra" style="--teoria:14%"></i>:material-flask:</span></p>
 
-Con las sesiones 8 a 10 cada alarma tiene ya su condición, su umbral, su `for` y, si es un indicador calculado, su métrica grabada. Pero todavía no avisa de nada: alguien tiene que ejecutar la consulta y mirar el resultado. Hoy esas condiciones pasan a ser **reglas de alerta** que Prometheus y el ruler de Loki evalúan solos, cada pocos segundos, y que mandan a Alertmanager las que se cumplen. Lo nuevo no es la condición, que ya está escrita, sino lo que viaja con cada alerta: unas etiquetas que dicen qué es, de quién es y cuánto urge, y que Alertmanager usará en la sesión 12 para decidir a quién avisar, y unas anotaciones con el texto que leerá la persona avisada. La teoría va en ese orden: el fichero de reglas, sus etiquetas y anotaciones, los estados por los que pasa una alerta, que explican por qué el aviso no llega en el mismo instante en que empieza el problema, y cómo se prueba una regla sin esperar a que falle nada. Las reglas de Loki se escriben con el apartado [Alertas en el ruler de Loki](#alertas-en-el-ruler-de-loki) de la sesión 9.
+Cada alarma tiene ya su condición, su umbral, su `for` y, si es un indicador calculado, su métrica grabada. Pero todavía no avisa de nada: alguien tiene que ejecutar la consulta y mirar el resultado. Hoy esas condiciones pasan a ser **reglas de alerta** que Prometheus y el ruler de Loki evalúan solos, cada pocos segundos, y que mandan a Alertmanager las que se cumplen. Lo nuevo no es la condición, que ya está escrita, sino lo que viaja con cada alerta: unas etiquetas que dicen qué es, de quién es y cuánto urge, y que Alertmanager usará para decidir a quién avisar, y unas anotaciones con el texto que leerá la persona avisada. La teoría va en ese orden: el fichero de reglas, sus etiquetas y anotaciones, los estados por los que pasa una alerta, que explican por qué el aviso no llega en el mismo instante en que empieza el problema, y cómo se prueba una regla sin esperar a que falle nada. Las reglas de Loki se escriben con lo que ya explicó el apartado [Alertas en el ruler de Loki](#alertas-en-el-ruler-de-loki).
 
 ### Reglas de alerta
 
 **Qué es una regla de alerta.** Tiene la misma estructura que una recording rule, pero en lugar de guardar el resultado de la consulta lo usa como condición: en cada evaluación, cada serie que devuelve la expresión es una alerta, y si la sigue devolviendo durante el `for`, Prometheus la manda a Alertmanager con sus etiquetas y anotaciones. Si la consulta devuelve tres series (tres contenedores por encima del umbral), son tres alertas distintas, cada una con sus etiquetas, y Alertmanager las agrupará después. La pila mínima ya tiene en `prometheus.yml` el bloque `alerting`, que le dice a Prometheus dónde está Alertmanager, así que desde que se carga la primera regla las alertas empiezan a llegarle.
 
-**El fichero.** El `alerts.yml` del laboratorio traduce la tabla de umbrales a seis reglas, más `HostDown`, que avisa si una máquina deja de contestar al job `node` que la UT1 dejó para app01 y mon01. Las `expr` de los indicadores calculados usan las métricas grabadas de la sesión 10; las de ausencia y reinicios van sobre la serie cruda, porque no calculan nada. Los umbrales y los `for` son los orientativos de la sesión 8, y en la hoja se cambian por los de cada `docs/umbrales.md`. Y las cinco etiquetas de `labels` se repiten en todas, por lo que explica el apartado siguiente:
+**El fichero.** El `alerts.yml` del laboratorio traduce la tabla de umbrales a seis reglas, más `HostDown`, que avisa si una máquina deja de contestar al job `node`, el del node_exporter de app01 y mon01. Las `expr` de los indicadores calculados usan las métricas grabadas de `rules.yml`; las de ausencia y reinicios van sobre la serie cruda, porque no calculan nada. Los umbrales y los `for` son los orientativos de la [tabla de umbrales](#tabla-de-umbrales-del-contenedor-de-referencia), y en la hoja se cambian por los de cada `docs/umbrales.md`. Y las cinco etiquetas de `labels` se repiten en todas, por lo que explica el apartado siguiente:
 
 ```yaml
 groups:
@@ -548,23 +548,23 @@ groups:
 
 Cargado este fichero y recargado Prometheus, las siete reglas aparecen en su página *Alerts* en verde (`inactive`: la condición no se cumple). Si alguna sale en amarillo o rojo nada más cargar, la condición ya se cumple con el servicio sano, y conviene revisar el umbral antes de seguir.
 
-**El catálogo cerrado.** Con las tres reglas del ruler de Loki de la sesión 9 (`AppLogErrorsBurst`, `AppDbTimeout` y `ContainerOOM`), estas siete forman el catálogo de alarmas de la unidad. Es una lista cerrada de diez nombres: las unidades siguientes, y la UT4 cuando escriba sus runbooks, las citan así, y una alarma que no esté en la lista no existe en el repositorio `alerting`.
+**El catálogo cerrado.** Con las tres reglas del [ruler de Loki](#alertas-en-el-ruler-de-loki) (`AppLogErrorsBurst`, `AppDbTimeout` y `ContainerOOM`), estas siete forman el catálogo de alarmas de la unidad. Es una lista cerrada de diez nombres: el resto del curso las cita así, y una alarma que no esté en la lista no existe en el repositorio `alerting`. Solo crece una vez, el 12 de enero, cuando el catálogo de alarmas de la UT4 le añade cinco.
 
 #### Etiquetas y anotaciones
 
-**Por qué las etiquetas se deciden en la regla.** Las etiquetas viajan con la alerta y son lo único que Alertmanager mira para agrupar, enrutar e inhibir, y el receptor de incidencias de la sesión 13 las usa además para clasificar cada incidencia. Lo que no esté en las etiquetas de la regla no lo puede saber nadie más adelante. Por eso el conjunto se fija aquí, en el origen, y es el mismo en todas las reglas:
+**Por qué las etiquetas se deciden en la regla.** Las etiquetas viajan con la alerta y son lo único que Alertmanager mira para agrupar, enrutar e inhibir, y el receptor de incidencias las usa además para clasificar cada incidencia. Lo que no esté en las etiquetas de la regla no lo puede saber ningún eslabón posterior de la cadena. Por eso el conjunto se fija aquí, en el origen, y es el mismo en todas las reglas:
 
 | Etiqueta | Valores | Para qué la usa la cadena |
 |---|---|---|
-| `severity` | critical, warning, info | Elige el canal: Telegram para `critical`, correo para el resto (sesión 12) |
-| `team` | ops, dev | Las de `dev` llegan además al correo del equipo de desarrollo (sesión 12) |
+| `severity` | critical, warning, info | Elige el canal: Telegram para `critical`, correo para el resto |
+| `team` | ops, dev | Las de `dev` llegan además al correo del equipo de desarrollo |
 | `service` | app, db, web, y `node` para las alarmas de la máquina | Agrupa las alertas del mismo servicio y calla las de un servicio caído |
-| `origen` | prometheus, cadvisor, loki, docker-events | Dice de dónde sale el dato, para la categorización de la sesión 13 |
+| `origen` | prometheus, cadvisor, loki, docker-events | Dice de dónde sale el dato, para clasificar la incidencia |
 | `env` | dev, pre | Separa entornos: la inhibición de `AppDown` solo calla las alertas de su mismo entorno |
 
 Es la categorización que pide el criterio e de la unidad, decidida en el origen. A esas cinco etiquetas Prometheus añade las de la propia serie que ha cumplido la condición (`instance`, `job`, `host`, `name`, y `service` si viene de la recording rule, aunque la de la regla manda) y `alertname`, el nombre de la regla.
 
-**Las anotaciones, para la persona.** Las anotaciones no se usan para enrutar: son el texto que lee quien recibe el aviso. Se escriben con plantillas de Go (Prometheus y Alertmanager están escritos en Go y usan su sistema de plantillas): texto con huecos entre dobles llaves. `{{ $labels.service }}` inserta una etiqueta, `{{ $value }}` el valor de la expresión en el momento de disparar, y las funciones `humanize` (1234567 pasa a `1.235M`), `humanizePercentage` (0.0234 pasa a `2.34%`), `humanizeDuration` (0.5 pasa a `500ms`) y `humanizeTimestamp` hacen el valor legible. La convención del laboratorio: `summary` de una línea con el qué y el dónde, que es lo que cabe en la pantalla de un móvil; `description` con el contexto que no cabe en un mensaje de Telegram; y `runbook` con la URL del procedimiento, que se escribe en la UT4.
+**Las anotaciones, para la persona.** Las anotaciones no se usan para enrutar: son el texto que lee quien recibe el aviso. Se escriben con plantillas de Go (Prometheus y Alertmanager están escritos en Go y usan su sistema de plantillas): texto con huecos entre dobles llaves. `{{ $labels.service }}` inserta una etiqueta, `{{ $value }}` el valor de la expresión en el momento de disparar, y las funciones `humanize` (1234567 pasa a `1.235M`), `humanizePercentage` (0.0234 pasa a `2.34%`), `humanizeDuration` (0.5 pasa a `500ms`) y `humanizeTimestamp` hacen el valor legible. La convención del laboratorio: `summary` de una línea con el qué y el dónde, que es lo que cabe en la pantalla de un móvil; `description` con el contexto que no cabe en un mensaje de Telegram; y `runbook` con la URL del runbook, el procedimiento escrito de qué hacer cuando salta la alarma. En el laboratorio esa URL apunta de momento a una wiki de ejemplo: los runbooks se escriben el 12 de enero, en la unidad de indicadores y pruebas (UT4), y entonces cada regla pasa a enlazar su documento.
 
 #### Estados de una alerta
 
@@ -586,7 +586,7 @@ stateDiagram-v2
 
 **Lo que se ve en Prometheus.** Los tres primeros estados están en la página *Alerts*: `inactive` (verde, la condición no se cumple), `pending` (amarillo, se cumple pero todavía no ha pasado el `for`, y se ve cuánto lleva) y `firing` (rojo, ya se ha mandado a Alertmanager). Prometheus manda la alerta en cuanto entra en `firing` y la reenvía cada poco mientras siga así; cuando la condición deja de cumplirse, la manda una vez más con su hora de fin (`endsAt`) fijada en ese momento, y eso es lo que Alertmanager interpreta como `resolved`.
 
-**Si Prometheus se cae.** Cada envío lleva una caducidad, unos minutos por delante, que Prometheus renueva en cada reenvío. Si Prometheus muere sin despedirse, nadie la renueva, y Alertmanager da la alerta por resuelta cuando caduca. El parámetro `resolve_timeout` de Alertmanager (5 minutos por defecto) hace lo mismo con las alertas que llegan sin caducidad, como las sintéticas que se crean a mano en la sesión 12.
+**Si Prometheus se cae.** Cada envío lleva una caducidad, unos minutos por delante, que Prometheus renueva en cada reenvío. Si Prometheus muere sin despedirse, nadie la renueva, y Alertmanager da la alerta por resuelta cuando caduca. El parámetro `resolve_timeout` de Alertmanager (5 minutos por defecto) hace lo mismo con las alertas que llegan sin caducidad, como las de prueba que se crean a mano.
 
 #### Probar las reglas con promtool
 
@@ -649,15 +649,15 @@ Empiezas por las reglas de Prometheus, porque una de ellas sirve para medir: en 
 
 5. **Guárdalo con las horas medidas.** Haz commit de `prometheus/` y `loki/`, con las horas del paso 2 apuntadas en `docs/umbrales.md`, junto a la regla a la que corresponden.
 
-<span class="et et-com">Comprobación</span> `promtool check rules` y `promtool test rules` terminan en `SUCCESS`; *Alerts* muestra las siete reglas de Prometheus; `lokitool rules lint` limpio y `curl http://mon01:3100/loki/api/v1/rules` devuelve tus tres reglas; tienes anotado `pending` → `firing` → resuelta con horas.
+<span class="et et-com">Comprobación</span> `promtool check rules` y `promtool test rules` terminan en `SUCCESS`; *Alerts* muestra las siete reglas de Prometheus; `lokitool rules lint` limpio y `curl http://mon01:23100/loki/api/v1/rules` devuelve tus tres reglas; tienes anotado `pending` → `firing` → resuelta con horas.
 
-<span class="et et-ent">Entrega</span> `prometheus/alerts.yml`, `prometheus/tests/alerts_test.yml` y `loki/loki-alerts.yml` en el repositorio `alerting`. Para la sesión 12 trae creado un bot de Telegram con @BotFather, metido en un grupo de pruebas y con el `chat_id` del grupo apuntado: cómo se hace está en [Receptores y plantillas](#receptores-y-plantillas).
+<span class="et et-ent">Para practicar</span> Guarda `prometheus/alerts.yml`, `prometheus/tests/alerts_test.yml` y `loki/loki-alerts.yml` en el repositorio `alerting`. Para la sesión del 12 de noviembre, la de Alertmanager, trae creado un bot de Telegram con @BotFather, metido en un grupo de pruebas y con el `chat_id` del grupo apuntado: cómo se hace está en [Receptores y plantillas](#receptores-y-plantillas).
 
 ## Sesión 12 · Alertmanager
 
 <p class="ut-meta" markdown>12 de noviembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Alertmanager · 25 min&#10;A2.5 Alertmanager · 85 min" data-dur="Alertmanager · 25 min&#10;A2.5 Alertmanager · 85 min">:material-school:<i class="dur-barra" style="--teoria:23%"></i>:material-flask:</span></p>
 
-Desde la sesión 11, Prometheus y el ruler de Loki mandan a Alertmanager cada alerta que dispara. Pero la configuración de partida de la pila mínima lo manda todo a un receptor vacío, llamado `nadie`, así que no se entera nadie. Y si cada alerta se convirtiera sin más en un mensaje, el resultado sería casi peor: una máquina caída con diez alertas daría diez mensajes, repetidos cada pocos minutos, a todo el mundo y a cualquier hora. Alertmanager existe para decidir: con qué otras alertas va cada una, a quién se le manda, cuándo y cuántas veces, y qué se calla. Es el tramo más largo de la unidad, y la teoría sigue el camino que hace una alerta dentro de Alertmanager: el árbol de rutas que elige a quién avisar, los tres tiempos que deciden cuándo, la inhibición y los silencios que callan lo que sobra, y los receptores y plantillas que dan forma al mensaje, con Mailpit para probar el correo sin mandar nada a nadie. Al final, cómo se prueba todo eso sin provocar fallos de verdad. La hoja monta las tres rutas, comprueba una inhibición y un silencio, y hace llegar a Telegram dos alarmas del mismo grupo en un solo mensaje.
+Prometheus y el ruler de Loki ya mandan a Alertmanager cada alerta que dispara. Pero la configuración de partida de la pila mínima lo manda todo a un receptor vacío, llamado `nadie`, así que no se entera nadie. Y si cada alerta se convirtiera sin más en un mensaje, el resultado sería casi peor: una máquina caída con diez alertas daría diez mensajes, repetidos cada pocos minutos, a todo el mundo y a cualquier hora. Alertmanager existe para decidir: con qué otras alertas va cada una, a quién se le manda, cuándo y cuántas veces, y qué se calla. Es el tramo más largo de la unidad, y la teoría sigue el camino que hace una alerta dentro de Alertmanager: el árbol de rutas que elige a quién avisar, los tres tiempos que deciden cuándo, la inhibición y los silencios que callan lo que sobra, y los receptores y plantillas que dan forma al mensaje, con Mailpit para probar el correo sin mandar nada a nadie. Al final, cómo se prueba todo eso sin provocar fallos de verdad. La hoja monta las tres rutas, comprueba una inhibición y un silencio, y hace llegar a Telegram dos alarmas del mismo grupo en un solo mensaje.
 
 ### Alertmanager
 
@@ -691,7 +691,7 @@ Toda la configuración está en un fichero, `alertmanager.yml`. Se valida con `a
 
 **El problema: no todas las alertas van al mismo sitio.** Una alerta `critical` tiene que llegar al móvil de quien está de guardia; una `warning` puede esperar en el correo hasta mañana; y las del equipo de desarrollo tienen que llegarle a ese equipo. Alertmanager lo decide con un **árbol de rutas**: una ruta raíz con rutas hijas, cada una con unas condiciones sobre las etiquetas de la alerta (`matchers`) y un receptor, el destino al que se mandan las alertas que las cumplen.
 
-**El fichero del laboratorio.** Este es el `alertmanager.yml` que se monta en la hoja de esta sesión; en la sesión 13 solo se le añade el webhook. Tiene cinco bloques, y cada uno responde a una pregunta:
+**El fichero del laboratorio.** Este es el `alertmanager.yml` que se monta en la hoja de esta sesión. Tiene cinco bloques, y cada uno responde a una pregunta:
 
 - `global`: los valores comunes a todo el fichero; aquí, el servidor de correo (Mailpit) y el `resolve_timeout`.
 - `templates`: dónde están las plantillas propias de los mensajes.
@@ -814,7 +814,7 @@ flowchart LR
 | Instante | Qué pasa |
 |---|---|
 | 10:00:00 | Llega `AppHighErrorRate{service=app}`. No existe el grupo (`AppHighErrorRate`, `app`); se crea y arranca `group_wait`. |
-| 10:00:20 | Llega `AppHighErrorRate{service=app, instance=app01:9102}` (otra réplica, misma alerta y servicio). Entra en el mismo grupo. No se notifica todavía. |
+| 10:00:20 | Llega `AppHighErrorRate{service=app, instance=app01:29102}` (otra réplica, misma alerta y servicio). Entra en el mismo grupo. No se notifica todavía. |
 | 10:00:30 | Vence `group_wait`. Se envía **una** notificación con las dos alertas del grupo. |
 | 10:02:00 | Llega una tercera réplica al grupo. No se notifica: el grupo está en su `group_interval`. |
 | 10:05:30 | Vence `group_interval`. Como el grupo ha cambiado (hay una alerta nueva), se envía una notificación actualizada con las tres. |
@@ -831,7 +831,7 @@ flowchart LR
 
 **Las dos del laboratorio.** El caso canónico es la primera del ejemplo: si `HostDown{host="app01"}` está en `firing`, las alertas de lo que corre en app01 (la API que no responde, la memoria de sus contenedores, un OOM) son consecuencia, no información, y se callan. Siguen existiendo (se ven en la interfaz marcadas como inhibidas) pero no llegan a ningún receptor ni al webhook. La segunda hace lo mismo un nivel más abajo: con `AppDown` activa, se callan las demás alertas de `service="app"` del mismo entorno.
 
-**Por qué `host` y no `instance`.** La etiqueta de `equal` tiene que existir con el mismo valor en la alerta fuente y en las inhibidas. Por eso el ejemplo usa `host`, que la UT1 pone en todos los jobs del scrape y el Promtail en todos los flujos de log, y no `instance`: cada exporter tiene su puerto, y el `instance` del node_exporter (`...:9100`) nunca coincide con el de la API (`...:9102`). Las alertas que agregan con `sum by (service)` pierden `host` y quedan fuera, pero con la máquina caída tampoco tienen datos con los que disparar.
+**Por qué `host` y no `instance`.** La etiqueta de `equal` tiene que existir con el mismo valor en la alerta fuente y en las inhibidas. Por eso el ejemplo usa `host`, que llevan todos los jobs del scrape y que Promtail pone en todos los flujos de log, y no `instance`: cada exporter tiene su puerto, y el `instance` del node_exporter (`...:29100`) nunca coincide con el de la API (`...:29102`). Las alertas que agregan con `sum by (service)` pierden `host` y quedan fuera, pero con la máquina caída tampoco tienen datos con los que disparar.
 
 !!! ojo "Sin `equal`, la inhibición silencia de más"
     `equal` acota a qué alertas alcanza la inhibición. Sin él, un host caído en el CPD de Madrid silenciaría
@@ -862,26 +862,26 @@ flowchart LR
 
 #### Silencios
 
-**El problema: el fallo que se sabe que va a pasar.** Hay fallos que se provocan a propósito: una actualización de PostgreSQL, un reinicio programado, una prueba del laboratorio. Durante ese rato las alarmas van a saltar, y avisar de algo que se está haciendo a propósito es ruido. Un **silencio** es una inhibición temporal creada a mano: unos matchers (qué alertas calla), un principio y un fin, y un comentario obligatorio que diga por qué, para que quien lo encuentre sepa quién lo puso y si sigue teniendo sentido. Se crean desde la interfaz web de Alertmanager (puerto 9093) o con `amtool`:
+**El problema: el fallo que se sabe que va a pasar.** Hay fallos que se provocan a propósito: una actualización de PostgreSQL, un reinicio programado, una prueba del laboratorio. Durante ese rato las alarmas van a saltar, y avisar de algo que se está haciendo a propósito es ruido. Un **silencio** es una inhibición temporal creada a mano: unos matchers (qué alertas calla), un principio y un fin, y un comentario obligatorio que diga por qué, para que quien lo encuentre sepa quién lo puso y si sigue teniendo sentido. Se crean desde la interfaz web de Alertmanager (puerto 29093) o con `amtool`:
 
 ```bash
-amtool --alertmanager.url=http://mon01:9093 silence add \
+amtool --alertmanager.url=http://mon01:29093 silence add \
   service=db env=dev --duration=2h \
   --author=ops --comment="Mantenimiento PostgreSQL 17.x, ticket #142"
-amtool --alertmanager.url=http://mon01:9093 silence query
-amtool --alertmanager.url=http://mon01:9093 silence expire <id>
-amtool --alertmanager.url=http://mon01:9093 alert query severity=critical
+amtool --alertmanager.url=http://mon01:29093 silence query
+amtool --alertmanager.url=http://mon01:29093 silence expire <id>
+amtool --alertmanager.url=http://mon01:29093 alert query severity=critical
 ```
 
-**Qué sobrevive a un reinicio.** Los silencios se guardan en el directorio de datos de Alertmanager (`--storage.path`), así que sobreviven a un reinicio del contenedor si ese directorio está en un volumen. Lo que no sobrevive es la memoria de las alertas: Alertmanager no tiene historial, y lo que ya no está en `firing` desaparece. Esa es la razón del webhook y las incidencias de la sesión 13.
+**Qué sobrevive a un reinicio.** Los silencios se guardan en el directorio de datos de Alertmanager (`--storage.path`), así que sobreviven a un reinicio del contenedor si ese directorio está en un volumen. Lo que no sobrevive es la memoria de las alertas: Alertmanager no tiene historial, y lo que ya no está en `firing` desaparece. Esa es la razón del webhook y las incidencias, que se montan el 17 de noviembre.
 
 #### Receptores y plantillas
 
 **Los canales del laboratorio.** Alertmanager trae integraciones para correo, varias aplicaciones de chat, servicios de guardia y un webhook genérico; la lista completa está en [Para ampliar](../ampliacion.md#rutas-por-horario-slack-y-tickets-en-alertmanager). En el laboratorio se usan tres, una por cada necesidad:
 
 - **Correo**, para lo que puede esperar, contra Mailpit (un SMTP de pruebas, explicado más abajo): `smtp_smarthost: mailpit:1025`, `smtp_require_tls: false`. En producción sería el servidor de correo de la empresa, con `smtp_auth_username`/`smtp_auth_password_file` y TLS.
-- **Telegram**, para lo que tiene que sonar en el móvil. Se crea el bot con @BotFather (un bot de Telegram que da de alta bots y entrega su token), se mete el bot en un grupo, se escribe algo en el grupo y se consulta `https://api.telegram.org/bot<TOKEN>/getUpdates`, que devuelve el `chat_id` (negativo para grupos; el de un supergrupo empieza por -100). El token va en un fichero (`bot_token_file`) y ese fichero, fuera del repositorio; en la UT3 se formaliza.
-- **Webhook**, para todo lo demás: un `POST` con JSON a la URL que se indique. Es la integración universal: cualquier cosa que no esté en la lista se hace con esto, y es la que lleva cada alarma al gestor de incidencias en la sesión 13.
+- **Telegram**, para lo que tiene que sonar en el móvil. Se crea el bot con @BotFather (un bot de Telegram que da de alta bots y entrega su token), se mete el bot en un grupo, se escribe algo en el grupo y se consulta `https://api.telegram.org/bot<TOKEN>/getUpdates`, que devuelve el `chat_id` (negativo para grupos; el de un supergrupo empieza por -100). El token va en un fichero (`bot_token_file`) y ese fichero, fuera del repositorio.
+- **Webhook**, para todo lo demás: un `POST` con JSON a la URL que se indique. Es la integración universal: cualquier cosa que no esté en la lista se hace con esto, y es la que lleva cada alarma al gestor de incidencias.
 
 Todas admiten `send_resolved`, que decide si se avisa también cuando la alerta se resuelve, y el valor por defecto cambia según la integración: en el correo es `false`; en Telegram y en el webhook, `true`. Conviene ponerlo explícito siempre: una alarma cuya resolución no se notifica obliga a mirar el panel para saber si sigue viva.
 
@@ -904,13 +904,14 @@ y en el receptor, la línea `message: '{{ template "lab.telegram" . }}'` que ya 
 
 #### Mailpit como SMTP de pruebas
 
-**Por qué un servidor falso.** Para probar las notificaciones por correo hace falta un servidor de correo, y no conviene usar uno de verdad: cada prueba mandaría mensajes reales, a direcciones que no existen o a gente que no los espera. Mailpit es un servidor SMTP falso: acepta cualquier correo en el puerto 1025, no lo entrega a nadie y lo muestra en una interfaz web en el 8025, con búsqueda y vista del HTML. Sustituye a MailHog, que lleva años sin mantenimiento. En el compose de mon01 solo se publica la web: Alertmanager llega al 1025 por la red del compose, con el nombre `mailpit`, y `MP_MAX_MESSAGES` limita cuántos mensajes guarda.
+**Por qué un servidor falso.** Para probar las notificaciones por correo hace falta un servidor de correo, y no conviene usar uno de verdad: cada prueba mandaría mensajes reales, a direcciones que no existen o a gente que no los espera. Mailpit es un servidor SMTP falso: acepta cualquier correo en el puerto 1025, no lo entrega a nadie y lo muestra en una interfaz web, con búsqueda y vista del HTML. Sustituye a MailHog, que lleva años sin mantenimiento. En el compose de mon01 solo se publica la web, y en el puerto del curso: `MP_UI_BIND_ADDR` la pone a escuchar en el 28025, el mismo número con el que se publica (la regla de puertos está en [Convenciones](../laboratorio.md#convenciones)). El SMTP se queda en su 1025 de fábrica y sin publicar, porque solo lo usa Alertmanager, que llega a él por la red del compose con el nombre `mailpit`. `MP_MAX_MESSAGES` limita cuántos mensajes guarda.
 
 ```yaml
   mailpit:
     image: axllent/mailpit:v1.22.3
-    ports: ["8025:8025"]
+    ports: ["28025:28025"]
     environment:
+      MP_UI_BIND_ADDR: "0.0.0.0:28025"
       MP_MAX_MESSAGES: 500
 ```
 
@@ -921,7 +922,7 @@ Con eso se pueden probar plantillas de correo y comprobar `send_resolved` sin mo
 **El problema: probar sin romper.** Las rutas, la agrupación, la inhibición y las plantillas se configuran hoy, y comprobarlas con fallos de verdad sería lento (cada alarma real tarda minutos en disparar) y obligaría a romper el servicio una vez por cada prueba. `amtool config routes test` dice a qué receptores iría una alerta, pero no manda nada. Para ver llegar un mensaje se usan **alertas sintéticas**: alertas inventadas, con las etiquetas que se quiera, que se meten a mano en Alertmanager sin pasar por ninguna regla:
 
 ```bash
-amtool --alertmanager.url=http://mon01:9093 alert add alertname=PruebaAviso severity=warning service=app \
+amtool --alertmanager.url=http://mon01:29093 alert add alertname=PruebaAviso severity=warning service=app \
   --annotation=summary="Prueba de la ruta warning"
 ```
 
@@ -929,11 +930,11 @@ amtool --alertmanager.url=http://mon01:9093 alert add alertname=PruebaAviso seve
 
 ### A2.5 Alertmanager (sesión 12)
 
-<span class="et et-obj">Objetivo</span> Que las alertas de la sesión 11 lleguen a quien tienen que llegar, juntas cuando son del mismo problema y calladas cuando sobran. Al terminar tienes Alertmanager con tres rutas, una inhibición comprobada y un silencio, notificando por Mailpit y por Telegram con plantilla propia, y has visto llegar dos alarmas del mismo grupo en una sola notificación.
+<span class="et et-obj">Objetivo</span> Que las alertas de la A2.4 lleguen a quien tienen que llegar, juntas cuando son del mismo problema y calladas cuando sobran. Al terminar tienes Alertmanager con tres rutas, una inhibición comprobada y un silencio, notificando por Mailpit y por Telegram con plantilla propia, y has visto llegar dos alarmas del mismo grupo en una sola notificación.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Las reglas de la A2.4 cargadas y el bot de Telegram que pedía su entrega, en un grupo de pruebas, con el `chat_id` del grupo (negativo) y el token en `secrets/tg_token`. Sin bot, pon de momento en el receptor `critical` un `email_configs` a `guardia@lab` en lugar del `telegram_configs`; la captura de la entrega será la de Mailpit.
+- Las reglas de la A2.4 cargadas y, de la misma hoja, el bot de Telegram en un grupo de pruebas, con el `chat_id` del grupo (negativo) y el token en `secrets/tg_token`. Sin bot, pon de momento en el receptor `critical` un `email_configs` a `guardia@lab` en lugar del `telegram_configs`; la captura que guardas al final será la de Mailpit.
 - Explicado al principio: todo el apartado [Alertmanager](#alertmanager), de [El árbol de rutas](#el-arbol-de-rutas) a [Alertas sintéticas](#alertas-sinteticas).
 
 <span class="et et-pas">Pasos</span>
@@ -942,7 +943,9 @@ Primero preparas la pila para que Alertmanager lea su configuración del reposit
 
 1. **Prepara la pila.** Añade Mailpit a la pila de mon01 con el bloque de [Mailpit como SMTP de pruebas](#mailpit-como-smtp-de-pruebas). Haz que el servicio `alertmanager` lea su configuración del repositorio `alerting` (`alertmanager/` en `/etc/alertmanager` y `secrets/` en `/etc/alertmanager/secrets`, de solo lectura) y guarde sus datos en un volumen `alertmanager_data`, en `/alertmanager` con `--storage.path`: sin volumen, cada reinicio borraría los [silencios](#silencios).
 
-2. **Carga la configuración.** Crea `alertmanager/alertmanager.yml` con el de [El árbol de rutas](#el-arbol-de-rutas) y el `chat_id` de tu grupo, y `alertmanager/templates/lab.tmpl` con la plantilla de [Receptores y plantillas](#receptores-y-plantillas); el webhook llega en la A2.6. Valídalo con `amtool check-config`, levanta Mailpit y Alertmanager y comprueba que el bloque `alerting` de `prometheus.yml` apunta a `alertmanager:9093`, que es por donde le llegan las alertas de Prometheus.
+    *Pista:* `--storage.path` va en el `command` de Alertmanager, junto a las opciones que ya tiene. Si al tocarlo se pierde `--web.listen-address=:29093`, Alertmanager vuelve a su 9093 de fábrica y Prometheus deja de llegarle.
+
+2. **Carga la configuración.** Crea `alertmanager/alertmanager.yml` con el de [El árbol de rutas](#el-arbol-de-rutas) y el `chat_id` de tu grupo, y `alertmanager/templates/lab.tmpl` con la plantilla de [Receptores y plantillas](#receptores-y-plantillas); el webhook llega en la A2.6. Valídalo con `amtool check-config`, levanta Mailpit y Alertmanager y comprueba que el bloque `alerting` de `prometheus.yml` apunta a `alertmanager:29093`, que es por donde le llegan las alertas de Prometheus.
 
     *Pista:* `amtool` viene en la imagen de Alertmanager: `docker compose run --rm --entrypoint amtool alertmanager` lo usa sin el servicio en marcha.
 
@@ -962,7 +965,7 @@ Primero preparas la pila para que Alertmanager lea su configuración del reposit
 
 <span class="et et-com">Comprobación</span> `amtool check-config` sin errores; en Mailpit hay un correo de `PruebaAviso` y ninguno de `PruebaInhibida`, que `alert query -i` da como inhibida; en Telegram, un `[FIRING:2]` con dos alertas y su `[RESOLVED]`; el silencio se ve en la interfaz; no hay secretos en el repositorio.
 
-<span class="et et-ent">Entrega</span> `alertmanager/` y el `compose.yml` de mon01, más una captura de Telegram con la notificación agrupada en `docs/capturas/`.
+<span class="et et-ent">Para practicar</span> Guarda `alertmanager/` y el `compose.yml` de mon01 en sus repositorios, y una captura de Telegram con la notificación agrupada en `docs/capturas/` de `alerting`.
 
 <span class="et et-ext">Si te sobra tiempo</span> Cambia en la ruta `critical` el agrupamiento a `group_by: [service]`, recarga Alertmanager y lanza dos sintéticas `critical` con `alertname` distinto y el mismo `service=app`: llegan en un solo mensaje, cuando con `[alertname, service]` serían dos. Deja el `group_by` que prefieras, justificado en el README.
 
@@ -970,11 +973,11 @@ Primero preparas la pila para que Alertmanager lea su configuración del reposit
 
 <p class="ut-meta" markdown>17 de noviembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Categorizar, notificar y tratar · 10 min&#10;A2.6 Integración con incidencias · 100 min" data-dur="Categorizar, notificar y tratar · 10 min&#10;A2.6 Integración con incidencias · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
 
-Con la sesión 12 cada alarma llega a una persona, pero en cuanto se resuelve no queda nada de ella: Alertmanager no guarda historial, y un mensaje de Telegram se pierde entre los demás del grupo. Así no se puede contestar a preguntas que en mantenimiento son de todos los días: cuándo empezó y cuándo terminó el último corte, quién lo atendió y qué se hizo, cuántas veces ha saltado esta alarma este mes. Los criterios d y e de la unidad lo piden expresamente: alarmas almacenadas fuera de Alertmanager y clasificadas por fecha, origen, criticidad y servicio. La solución es la de cualquier empresa, un **gestor de incidencias**, donde cada alarma se convierte en una incidencia con su historia. La teoría va en el orden en que viaja la información: qué datos de cada alarma sirven para clasificarla, qué envía exactamente Alertmanager cuando avisa por webhook y el pequeño programa que traduce ese aviso en incidencias que se abren y se cierran solas. El mismo Gitea que guarda las incidencias hace de remoto de los repositorios hasta febrero, y la hoja deja dados de alta los tres.
+Cada alarma llega ya a una persona, pero en cuanto se resuelve no queda nada de ella: Alertmanager no guarda historial, y un mensaje de Telegram se pierde entre los demás del grupo. Así no se puede contestar a preguntas que en mantenimiento son de todos los días: cuándo empezó y cuándo terminó el último corte, quién lo atendió y qué se hizo, cuántas veces ha saltado esta alarma este mes. Los criterios d y e de la unidad lo piden expresamente: alarmas almacenadas fuera de Alertmanager y clasificadas por fecha, origen, criticidad y servicio. La solución es la de cualquier empresa, un **gestor de incidencias**, donde cada alarma se convierte en una incidencia con su historia. La teoría va en el orden en que viaja la información: qué datos de cada alarma sirven para clasificarla, qué envía exactamente Alertmanager cuando avisa por webhook y el pequeño programa que traduce ese aviso en incidencias que se abren y se cierran solas. El mismo Gitea que guarda las incidencias hace de remoto de los repositorios hasta febrero, y la hoja deja dados de alta los tres.
 
 ### Categorizar, notificar y tratar
 
-**Qué es tratar una alarma.** Una incidencia es el registro de un problema desde que aparece hasta que se cierra: cuándo empezó, qué era, quién lo cogió, qué se hizo y cuándo terminó. Notificar es avisar a alguien; tratar es que ese aviso se convierta en trabajo con dueño y con rastro. Para que eso funcione, cada alarma que sale de Alertmanager tiene que llegar ya clasificada: quién la atiende, con qué prioridad, de dónde viene. Y esa clasificación no se hace a mano: viene en las etiquetas que se pusieron en la regla, en la sesión 11, y en los campos que añade Alertmanager.
+**Qué es tratar una alarma.** Una incidencia es el registro de un problema desde que aparece hasta que se cierra: cuándo empezó, qué era, quién lo cogió, qué se hizo y cuándo terminó. Notificar es avisar a alguien; tratar es que ese aviso se convierta en trabajo con dueño y con rastro. Para que eso funcione, cada alarma que sale de Alertmanager tiene que llegar ya clasificada: quién la atiende, con qué prioridad, de dónde viene. Y esa clasificación no se hace a mano: viene en las etiquetas que se pusieron en la regla y en los campos que añade Alertmanager.
 
 | Parámetro | Valores | De dónde sale |
 |---|---|---|
@@ -987,7 +990,7 @@ Con la sesión 12 cada alarma llega a una persona, pero en cuanto se resuelve no
 | Estado | firing, resolved (más silenced e inhibited en la interfaz) | Campo `status` |
 | Identidad | `fingerprint` (hash de las etiquetas) | Alertmanager; es lo que permite emparejar el firing con su resolved |
 
-Cada fila acaba en el título, el cuerpo o las fechas de una incidencia, y es también lo que se rellena para cada alarma en la tabla de verificación de la sesión 14.
+Cada fila acaba en el título, el cuerpo o las fechas de una incidencia. Es también lo que se rellena para cada alarma en la tabla de verificación del 19 de noviembre.
 
 #### El JSON del webhook
 
@@ -1009,7 +1012,7 @@ Cada fila acaba en el título, el cuerpo o las fechas de una incidencia, y es ta
     "summary": "Errores 5xx al 2.4% en app",
     "runbook": "https://wiki.lab/runbooks/app-errors"
   },
-  "externalURL": "http://mon01:9093",
+  "externalURL": "http://mon01:29093",
   "alerts": [
     {
       "status": "firing",
@@ -1024,7 +1027,7 @@ Cada fila acaba en el título, el cuerpo o las fechas de una incidencia, y es ta
       },
       "startsAt": "2026-11-12T09:41:30.512Z",
       "endsAt": "0001-01-01T00:00:00Z",
-      "generatorURL": "http://mon01:9090/graph?g0.expr=app%3Aerrors%3Aratio5m+%3E+0.01",
+      "generatorURL": "http://mon01:29090/graph?g0.expr=app%3Aerrors%3Aratio5m+%3E+0.01",
       "fingerprint": "5c2f8a1e9b0d4c77"
     }
   ]
@@ -1039,7 +1042,7 @@ Cada fila acaba en el título, el cuerpo o las fechas de una incidencia, y es ta
 
 **Por qué hace falta un programa en medio.** Alertmanager sabe hacer un `POST` con su JSON, y Gitea tiene una API para crear y cerrar incidencias, pero no hablan el mismo idioma: Gitea espera un título y un cuerpo, y alguien tiene que decidir qué alerta corresponde a qué incidencia. Hace falta un traductor, y en el laboratorio es un script corto en Python con Flask (una librería mínima para montar un servicio web en pocas líneas, la misma con la que está hecha la API del servicio) que corre como un contenedor más de la pila, con el nombre `tickets`.
 
-**Dónde van las incidencias.** Gitea es una forja de Git ligera que se instala en un servidor propio: repositorios, incidencias (*issues*) y una API para manejarlos, como un GitHub casero. Hoy corre en un contenedor de mon01, al lado de la pila: `gitea01`, la máquina de plataforma que lo alojará de verdad, no existe hasta la A6.4 de Despliegue, el 12 de febrero, y cuando llegue solo habrá que cambiar `GITEA_URL`.
+**Dónde van las incidencias.** Gitea es una forja de Git ligera que se instala en un servidor propio: repositorios, incidencias (*issues*) y una API para manejarlos, como un GitHub casero. Hoy corre en un contenedor de mon01, al lado de la pila. La máquina de plataforma que lo alojará de verdad, `gitea01`, no existe hasta el 12 de febrero, cuando Despliegue lleva allí Gitea en su unidad de integración continua, y ese día solo habrá que cambiar `GITEA_URL`.
 
 **Qué hace el receptor.** Recibe el `POST`, crea una issue por cada alerta en `firing` que no tenga ya una abierta y, cuando la alerta llega en `resolved`, le añade un comentario y la cierra. La relación entre `fingerprint` y número de issue se guarda en un JSON en disco para que sobreviva a un reinicio.
 
@@ -1047,7 +1050,7 @@ Cada fila acaba en el título, el cuerpo o las fechas de una incidencia, y es ta
 import json, os, requests
 from flask import Flask, request
 
-GITEA = os.environ.get("GITEA_URL", "http://gitea:3000")
+GITEA = os.environ.get("GITEA_URL", "http://gitea:23001")
 REPO = os.environ.get("GITEA_REPO", "ops/incidencias")
 HDR = {"Authorization": "token " + os.environ["GITEA_TOKEN"]}
 API = f"{GITEA}/api/v1/repos/{REPO}/issues"
@@ -1089,7 +1092,7 @@ def alertmanager():
     return "", 204
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=25000)
 ```
 
 Leído de arriba abajo:
@@ -1099,6 +1102,7 @@ Leído de arriba abajo:
 - **`abrir`** compone el título con la severidad, el servicio y el nombre de la alarma, y el cuerpo con la categorización completa, y crea la issue.
 - **`cerrar`** busca la issue de esa alerta, le añade un comentario con la hora de fin y la cierra.
 - **La ruta `/alertmanager`** recorre `alerts` mirando el `status` de cada una, no el del sobre, y responde 204 (correcto, sin contenido): una respuesta 2xx le dice a Alertmanager que el aviso ha llegado, y si el receptor no contesta o falla con un error 5xx, Alertmanager lo reintenta.
+- **`app.run`** arranca el receptor en el 25000, su puerto del curso, y en `0.0.0.0`, todas las interfaces del contenedor: con el `127.0.0.1` que Flask usa por defecto, Alertmanager no le llegaría desde su propio contenedor.
 
 El token de Gitea se genera en *Configuración → Aplicaciones → Generar token* con permiso de escritura sobre issues y se pasa por variable de entorno. Las etiquetas de Gitea (las de colores) se asignan por identificador numérico en la API (`"labels": [3, 7]`), no por nombre, así que el script mete la categorización en el título entre corchetes, que es buscable y no requiere mantener un mapa; si hacen falta etiquetas reales, se consulta `GET /api/v1/repos/{owner}/{repo}/labels` una vez al arrancar y se construye el diccionario nombre → id.
 
@@ -1117,27 +1121,27 @@ El token de Gitea se genera en *Configuración → Aplicaciones → Generar toke
 
 Construyes la cadena desde el final: primero Gitea, que es donde tienen que acabar las incidencias; después el receptor, que pruebas solo, con ficheros JSON, antes de conectarlo a nada; y cuando abre y cierra bien, lo conectas a Alertmanager y lo pruebas con alarmas reales. Probar cada tramo por separado es lo que te permite saber, si algo falla, dónde está el fallo. Al final, el mismo Gitea pasa a ser el remoto de tus repositorios.
 
-1. **Levanta Gitea, donde acabarán las incidencias.** Como `gitea01` no existe hasta el 12 de febrero, Gitea va de momento en la pila de mon01: imagen `gitea/gitea:1.24`, datos en un volumen `gitea_data` (queda como `monitoring_gitea_data`), su 3000 en el 3001 del host (el 3000 es de Grafana) y `GITEA__server__ROOT_URL=http://gitea.lab:3001/`, la dirección que Gitea pone en sus enlaces. Añade `gitea.lab` a la línea de mon01 del `/etc/hosts` de tu puesto, de mon01, de app01 y del puesto de administración, porque todos van a empujar a este Gitea. Instálalo con SQLite y crea tu usuario administrador, la organización `ops` y, dentro, cuatro repositorios vacíos: `incidencias`, `alerting`, `servicio` y `monitoring`.
+1. **Levanta Gitea, donde acabarán las incidencias.** Como `gitea01` no existe hasta el 12 de febrero, Gitea va de momento en la pila de mon01: imagen `gitea/gitea:1.24`, datos en un volumen `gitea_data` (queda como `monitoring_gitea_data`), escuchando y publicado en el 23001 con `GITEA__server__HTTP_PORT=23001` (el 23000 que le daría la regla de puertos es el de Grafana) y `GITEA__server__ROOT_URL=http://gitea.lab:23001/`, la dirección que Gitea pone en sus enlaces. Añade `gitea.lab` a la línea de mon01 del `/etc/hosts` de tu puesto, de mon01, de app01 y del puesto de administración, porque todos van a empujar a este Gitea. Instálalo con SQLite y crea tu usuario administrador, la organización `ops` y, dentro, cuatro repositorios vacíos: `incidencias`, `alerting`, `servicio` y `monitoring`.
 
-2. **Despliega el receptor.** Pon el receptor como servicio `tickets` de la misma pila, para que Alertmanager le llegue por la red del compose: en `/opt/alerting/tickets`, el script de [Receptor Flask](#receptor-flask-que-abre-y-cierra-incidencias-en-gitea) tal cual como `app.py` y un `Dockerfile` sobre `python:3-slim` con `flask` y `requests`. En el compose, sus variables van en `secrets/tickets.env` (permisos 600, porque lleva el token de Gitea) y su estado en un volumen `tickets_data`, en `/data`, para que la relación entre alertas e issues sobreviva a un reinicio. Publica su 5000 solo en `127.0.0.1`: Alertmanager llega por la red del compose, y desde fuera solo hace falta para el paso 3.
+2. **Despliega el receptor.** Pon el receptor como servicio `tickets` de la misma pila, para que Alertmanager le llegue por la red del compose: en `/opt/alerting/tickets`, el script de [Receptor Flask](#receptor-flask-que-abre-y-cierra-incidencias-en-gitea) tal cual como `app.py` y un `Dockerfile` sobre `python:3-slim` con `flask` y `requests`. En el compose, sus variables van en `secrets/tickets.env` (permisos 600, porque lleva el token de Gitea) y su estado en un volumen `tickets_data`, en `/data`, para que la relación entre alertas e issues sobreviva a un reinicio. Publica su 25000 solo en `127.0.0.1`: Alertmanager llega por la red del compose, y desde fuera solo hace falta para el paso 3.
 
-    *Pista:* `GITEA_URL` es `http://gitea:3000`, la de la red del compose, no la del navegador.
+    *Pista:* `GITEA_URL` es `http://gitea:23001`: el mismo puerto que en el navegador, pero con `gitea`, el nombre del servicio en la red del compose, porque `gitea.lab` el contenedor no lo resuelve.
 
 3. **Prueba el receptor sin Alertmanager.** Antes de conectarlo a nada, comprueba que hace bien su trabajo con avisos que controlas tú. Desde mon01, guarda el cuerpo de [El JSON del webhook](#el-json-del-webhook) en `/opt/alerting/tickets/tests/firing.json`, saca de él `resolved.json` y envíalos uno tras otro, con un reinicio del receptor en medio. La issue tiene que abrirse en `ops/incidencias` con el primero y cerrarse con comentario con el segundo; el reinicio demuestra que el receptor no olvida qué issue es de qué alerta.
 
     *Pista:* `resolved.json` es el mismo cuerpo con `"resolved"` en lugar de `"firing"` y un `endsAt` real: sale con un `sed`.
 
-4. **Conéctalo a Alertmanager.** Añade a los tres receptores de `alertmanager.yml` un `webhook_configs` hacia `http://tickets:5000/alertmanager` con `send_resolved: true`, valida y recarga. Va en los tres para que ninguna alarma se quede sin incidencia, sea cual sea su ruta; y una alerta que pasa por dos receptores no duplica su issue, porque su `fingerprint` ya la tiene.
+4. **Conéctalo a Alertmanager.** Añade a los tres receptores de `alertmanager.yml` un `webhook_configs` hacia `http://tickets:25000/alertmanager` con `send_resolved: true`, valida y recarga. Va en los tres para que ninguna alarma se quede sin incidencia, sea cual sea su ruta; y una alerta que pasa por dos receptores no duplica su issue, porque su `fingerprint` ya la tiene.
 
-5. **Pruébalo con alarmas reales de dos orígenes.** Provoca a la vez dos alarmas de orígenes distintos parando `db` con el bucle de tráfico corriendo: tienen que abrirse una issue de `AppHighErrorRate` (Prometheus) y otra de `AppLogErrorsBurst` (Loki, con `origen: loki`), la prueba de que las dos fuentes de la sesión 11 acaban en el mismo sitio. Arranca `db` y comprueba que las dos se cierran solas al siguiente `group_interval` después de resolverse. Apunta las horas; mientras esperas el cierre, haz el paso 6.
+5. **Pruébalo con alarmas reales de dos orígenes.** Provoca a la vez dos alarmas de orígenes distintos parando `db` con el bucle de tráfico corriendo: tienen que abrirse una issue de `AppHighErrorRate` (Prometheus) y otra de `AppLogErrorsBurst` (Loki, con `origen: loki`), la prueba de que las dos fuentes de alertas acaban en el mismo sitio. Arranca `db` y comprueba que las dos se cierran solas al siguiente `group_interval` después de resolverse. Apunta las horas; mientras esperas el cierre, haz el paso 6.
 
-6. **Dale un remoto a cada repositorio.** Haz commit de `tickets/` y `alertmanager/` en `alerting`, con los enlaces a las issues de prueba en el README en lugar de la nota del remoto pendiente, y del `compose.yml` en `monitoring`. Después da a cada copia de trabajo (`alerting` y `monitoring` en mon01, `servicio` en app01) su remoto `http://gitea.lab:3001/ops/<repo>.git` y haz el primer push: desde hoy el trabajo de las tres pilas está también fuera de las VM.
+6. **Dale un remoto a cada repositorio.** Haz commit de `tickets/` y `alertmanager/` en `alerting`, con los enlaces a las issues de prueba en el README en lugar de la nota del remoto pendiente, y del `compose.yml` en `monitoring`. Después da a cada copia de trabajo (`alerting` y `monitoring` en mon01, `servicio` en app01) su remoto `http://gitea.lab:23001/ops/<repo>.git` y haz el primer push: desde hoy el trabajo de las tres pilas está también fuera de las VM.
 
     *Pista:* antes del primer push de `alerting`, `git check-ignore secrets/tickets.env` tiene que imprimir la ruta; si no, el token se sube con el resto.
 
 <span class="et et-com">Comprobación</span> `firing.json` crea una issue y `resolved.json` la cierra aunque el receptor se reinicie entre los dos; las alarmas del paso 5 tienen cada una su issue categorizada, abierta al firing y cerrada con comentario; los tres repositorios tienen su último commit en Gitea y `secrets/` no está en `alerting`.
 
-<span class="et et-ent">Entrega</span> `tickets/` completo en el repositorio `alerting` y los enlaces a las issues de prueba en el README.
+<span class="et et-ent">Para practicar</span> Deja `tickets/` completo en el repositorio `alerting` y apunta en su README los enlaces a las issues de prueba.
 
 ## Sesión 14 · Verificación completa
 
@@ -1153,8 +1157,8 @@ Cada pieza de la cadena se ha probado ya por separado: las consultas con tráfic
 |---|---|---|---|
 | 1 | Se anota la hora y se provoca la condición (parar `db` con el bucle de tráfico corriendo, parar un exporter, un contenedor que se queda sin memoria) | El indicador cruza el umbral en la gráfica | Prometheus *Graph* o Grafana |
 | 2 | Se espera | La alerta pasa a `pending` con el reloj del `for` | Prometheus *Alerts* |
-| 3 | Se espera el `for` | Pasa a `firing`; se anota el tiempo desde el paso 1 | Prometheus *Alerts* y Alertmanager (9093) |
-| 4 | Se espera `group_wait` | Llega la notificación a cada canal de la ruta, con el texto de la plantilla correcto | Mailpit (8025) y Telegram |
+| 3 | Se espera el `for` | Pasa a `firing`; se anota el tiempo desde el paso 1 | Prometheus *Alerts* y Alertmanager (29093) |
+| 4 | Se espera `group_wait` | Llega la notificación a cada canal de la ruta, con el texto de la plantilla correcto | Mailpit (28025) y Telegram |
 | 5 | Se mira Gitea | Existe la issue con título, etiquetas y fecha correctos | Gitea, repositorio ops/incidencias |
 | 6 | Se resuelve la causa | El indicador vuelve por debajo del umbral | Prometheus *Graph* |
 | 7 | Se espera `group_interval` | Llega la notificación de resolución (`send_resolved`); se anota el tiempo desde el paso 6 | Los mismos canales |
@@ -1192,7 +1196,7 @@ Las provocaciones tardan: entre el `for`, la agrupación y la resolución, una a
 
 <span class="et et-com">Comprobación</span> Cuatro filas completas en `docs/verificacion.md`, cada una con su categoría y su issue abierta y cerrada en Gitea a las horas de la tabla; los cambios aplicados y `promtool check rules` sin errores.
 
-<span class="et et-ent">Entrega</span> `docs/verificacion.md` en el repositorio `alerting`, base del informe de la práctica evaluable.
+<span class="et et-ent">Para practicar</span> Guarda `docs/verificacion.md` en el repositorio `alerting`: es la base del informe de la práctica evaluable.
 
 <span class="et et-ext">Si te sobra tiempo</span> Añade la fila de `AppRestarting`: cuatro reinicios de `app` con medio minuto entre ellos, como en la A2.1 (paso 4). Se resuelve sola cuando los reinicios salen de la ventana de una hora, así que conviene lanzarla al principio de la sesión.
 
@@ -1234,14 +1238,16 @@ Trabaja en este orden. Cierra primero lo pendiente, las filas de la A2.7 sin ter
 
 **El correo no llega a Mailpit.** `smtp_require_tls` está a `true` por defecto y Mailpit no habla TLS de serie. Se pone a `false` en `global`. Si aparece `dial tcp: lookup mailpit`, el contenedor de Alertmanager no está en la misma red de Compose que Mailpit.
 
+**La web de Mailpit o la de Gitea no responde en su puerto.** Desde el puesto, el navegador dice que se ha rechazado la conexión; desde la propia mon01, `curl` da `Empty reply from server` o `Connection reset by peer`. El contenedor está publicado en la franja, pero dentro sigue escuchando en su puerto de fábrica, y Docker no tiene a quién entregar la conexión. Falta la opción que lo cambia: `MP_UI_BIND_ADDR` en Mailpit y `GITEA__server__HTTP_PORT` en Gitea. Las primeras líneas de `docker compose logs` de cada uno dicen en qué puerto ha arrancado.
+
 **Telegram devuelve `Bad Request: chat not found`.** El bot no está en el grupo, o el `chat_id` es el de un usuario y no el del grupo (que es negativo). Se manda un mensaje al grupo con el bot dentro y se consulta `https://api.telegram.org/bot<TOKEN>/getUpdates`.
 
 **El ruler de Loki no carga las reglas.** El directorio es `/loki/rules/<tenant>/` y con `auth_enabled: false` el tenant es `fake`. Un fichero directamente en `/loki/rules/` se ignora sin error. Y la validación: `lokitool rules lint`, con `-n` para que no reescriba el fichero.
 
 **El webhook crea una issue por cada repetición.** El script no comprueba si el `fingerprint` ya tiene issue, o el fichero de estado está en un directorio que no persiste entre reinicios del contenedor. Se monta `/data` como volumen.
 
-**El receptor de incidencias responde 500 y no aparece ninguna issue.** Casi siempre es el token sin permiso de escritura sobre issues o `GITEA_REPO` mal escrito; los logs del servicio `tickets` lo dicen. Si el error es de conexión, `GITEA_URL` apunta a `gitea.lab:3001`, un nombre que el contenedor no resuelve porque no lee el `/etc/hosts` de mon01: va `http://gitea:3000`.
+**El receptor de incidencias responde 500 y no aparece ninguna issue.** Casi siempre es el token sin permiso de escritura sobre issues o `GITEA_REPO` mal escrito; los logs del servicio `tickets` lo dicen. Si el error es de conexión, `GITEA_URL` apunta a `gitea.lab:23001`, un nombre que el contenedor no resuelve porque no lee el `/etc/hosts` de mon01: va `http://gitea:23001`, con el mismo puerto y el nombre del servicio.
 
-**La inhibición no inhibe.** Falta `equal` o los valores de la etiqueta no coinciden literalmente (`instance="app01:9100"` en la fuente y `instance="app01:9102"` en el objetivo son distintos). Se usa una etiqueta común como `host`, que la UT1 pone en todos los jobs, o se inhibe por `env`. `amtool alert query -i` dice si una alerta está inhibida.
+**La inhibición no inhibe.** Falta `equal` o los valores de la etiqueta no coinciden literalmente (`instance="app01:29100"` en la fuente y `instance="app01:29102"` en el objetivo son distintos). Se usa una etiqueta común como `host`, que llevan todos los jobs, o se inhibe por `env`. `amtool alert query -i` dice si una alerta está inhibida.
 
 Los enlaces para ampliar y los apartados que van más allá de lo que se hace en clase están en [Para ampliar](../ampliacion.md#ut2-umbrales-agregacion-y-gestion-de-alarmas).

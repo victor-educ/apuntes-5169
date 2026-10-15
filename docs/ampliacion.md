@@ -29,12 +29,12 @@ Promtail es el agente de Grafana Labs para enviar logs a Loki. Tiene una adverte
 
 ### nginx-prometheus-exporter y stub_status
 
-**nginx-prometheus-exporter** (puerto 9113) lee el módulo `stub_status` de nginx, que hay que activar en el proxy y proteger para que solo lo consulte quien tiene que consultarlo. Hasta el 27 de noviembre el proxy es el contenedor `nginx` del compose del servicio y el fichero se monta dentro de ese contenedor; desde ese día, con el proxy en web01, es un fichero del host y solo lo ve la subred de gestión. Escucha en `127.0.0.1:8082`, no en el 8081: ese puerto es el que cAdvisor publica en el host de app01, y dos servicios no pueden compartirlo:
+**nginx-prometheus-exporter** (puerto 9113 de fábrica, que esta receta pasa al 29113 de la [franja del curso](laboratorio.md#convenciones)) lee el módulo `stub_status` de nginx, que hay que activar en el proxy y proteger para que solo lo consulte quien tiene que consultarlo. Hasta el 27 de noviembre el proxy es el contenedor `nginx` del compose del servicio y el fichero se monta dentro de ese contenedor; desde ese día, con el proxy en web01, es un fichero del host y solo lo ve la subred de gestión. Escucha en `127.0.0.1:28082`, no en el 28081: ese puerto es el que cAdvisor publica en el host de app01, y dos servicios no pueden compartirlo:
 
 ```nginx
 # status.conf, en la configuración del nginx del servicio
 server {
-    listen 127.0.0.1:8082;
+    listen 127.0.0.1:28082;
     location = /stub_status {
         stub_status;
         allow 127.0.0.1;
@@ -46,7 +46,8 @@ server {
 ```bash
 docker run -d --name nginx-exporter --network host \
   nginx/nginx-prometheus-exporter:latest \
-  --nginx.scrape-uri=http://127.0.0.1:8082/stub_status
+  --nginx.scrape-uri=http://127.0.0.1:28082/stub_status \
+  --web.listen-address=:29113
 ```
 
 Lo que da `stub_status` es poco: `nginx_connections_active`, `nginx_connections_waiting`, `nginx_http_requests_total` y `nginx_up`. No hay códigos de respuesta ni latencias por ruta; para eso, en nginx de código abierto, la vía es el log de acceso en JSON parseado en Loki (se hace en la sección de logs) o un módulo de estadísticas de terceros. nginx Plus sí expone todo eso por API; la versión libre no.
@@ -62,11 +63,11 @@ global:
   external_labels: { host: app01, env: dev }
 scrape_configs:
   - job_name: app
-    static_configs: [{ targets: ["app:9102"] }]
+    static_configs: [{ targets: ["app:29102"] }]
   - job_name: cadvisor
-    static_configs: [{ targets: ["cadvisor:8080"] }]
+    static_configs: [{ targets: ["cadvisor:28081"] }]
 remote_write:
-  - url: http://<mon01>:9090/api/v1/write
+  - url: http://<mon01>:29090/api/v1/write
     queue_config:
       capacity: 10000
       max_shards: 4
@@ -188,7 +189,7 @@ receivers:
         parse_mode: HTML
         send_resolved: true
     webhook_configs:
-      - url: http://tickets:5000/alertmanager
+      - url: http://tickets:25000/alertmanager
         send_resolved: true
   - name: dev-chat
     slack_configs:
@@ -197,7 +198,7 @@ receivers:
         send_resolved: true
   - name: tickets
     webhook_configs:
-      - url: http://tickets:5000/alertmanager
+      - url: http://tickets:25000/alertmanager
         send_resolved: true
   - name: "null"
 ```
@@ -309,7 +310,7 @@ La alternativa que no depende de la edición ni del correo es un script que cons
 #!/usr/bin/env bash
 # bin/kpi-semanal.sh (repositorio operacion): exporta los KPI de la semana a Markdown y lo guarda en Git
 set -euo pipefail
-PROM=http://localhost:9090
+PROM=http://localhost:29090
 q() { curl -sG "$PROM/api/v1/query" --data-urlencode "query=$1" | jq -r '.data.result[0].value[1] // "n/a"'; }
 
 SEMANA=$(date +%G-W%V)
@@ -547,12 +548,12 @@ Cuando el repositorio de borg se conserva y solo se borran las copias de un serv
 En un bucket con versionado, `mc rm --versions` borra las versiones de un prefijo de una vez. Con la CLI de AWS se hace versión por versión: listar todas las versiones y marcadores del prefijo, borrarlos explícitamente por `VersionId`, quitar las reglas de ciclo de vida y comprobar que no hay replicación a otro bucket:
 
 ```bash
-aws --endpoint-url http://10.10.0.30:9000 s3api list-object-versions --bucket backups --prefix pre/ \
+aws --endpoint-url http://10.10.0.30:29000 s3api list-object-versions --bucket backups --prefix pre/ \
   --query '{Objects: [Versions[].{Key:Key,VersionId:VersionId}, DeleteMarkers[].{Key:Key,VersionId:VersionId}][]}' \
   --output json > versiones.json
-aws --endpoint-url http://10.10.0.30:9000 s3api delete-objects --bucket backups --delete file://versiones.json
-aws --endpoint-url http://10.10.0.30:9000 s3api list-object-versions --bucket backups --prefix pre/   # vacío
-mc replicate ls lab/backups                                                                           # sin réplicas
+aws --endpoint-url http://10.10.0.30:29000 s3api delete-objects --bucket backups --delete file://versiones.json
+aws --endpoint-url http://10.10.0.30:29000 s3api list-object-versions --bucket backups --prefix pre/   # vacío
+mc replicate ls lab/backups                                                                            # sin réplicas
 ```
 
 `delete-objects` admite 1000 claves por llamada; con más, se trocea. Con Object Lock en modo *governance*, el borrado necesita `--bypass-governance-retention` y el permiso correspondiente; en modo *compliance* no hay forma de borrar antes de la fecha de retención.

@@ -8,7 +8,7 @@ Términos de esta asignatura, en una o dos frases, con la unidad donde se tratan
 
 **Anonimizar** · Transformar datos personales de forma que no se pueda identificar a la persona, conservando su utilidad estadística. UT8.
 
-**API** · Interfaz de programación: el conjunto de rutas HTTP con las que un programa pide datos a otro o se los envía. La del servicio del curso está escrita en Python con Flask y escucha en el 8080; Prometheus, Loki y Alertmanager tienen también la suya. UT1.
+**API** · Interfaz de programación: el conjunto de rutas HTTP con las que un programa pide datos a otro o se los envía. La del servicio del curso está escrita en Python con Flask y escucha en el 28080; Prometheus, Loki y Alertmanager tienen también la suya. UT1.
 
 **Append-only** · Modo de acceso al destino de las copias en el que el cliente puede añadir datos pero no borrar ni sobrescribir los que ya hay. Es lo que impide que un ransomware que entre por el host copiado destruya también las copias. UT6.
 
@@ -254,7 +254,7 @@ Términos de esta asignatura, en una o dos frases, con la unidad donde se tratan
 
 **Umbral** · Valor a partir del cual una métrica se considera anómala. Se fija desde la documentación del servicio y se ajusta con datos reales. UT2, UT4.
 
-**URL** · Dirección completa de un recurso web, con protocolo, nombre, puerto y ruta (`http://localhost:9090/api/v1/query`). UT2.
+**URL** · Dirección completa de un recurso web, con protocolo, nombre, puerto y ruta (`http://localhost:29090/api/v1/query`). UT2.
 
 **USE (método)** · Revisión de rendimiento que mira, para cada recurso, su utilización, su saturación y sus errores. UT4, UT5.
 
