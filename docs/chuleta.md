@@ -16,7 +16,7 @@ APP=$(docker compose -f $C ps -q app)             # el contenedor de la API, sin
 docker stats --no-stream
 docker compose -f $C logs -f --since 10m app
 docker compose -f $C logs --no-log-prefix app | grep '"level": "error"' | tail -50
-docker events --filter type=container --format '{{json .}}'
+docker events --filter type=container --filter event=die --filter event=oom --format '{{json .}}'
 docker inspect $APP --format '{{.RestartCount}} {{.State.ExitCode}} {{.State.OOMKilled}}'
 docker inspect $APP --format '{{.State.Health.Status}}'
 docker compose -f $C ps && docker compose -f $C top

@@ -243,6 +243,8 @@ services:
       - --store_container_labels=false
       - --whitelisted_container_labels=com.docker.compose.service,com.docker.compose.project
       - --disable_metrics=percpu,sched,tcp,udp,hugetlb,referenced_memory,cpu_topology,resctrl
+    environment:
+      CADVISOR_HEALTHCHECK_URL: http://localhost:28081/healthz
     ports:
       - "28081:28081"
     restart: unless-stopped
@@ -253,7 +255,7 @@ Del resto del fichero, cuatro decisiones:
 - `privileged` y `/dev/kmsg` le dejan leer los avisos del kernel. Sin ellos funciona, pero no se entera de que el OOM killer ha matado a nadie y `container_oom_events_total` no sube nunca.
 - `--docker_only` deja fuera los cgroups que no son contenedores (los servicios del propio host), que no aportan nada y multiplican las series.
 - `--housekeeping_interval=10s` hace que mida cada 10 s en lugar de cada segundo. Con el valor por defecto, cAdvisor puede llegar a gastar un 5 % de la CPU del host solo en medirse a sí mismo y a los demás.
-- `--port=28081`: cAdvisor escucha en el puerto que le diga esta opción, y se publica en ese mismo número. Por la regla de los puertos del curso le tocaría el 28080 (su 8080 de fábrica más 20000), pero ese es el de la API en el mismo host. Dentro de la red de Docker se le llama igual, `cadvisor:28081`.
+- `--port=28081`: cAdvisor escucha en el puerto que le diga esta opción, y se publica en ese mismo número. Su imagen trae un healthcheck que pregunta en el 8080 de fábrica; `CADVISOR_HEALTHCHECK_URL` le dice que pregunte en el nuevo, y sin ella el contenedor sale siempre `unhealthy`. Por la regla de los puertos del curso le tocaría el 28080 (su 8080 de fábrica más 20000), pero ese es el de la API en el mismo host. Dentro de la red de Docker se le llama igual, `cadvisor:28081`.
 
 Las dos opciones de etiquetas (`--store_container_labels` y `--whitelisted_container_labels`) son las que explica el apartado siguiente.
 
@@ -535,6 +537,8 @@ secrets:
   pgx_pass:
     file: ./pgx_pass.txt     # la contraseña de monitor; va en .gitignore
 ```
+
+En Linux, Docker monta el *secret* con los permisos que tenga el fichero en el host, y el exporter se ejecuta como el usuario `nobody` (uid y gid 65534). Si `pgx_pass.txt` solo lo puede leer su dueño, el exporter no arranca (`failed loading data source pass file`). Se le da lectura solo a ese grupo: `sudo chgrp 65534 pgx_pass.txt && chmod 640 pgx_pass.txt`. En Docker Desktop no pasa, porque no aplica esos permisos, así que en el portátil funciona y falla al llevarlo a app01.
 
 **Qué se mira de PostgreSQL.** `pg_up` vale 1 si el exporter consigue conectar y 0 si no, así que es la primera métrica que dice si la base de datos responde. Además, `pg_stat_database_numbackends` (las conexiones abiertas, para compararlas con el máximo permitido), `pg_stat_database_xact_commit` y `xact_rollback` (transacciones confirmadas y deshechas, con `rate()`), `pg_stat_database_blks_hit` frente a `blks_read` (cuántas lecturas se sirven desde la caché de PostgreSQL y cuántas tienen que ir a disco), `pg_locks_count` y `pg_database_size_bytes`.
 
@@ -912,7 +916,7 @@ La hoja tiene dos partes. En la primera trasladas lo que ya funciona en tu port�
 
 1. **Lleva el laboratorio a sus dos máquinas.** Copia las tres pilas del portátil a las VM, con su historia de Git: el servicio y los agentes a app01, la monitorización a mon01. Desde hoy esas son las copias de trabajo y las del portátil dejan de usarse. Repasa antes en los tres compose que cada puerto publicado es el de la franja y el mismo en que escucha el servicio dentro de su contenedor, porque desde hoy Prometheus va a buscar cada target a otra máquina por ese número. Y antes de levantar nada en app01, limita sus ficheros de log como se explica en [El driver de logs de Docker](#el-driver-de-logs-de-docker-y-por-que-limitarlo) (50 MB y 5 ficheros): es el momento, porque el límite solo se aplica a los contenedores que se crean después.
 
-    *Pista:* la red `obs` hay que crearla otra vez en cada VM, y la base de datos de app01 nace vacía, así que el usuario `monitor` de la A1.3 se vuelve a crear. El número de cada servicio está en las [convenciones del laboratorio](../laboratorio.md#convenciones); si se publica sin su opción de escucha, el servicio sigue en su puerto de fábrica y no contesta.
+    *Pista:* la red `obs` hay que crearla otra vez en cada VM, y la base de datos de app01 nace vacía, así que el usuario `monitor` de la A1.3 se vuelve a crear, y `pgx_pass.txt` necesita los permisos que explica [Exporters](#exporters-lo-que-no-se-puede-instrumentar) para que el exporter lo pueda leer. El número de cada servicio está en las [convenciones del laboratorio](../laboratorio.md#convenciones); si se publica sin su opción de escucha, el servicio sigue en su puerto de fábrica y no contesta.
 
 2. **Haz que Prometheus encuentre cada pieza en su nuevo sitio.** Hasta ayer Prometheus llamaba a cada target por su nombre dentro de la red de Docker del portátil; desde hoy los targets están en otra máquina, así que se llaman por la IP de app01 y el puerto publicado, que es el mismo número de antes. Cambia en los jobs `app`, `postgres` y `cadvisor` el nombre por esa IP y su etiqueta a `host: app01`, para que cada serie diga de qué máquina viene. Añade además el job `node`, con el node_exporter de las dos VM, que da lo que cAdvisor no ve (el disco o la memoria de la máquina entera), y los de `promtail` y `loki`, que vigilan la propia cadena de logs. Al terminar, `app`, `postgres`, `cadvisor` y los dos de `node` tienen que estar en UP; `loki` y `promtail` seguirán en DOWN hasta los pasos 4 y 5.
 
@@ -974,11 +978,16 @@ docker events --filter event=die --filter event=oom --filter event=health_status
   docker-events:
     image: docker:28-cli
     container_name: docker-events
-    command: docker events --filter type=container --format '{{json .}}'
+    command: >-
+      docker events --filter type=container --format '{{json .}}'
+      --filter event=start --filter event=die --filter event=kill --filter event=oom
+      --filter event=stop --filter event=restart --filter event=health_status
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
 ```
+
+Los filtros `event=` dejan solo las acciones que cuentan la vida de un contenedor. Sin ellos también llegan los `exec_create`, `exec_start` y `exec_die` de cada healthcheck, cada pocos segundos y con la orden entera en `Action`: la etiqueta `action` se llenaría de valores distintos, que es justo la cardinalidad que hay que evitar en Loki.
 
 Cada línea es un JSON con `status`, `Action`, `Actor.ID`, `Actor.Attributes.name`, `Actor.Attributes.exitCode`, `Actor.Attributes.com.docker.compose.service`, y `time`. Un `match` en el pipeline de Promtail para `{service="docker-events"}` con `json` extrae `Action` a etiqueta `action` y el nombre del contenedor afectado a structured metadata. En Loki: `{service="docker-events", action=~"die|oom"}`. La alternativa es un exporter que convierta eventos en métricas (hay varios en GitHub, ninguno oficial); tiene la ventaja de poder alertar con PromQL en lugar de LogQL, pero se pierde el detalle (el exitCode, quién lo paró). Quedarse con Loki no impide alertar: en noviembre, en la unidad de alarmas (UT2), se escriben alarmas sobre estos eventos, como la de un contenedor que muere por falta de memoria.
 
