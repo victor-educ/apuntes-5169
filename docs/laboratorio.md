@@ -9,7 +9,7 @@ Las dos asignaturas van en paralelo, y esta empieza a vigilar contenedores el 1 
 | Desde | Qué hay para esta asignatura | Quién lo pone |
 |-------|------------------------------|---------------|
 | 1 oct | Ninguna VM: el servicio y la pila mínima corren con Docker en el puesto del alumno | A1.1 de esta asignatura |
-| 15 oct | app01 y mon01 en la red del aula, sin subredes ni cortafuegos | A1.3 de Despliegue (14 oct); se ocupan en la A1.4 |
+| 15 oct | app01 y mon01 en tu Proxmox del centro, en la red del laboratorio, sin subredes ni cortafuegos | A1.3 de Despliegue (14 oct); se ocupan en la A1.4 |
 | 17 nov | Gitea provisional en mon01 (`gitea.lab:23001`) y remoto de los repositorios | A2.6 de esta asignatura |
 | 27 nov | VPC dev detrás de OPNsense: app01 en back, mon01 en gestión, la base de datos en db01 y el proxy en web01 | A3.3 de Despliegue |
 | 3 dic | La pila cerrada: Prometheus, Alertmanager y Mailpit solo por túnel, Loki con certificado de cliente | Práctica evaluable de la UT3 de esta asignatura |
@@ -63,20 +63,20 @@ El entorno provisional tiene dos fases, y ninguna necesita más de lo que Despli
 
 **Del 1 al 13 de octubre (sesiones 1, 2 y 3): no existe ninguna VM del laboratorio.** Todo corre con Docker en el puesto del alumno, en localhost: el servicio del curso entero (nginx, API y PostgreSQL en un solo compose, en `/opt/servicio`) y, en otro compose, la pila mínima de monitorización (Prometheus, Alertmanager y Grafana, en `/opt/monitoring`). Los agentes de la UT1 van en un tercer compose, en `/opt/agentes`. Los tres comparten la red de Docker `obs` y se llaman entre ellos por el nombre del servicio de compose, sin ninguna IP.
 
-**Desde el 15 de octubre (sesión 4): dos VM.** Son las de la tabla, que Despliegue clona de la plantilla 9000 el día anterior con Docker Engine, node_exporter y la clave SSH del puesto del alumno ya dentro. Se entra desde el puesto con `ssh ops@app01` y `ssh ops@mon01`, con los nombres en el `/etc/hosts` del puesto y de mon01, como indica la A1.4.
+**Desde el 15 de octubre (sesión 4): dos VM.** Desde ese día se trabaja en el Proxmox del centro: cada alumno tiene allí su VM `puesto`, un Ubuntu con escritorio que hace de puesto del alumno, y su propio Proxmox, donde viven todas las VM del curso ([Dónde se trabaja](https://victor-educ.github.io/apuntes-5166/laboratorio/#donde-se-trabaja)). Son las de la tabla, que Despliegue clona de la plantilla 9000 el día anterior con Docker Engine, node_exporter y la clave SSH del puesto del alumno ya dentro. Se entra desde el puesto con `ssh ops@app01` y `ssh ops@mon01`, con los nombres en el `/etc/hosts` del puesto y de mon01, como indica la A1.4.
 
 | VM | Red | Qué lleva | Nace en | Muere en |
 |----|-----|-----------|---------|----------|
-| app01 (120) | vmbr0, la red del aula, IP por DHCP; `devback` (10.10.2.10) desde el 27 de noviembre | El servicio del curso en Docker Compose (nginx, API y PostgreSQL hasta el 27 de noviembre; desde entonces solo la API) y los agentes de la UT1 | A1.3 de Despliegue (14 de octubre); se ocupa en la A1.4 (15 de octubre) | No se destruye: llega al final del curso |
+| app01 (120) | vmbr0, la red del laboratorio, IP por DHCP; `devback` (10.10.2.10) desde el 27 de noviembre | El servicio del curso en Docker Compose (nginx, API y PostgreSQL hasta el 27 de noviembre; desde entonces solo la API) y los agentes de la UT1 | A1.3 de Despliegue (14 de octubre); se ocupa en la A1.4 (15 de octubre) | No se destruye: llega al final del curso |
 | mon01 (103) | vmbr0, IP por DHCP; `devmgmt` (10.10.0.20) desde el 27 de noviembre | Prometheus, Alertmanager y Grafana con el compose de la A1.1 de esta asignatura; Loki desde la A1.4, Mailpit y la Gitea provisional desde la UT2, MinIO desde el 18 de diciembre | A1.3 de Despliegue (14 de octubre), con 3 GB de RAM | No se destruye: llega al final del curso |
 
-Sin firewall y sin subredes: todo está en la red del aula. Es suficiente para las UT1 y UT2, que van de sacar datos del contenedor y convertirlos en alarmas. La seguridad de esas comunicaciones se trata en la UT3 precisamente cuando hay dónde aplicarla.
+Sin firewall y sin subredes: todo está en la red del laboratorio (192.168.100.0/24). Es suficiente para las UT1 y UT2, que van de sacar datos del contenedor y convertirlos en alarmas. La seguridad de esas comunicaciones se trata en la UT3 precisamente cuando hay dónde aplicarla.
 
-**web01 y db01 no entran en juego hasta el 27 de noviembre**, cuando Despliegue separa las zonas. Hasta entonces no hay que buscarlas ni inventarlas: la base de datos es el servicio `db` del compose del servicio y el proxy es el servicio `nginx` del mismo compose, los dos en el mismo host que la API. Las subredes 10.10.x.x existen desde el 30 de octubre (con router-dev como `.1` desde el 4 de noviembre) y el cortafuegos desde el 20 de noviembre, con OPNsense, pero app01 y mon01 siguen en la red del aula hasta el traslado.
+**web01 y db01 no entran en juego hasta el 27 de noviembre**, cuando Despliegue separa las zonas. Hasta entonces no hay que buscarlas ni inventarlas: la base de datos es el servicio `db` del compose del servicio y el proxy es el servicio `nginx` del mismo compose, los dos en el mismo host que la API. Las subredes 10.10.x.x existen desde el 30 de octubre (con router-dev como `.1` desde el 4 de noviembre) y el cortafuegos desde el 20 de noviembre, con OPNsense, pero app01 y mon01 siguen en la red del laboratorio hasta el traslado.
 
 **Migración al entorno definitivo.** La hace la [A3.3 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#a33-aplicacion-y-datos-sesion-16) el 27 de noviembre: pasa app01 a `devback` (10.10.2.10) y mon01 a `devmgmt` (10.10.0.20), instala en db01 PostgreSQL con la base `servicio` y el usuario `app` y, al lado, su postgres_exporter; pone `DB_HOST=10.10.3.10` en el `.env` del servicio, quita `db` y `nginx` de su compose y deja como proxy el nginx de web01. Los datos de prueba de octubre y noviembre no se trasladan: la API crea el esquema vacío en db01. Los de Prometheus y Loki sí se conservan, porque mon01 cambia de red, no de disco. La UT3 de esta asignatura se reparte alrededor de ese día: la A3.1 (26 de noviembre) audita con las VM todavía en el aula y la A3.2 (1 de diciembre) trabaja ya en la VPC. Desde el traslado cambian tres cosas:
 
-- A app01, db01, web01 y mon01 se entra con salto por el puesto de administración: `ssh -J ops@<IP de aula de admin01> ops@10.10.2.10`, y lo mismo con la IP de cada una. El [laboratorio de Despliegue](https://victor-educ.github.io/apuntes-5166/laboratorio/#nombres-dns-y-acceso) trae un `~/.ssh/config` de ejemplo con el que basta `ssh app01`.
+- A app01, db01, web01 y mon01 se entra con salto por el puesto de administración: `ssh -J ops@<IP de admin01 en la red del laboratorio> ops@10.10.2.10`, y lo mismo con la IP de cada una. El [laboratorio de Despliegue](https://victor-educ.github.io/apuntes-5166/laboratorio/#nombres-dns-y-acceso) trae un `~/.ssh/config` de ejemplo con el que basta `ssh app01`.
 - Los nombres los resuelve el DNS de OPNsense (`mon01.lab`, `grafana.lab`, `gitea.lab` y los `<host>.dev.lab`), no el `/etc/hosts`.
 - PostgreSQL de dev es un servicio del sistema en db01 y se maneja con `systemctl`; el compose del servicio de app01 solo tiene `app`.
 
@@ -96,19 +96,19 @@ Hasta el traslado del 27 de noviembre la pila se abre con la dirección del aula
 
 | Servicio | Dónde escucha | Cómo se llega |
 |----------|---------------|---------------|
-| Grafana | `10.10.0.20:443`, detrás de nginx | Túnel al 443 desde el puesto del aula; `https://grafana.lab/` directamente desde la red de gestión |
+| Grafana | `10.10.0.20:443`, detrás de nginx | Túnel al 443 desde tu VM `puesto`; `https://grafana.lab/` directamente desde la red de gestión |
 | Loki | `10.10.0.20:23100`, tras el mismo nginx y con certificado de cliente | Promtail de app01 y `logcli` en el puesto de administración; Grafana y Prometheus le hablan por dentro |
 | Gitea provisional | `10.10.0.20:23001`, hasta el 12 de febrero | La red de gestión y app01, cada uno por su fila de la matriz de reglas |
 | Prometheus, Alertmanager y Mailpit | `127.0.0.1` de mon01, en el 29090, el 29093 y el 28025 | Túnel SSH, o una shell en mon01 |
 
-Desde el puesto del aula se abren dos túneles con el puesto de administración como salto (`<admin01>` es su IP del aula; con el `~/.ssh/config` de Despliegue, `-J ops@<admin01> ops@10.10.0.20` se queda en `mon01`). El primero deja además una shell abierta en mon01:
+Desde tu VM `puesto` se abren dos túneles con el puesto de administración como salto (`<admin01>` es su IP en la red del laboratorio; con el `~/.ssh/config` de Despliegue, `-J ops@<admin01> ops@10.10.0.20` se queda en `mon01`). El primero deja además una shell abierta en mon01:
 
 ```bash
 ssh -L 29090:127.0.0.1:29090 -L 29093:127.0.0.1:29093 -L 28025:127.0.0.1:28025 -J ops@<admin01> ops@10.10.0.20
 ssh -L 28443:10.10.0.20:443 ops@<admin01>
 ```
 
-Con los dos abiertos, Prometheus está en `http://localhost:29090`, Alertmanager en `http://localhost:29093` y Mailpit en `http://localhost:28025`: en el puesto, cada túnel escucha en el mismo puerto de la franja que el servicio. Grafana está en `https://grafana.lab:28443`, con la línea `127.0.0.1 grafana.lab` en el fichero hosts del puesto del aula y la CA del curso (`ca.crt`) importada en el navegador: el nombre tiene que ser `grafana.lab` porque es el que lleva el certificado. El 28443 del puesto lo usan también los túneles de OPNsense y de Jenkins de Despliegue, así que de los tres solo puede estar abierto uno a la vez.
+Con los dos abiertos, Prometheus está en `http://localhost:29090`, Alertmanager en `http://localhost:29093` y Mailpit en `http://localhost:28025`: en el puesto, cada túnel escucha en el mismo puerto de la franja que el servicio. Grafana está en `https://grafana.lab:28443`, con la línea `127.0.0.1 grafana.lab` en el fichero hosts de tu VM `puesto` y la CA del curso (`ca.crt`) importada en el navegador: el nombre tiene que ser `grafana.lab` porque es el que lleva el certificado. El 28443 del puesto lo usan también los túneles de OPNsense y de Jenkins de Despliegue, así que de los tres solo puede estar abierto uno a la vez.
 
 En la shell de mon01 valen las direcciones locales, y `amtool` se usa desde el contenedor de Alertmanager, que ya lo trae:
 

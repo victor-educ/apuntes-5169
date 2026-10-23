@@ -188,7 +188,7 @@ Tres criterios para elegirlo:
 <span class="et et-pre">Antes de empezar</span>
 
 - `app01` y `mon01` encendidas, con todos los targets de `http://mon01:29090` en UP.
-- Los nombres `app01` y `mon01` en el `/etc/hosts` de tu puesto y de mon01, como los dejó la A1.4 (hasta el 27 de noviembre nadie más los resuelve); si el DHCP les ha cambiado la IP, corrígela.
+- Los nombres `app01` y `mon01` en el `/etc/hosts` de tu VM `puesto` y de mon01, como los dejó la A1.4 (hasta el 27 de noviembre nadie más los resuelve); si el DHCP les ha cambiado la IP, corrígela.
 - La documentación del servicio (la da el profesor): límite de memoria, latencia p95, disponibilidad y `max_connections`.
 - Explicado al principio: [De la métrica a la alarma](#de-la-metrica-a-la-alarma) y [Alertar por síntomas](#alertar-por-sintomas-no-por-causas), para el criterio; [rate, increase y la ventana](#rate-increase-y-la-ventana), [Operadores con etiquetas](#operadores-con-etiquetas) y [Una consulta vacía no es un cero](#una-consulta-vacia-no-es-un-cero), para las consultas; la [tabla de umbrales](#tabla-de-umbrales-del-contenedor-de-referencia) y [Cómo elegir el for](#como-elegir-el-for), para los números.
 
@@ -198,7 +198,7 @@ Primero preparas el terreno: el repositorio donde va a vivir todo lo de la unida
 
 1. **Crea el repositorio de la unidad.** Todo lo que se escribe en esta unidad (umbrales, cadenas, reglas, la configuración de Alertmanager y el receptor de incidencias) va al repositorio `alerting`, en `/opt/alerting` de mon01, y es lo que entregas en la práctica evaluable. Créalo hoy con `secrets/` en el `.gitignore` desde el primer commit, porque ahí irán el 12 y el 17 de noviembre el token del bot de Telegram y el de Gitea, y con un `README` que anote que todavía no tiene remoto: lo recibe en la A2.6.
 
-2. **Pon tráfico de fondo.** Deja en tu puesto, toda la sesión, un bucle de peticiones contra `http://app01:20080/items` que meta de vez en cuando una ruta inexistente. Sin tráfico, la velocidad de las peticiones es cero, los ratios dividen entre cero y no hay valor normal que medir; las rutas inexistentes sirven para comprobar que un 404 no cuenta como error del servicio. Las hojas siguientes cuentan con este bucle.
+2. **Pon tráfico de fondo.** Deja en tu VM `puesto`, toda la sesión, un bucle de peticiones contra `http://app01:20080/items` que meta de vez en cuando una ruta inexistente. Sin tráfico, la velocidad de las peticiones es cero, los ratios dividen entre cero y no hay valor normal que medir; las rutas inexistentes sirven para comprobar que un 404 no cuenta como error del servicio. Las hojas siguientes cuentan con este bucle.
 
     *Pista:* con `curl -s` el bucle falla en silencio, así que comprueba antes que la API da 200.
 
@@ -356,7 +356,7 @@ groups:
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Loki con los logs de `app` y los eventos Docker, `logcli` en tu puesto con `LOKI_ADDR=http://mon01:23100` y el bucle de tráfico de la A2.1 corriendo.
+- Loki con los logs de `app` y los eventos Docker, `logcli` en tu VM `puesto` con `LOKI_ADDR=http://mon01:23100` y el bucle de tráfico de la A2.1 corriendo.
 - El código de la API (`/opt/servicio/api/` en app01) o su documentación.
 - Explicado al principio: [Cadenas en logs y eventos](#cadenas-en-logs-y-eventos), hasta [Métricas sobre logs](#metricas-sobre-logs). El ruler no hace falta hoy.
 
@@ -625,7 +625,7 @@ tests:
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Las métricas grabadas de A2.3 evaluándose; `docs/umbrales.md` y `docs/cadenas.md`; `loki.yml` de mon01; el bucle de tráfico de A2.1 corriendo en tu puesto.
+- Las métricas grabadas de A2.3 evaluándose; `docs/umbrales.md` y `docs/cadenas.md`; `loki.yml` de mon01; el bucle de tráfico de A2.1 corriendo en tu VM `puesto`.
 - `lokitool` en mon01: es un binario de la misma release de Loki que `logcli`, y se instala igual.
 - Explicado al principio: [Reglas de alerta](#reglas-de-alerta) entero, con [Probar las reglas con promtool](#probar-las-reglas-con-promtool) para el paso 3; para Loki, [Alertas en el ruler de Loki](#alertas-en-el-ruler-de-loki).
 
@@ -1114,14 +1114,14 @@ El token de Gitea se genera en *Configuración → Aplicaciones → Generar toke
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Alertmanager de A2.5 notificando, el bucle de tráfico de A2.1 corriendo en tu puesto y sitio en mon01 para un contenedor más (Gitea pide unos 300 MB de memoria).
+- Alertmanager de A2.5 notificando, el bucle de tráfico de A2.1 corriendo en tu VM `puesto` y sitio en mon01 para un contenedor más (Gitea pide unos 300 MB de memoria).
 - Explicado al principio: [Categorizar, notificar y tratar](#categorizar-notificar-y-tratar) y [El JSON del webhook](#el-json-del-webhook). Para el código, [Receptor Flask que abre y cierra incidencias en Gitea](#receptor-flask-que-abre-y-cierra-incidencias-en-gitea).
 
 <span class="et et-pas">Pasos</span>
 
 Construyes la cadena desde el final: primero Gitea, que es donde tienen que acabar las incidencias; después el receptor, que pruebas solo, con ficheros JSON, antes de conectarlo a nada; y cuando abre y cierra bien, lo conectas a Alertmanager y lo pruebas con alarmas reales. Probar cada tramo por separado es lo que te permite saber, si algo falla, dónde está el fallo. Al final, el mismo Gitea pasa a ser el remoto de tus repositorios.
 
-1. **Levanta Gitea, donde acabarán las incidencias.** Como `gitea01` no existe hasta el 12 de febrero, Gitea va de momento en la pila de mon01: imagen `gitea/gitea:1.24`, datos en un volumen `gitea_data` (queda como `monitoring_gitea_data`), escuchando y publicado en el 23001 con `GITEA__server__HTTP_PORT=23001` (el 23000 que le daría la regla de puertos es el de Grafana) y `GITEA__server__ROOT_URL=http://gitea.lab:23001/`, la dirección que Gitea pone en sus enlaces. Añade `gitea.lab` a la línea de mon01 del `/etc/hosts` de tu puesto, de mon01, de app01 y del puesto de administración, porque todos van a empujar a este Gitea. Instálalo con SQLite y crea tu usuario administrador, la organización `ops` y, dentro, cuatro repositorios vacíos: `incidencias`, `alerting`, `servicio` y `monitoring`.
+1. **Levanta Gitea, donde acabarán las incidencias.** Como `gitea01` no existe hasta el 12 de febrero, Gitea va de momento en la pila de mon01: imagen `gitea/gitea:1.24`, datos en un volumen `gitea_data` (queda como `monitoring_gitea_data`), escuchando y publicado en el 23001 con `GITEA__server__HTTP_PORT=23001` (el 23000 que le daría la regla de puertos es el de Grafana) y `GITEA__server__ROOT_URL=http://gitea.lab:23001/`, la dirección que Gitea pone en sus enlaces. Añade `gitea.lab` a la línea de mon01 del `/etc/hosts` de tu VM `puesto`, de mon01, de app01 y del puesto de administración, porque todos van a empujar a este Gitea. Instálalo con SQLite y crea tu usuario administrador, la organización `ops` y, dentro, cuatro repositorios vacíos: `incidencias`, `alerting`, `servicio` y `monitoring`.
 
 2. **Despliega el receptor.** Pon el receptor como servicio `tickets` de la misma pila, para que Alertmanager le llegue por la red del compose: en `/opt/alerting/tickets`, el script de [Receptor Flask](#receptor-flask-que-abre-y-cierra-incidencias-en-gitea) tal cual como `app.py` y un `Dockerfile` sobre `python:3-slim` con `flask` y `requests`. En el compose, sus variables van en `secrets/tickets.env` (permisos 600, porque lleva el token de Gitea) y su estado en un volumen `tickets_data`, en `/data`, para que la relación entre alertas e issues sobreviva a un reinicio. Publica su 25000 solo en `127.0.0.1`: Alertmanager llega por la red del compose, y desde fuera solo hace falta para el paso 3.
 
@@ -1173,7 +1173,7 @@ Cada pieza de la cadena se ha probado ya por separado: las consultas con tráfic
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Toda la cadena de A2.4 a A2.6 en marcha (compruébalo con una alerta sintética de `amtool alert add`) y el bucle de tráfico de A2.1 corriendo en tu puesto.
+- Toda la cadena de A2.4 a A2.6 en marcha (compruébalo con una alerta sintética de `amtool alert add`) y el bucle de tráfico de A2.1 corriendo en tu VM `puesto`.
 - Explicado al principio: [Procedimiento de verificación de una alarma](#procedimiento-de-verificacion-de-una-alarma).
 
 <span class="et et-pas">Pasos</span>

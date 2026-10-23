@@ -299,7 +299,7 @@ Construyes los indicadores de dentro afuera: primero los cálculos, como reglas 
 
 5. **Versiona el panel y publica.** Exporta el dashboard a `grafana/kpi.json` de `operacion` y empuja `alerting` y `operacion`. Un panel que solo vive en la base de datos de Grafana se pierde con ella; en el repositorio queda junto a los indicadores que explica.
 
-    *Pista:* el JSON se descarga en el puesto del aula, y `operacion` está en el puesto de administración.
+    *Pista:* el JSON se descarga en tu VM `puesto`, y `operacion` está en el puesto de administración.
 
 <span class="et et-com">Comprobación</span> `promtool check rules` sin errores; los nueve indicadores devuelven valor (ninguno `NaN` ni `+Inf`); el panel los muestra con colores según umbral; cada umbral tiene su justificación con datos.
 
@@ -357,7 +357,7 @@ Dos fichas más, escritas con el mismo esquema, para ver cómo cambia el conteni
 | Posible fallo | Crecimiento normal de datos sin plan de capacidad; logs de PostgreSQL o de la aplicación sin rotación; copias locales (`pg_dump`) acumuladas en el mismo volumen; tabla sin `VACUUM` con bloat (espacio que siguen ocupando filas ya borradas) |
 | Impacto | Ninguno inmediato. Si no se actúa, en menos de una semana PostgreSQL deja de escribir y salta PgDown |
 | Análisis | 1. Panel "KPI app", indicador de días hasta disco lleno: pendiente de la gráfica de 30 días y fecha estimada. 2. `du -xsh /data/* \| sort -h \| tail` para ver qué crece. 3. `sudo -u postgres psql -c "select relname, pg_size_pretty(pg_total_relation_size(oid)) from pg_class order by pg_total_relation_size(oid) desc limit 10"`. 4. `ls -la /data/copias` (¿hay volcados que ya están copiados fuera de la máquina?). 5. Si el crecimiento está fuera de `/data`, `du -xsh /var/log/*` en db01: casi siempre son los logs de PostgreSQL sin rotar |
-| Resolución | Volcados locales ya replicados: borrar los de más de 7 días. Logs: revisar la rotación de `/var/log/postgresql` en `/etc/logrotate.d/postgresql-common`. Bloat: `VACUUM (VERBOSE)` de la tabla en ventana de baja carga. Crecimiento legítimo: abrir tarea de ampliación del disco virtual en Proxmox (`qm resize`) y `resize2fs`, con copia previa |
+| Resolución | Volcados locales ya replicados: borrar los de más de 7 días. Logs: revisar la rotación de `/var/log/postgresql` en `/etc/logrotate.d/postgresql-common`. Bloat: `VACUUM (VERBOSE)` de la tabla en ventana de baja carga. Crecimiento legítimo: abrir tarea de ampliación del disco virtual en Proxmox (pestaña Hardware de la VM, **Disk Action → Resize**) y `resize2fs`, con copia previa |
 | Escalado | Si la fecha estimada es inferior a 3 días, tratar como crítico y avisar al responsable de infraestructura en el día |
 
 **El catálogo, vivo.** El catálogo es la tabla de todas las alarmas, versionada junto a sus runbooks y enlazada desde la anotación `runbook` de cada regla. La A4.3 pide el catálogo entero y cinco runbooks completos. En una empresa, un servicio mediano acumula decenas de alarmas, y parte del mantenimiento es retirar las que nunca saltan o las que saltan sin que haya nada que hacer: es una de las cosas que miran las revisiones periódicas.
@@ -782,7 +782,7 @@ flowchart TB
 
 - k6 y `jq` en el puesto de administración. k6 es un binario único, de su [página de versiones](https://github.com/grafana/k6/releases).
 - El clon de `servicio` y `API_TEST_PASS`, como en la A4.4.
-- `app` con los límites de la A4.2, y el panel de KPI abierto en el navegador del puesto del aula.
+- `app` con los límites de la A4.2, y el panel de KPI abierto en el navegador de tu VM `puesto`.
 - Lo explicado al principio de la sesión: [carga, rendimiento y estrés](#carga-rendimiento-y-estres-no-son-lo-mismo), [k6, options, stages, thresholds y checks](#calidad-de-servicio-y-rendimiento-con-k6) y [leer los resultados junto a Grafana](#leer-los-resultados-junto-a-grafana).
 
 <span class="et et-pas">Pasos</span>
@@ -795,7 +795,7 @@ Primero preparas lo que la prueba necesita para ir sola (el token y el script); 
 
 2. **Lanza la prueba y captura cada escalón.** Exporta `API_TOKEN` con la salida de `token.sh` y lanza la prueba completa como en el apartado, con `APP_VERSION=1.4.2` y el resumen en `tests/evidence/1.4.2/k6-resumen.json`. Al final de cada escalón (minutos 4, 8 y 12) captura el panel de KPI con el rango de tiempo visible: `grafana-carga-10.png`, `grafana-carga-50.png` y `grafana-carga-100.png`. Son la mitad de la respuesta del paso 3: lo que le pasaba al servidor mientras k6 medía.
 
-    *Pista:* las capturas se quedan en el puesto del aula; llévalas después a `tests/evidence/1.4.2/` del clon.
+    *Pista:* las capturas se quedan en tu VM `puesto`; llévalas después a `tests/evidence/1.4.2/` del clon.
 
 3. **Responde con los datos.** Escribe `tests/evidence/1.4.2/rendimiento.md` con tres respuestas: a partir de cuántos usuarios se incumple el SLO de p95, qué recurso limita (en el orden de [Leer los resultados junto a Grafana](#leer-los-resultados-junto-a-grafana)) y por qué difieren el p95 de k6 y el del servidor. Cada respuesta se apoya en una cifra del resumen o en una captura. Empuja `tests/`.
 

@@ -80,7 +80,7 @@ mindmap
       Contenedores y volúmenes
       Imágenes locales y en registry
       VM en Proxmox y snapshots
-      Plantillas y backups vzdump
+      Plantillas y copias de VM
     Red
       IP e IPAM del SDN
       Reservas dnsmasq y DNS
@@ -138,14 +138,14 @@ El inventario se hace así, sistema por sistema, en el paso 3 de la [A8.1](#a81-
 | Camino | A qué se llega | Con qué credencial |
 |---|---|---|
 | API por HTTPS | Proxmox, Grafana, Jenkins y el registry | Un token por sistema: el `tofu` de Proxmox, el de una cuenta de servicio de Grafana y un API token de Jenkins; en el registry, su usuario `jenkins` |
-| SSH | Las VM de pre, agent01, mon01 y db01 | La clave de `ops` del puesto del aula, que `ssh -A` presta al puesto de administración |
+| SSH | Las VM de pre, agent01, mon01 y db01 | La clave de `ops` de la VM `puesto`, que `ssh -A` presta al puesto de administración |
 | Túnel SSH | Prometheus, Alertmanager y Mailpit, que solo escuchan en el `127.0.0.1` de mon01 | La misma clave, en un túnel hacia mon01 |
 | Certificado de cliente | Loki, que lo exige | El certificado `logcli` de `~/tls-monitorizacion/` |
 | Cliente de almacenamiento | El repositorio restic y el bucket `backups` de MinIO | La credencial `restic` de MinIO y la contraseña del repositorio |
 
 **Qué es un token y por qué uno propio.** Un token es una contraseña pensada para programas: se crea para un uso concreto, con los permisos justos, y se revoca sin tocar la contraseña de ninguna persona. Por eso la unidad crea en Grafana una cuenta de servicio propia, `baja-pre`, en lugar de usar la de `admin`: tiene los permisos que necesita la baja y no los de administrador, y se puede borrar sin afectar a nadie.
 
-**Un fichero para toda la unidad.** Las cinco hojas se reparten en tres semanas y usan los mismos accesos, así que se preparan una sola vez, en un fichero que se carga al empezar cada sesión con `. ~/baja-pre.env`. Define las variables y las funciones cortas con las que los bloques de esta unidad funcionan tal cual. Lleva secretos, así que va con permisos 600 y fuera de cualquier repositorio. En cada `...` va su secreto, y `192.168.1.50` se cambia por la IP del nodo Proxmox de cada puesto:
+**Un fichero para toda la unidad.** Las cinco hojas se reparten en tres semanas y usan los mismos accesos, así que se preparan una sola vez, en un fichero que se carga al empezar cada sesión con `. ~/baja-pre.env`. Define las variables y las funciones cortas con las que los bloques de esta unidad funcionan tal cual. Lleva secretos, así que va con permisos 600 y fuera de cualquier repositorio. En cada `...` va su secreto, y `192.168.100.150` se cambia por la IP del nodo Proxmox de cada puesto:
 
 ```bash
 # ~/baja-pre.env · UT8. Se carga con ". ~/baja-pre.env" al empezar cada sesión
@@ -153,7 +153,7 @@ export EV=~/operacion/baja/pre/ev             # evidencias: siempre aquí, nunca
 export GPG_TTY=$(tty)
 export TF_VAR_pve_token='terraform@pve!tofu=...'
 export AWS_ACCESS_KEY_ID=tofu AWS_SECRET_ACCESS_KEY='...'
-export PVE=https://192.168.1.50:8006/api2/json
+export PVE=https://192.168.100.150:8006/api2/json
 pve() { curl -sk -H "Authorization: PVEAPIToken=$TF_VAR_pve_token" "$PVE$1"; }
 # Prometheus, Alertmanager y Mailpit solo escuchan en el 127.0.0.1 de mon01: se llega por túnel
 tunel() { ssh -fN -L 29090:127.0.0.1:29090 -L 29093:127.0.0.1:29093 -L 28025:127.0.0.1:28025 ops@10.10.0.20; }
@@ -212,7 +212,7 @@ Las líneas que no se explican solas:
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Entra en el puesto de administración con `ssh -A ops@<IP de aula de admin01>`: el `-A` le presta tu clave para llegar a mon01, agent01, db01 y las VM de pre.
+- Entra en el puesto de administración con `ssh -A ops@<IP de admin01 en la red del laboratorio>`: el `-A` le presta tu clave para llegar a mon01, agent01, db01 y las VM de pre.
 - Enciende lo que usa la hoja: `jenkins01`, `router-pre`, `app01-pre` y `db01-pre`. Para que quepa en la memoria, apaga `web01` y `db01` de dev, como indica el [presupuesto de memoria](https://victor-educ.github.io/apuntes-5166/laboratorio/#presupuesto-de-memoria) de Despliegue.
 - A mano, en el gestor de contraseñas del puesto: el token `tofu` de Proxmox (A5.1 de Despliegue), los secretos de las credenciales `tofu` y `restic` de MinIO (A5.2), la contraseña del usuario del registry (A6.6) y la de `admin` en Jenkins. En el puesto, `~/iac-lab/envs/pre` con su backend inicializado (A5.4) y el entorno de restic de la A7.4 en `/etc/restic/`.
 - Lo explicado antes: [la baja como cambio](#la-baja-es-un-cambio-mas), [el inventario de rastros](#inventario-de-rastros), [el puesto como base de la baja](#el-puesto-de-administracion-como-base-de-la-baja) y la [lista de comprobación completa](#lista-de-comprobacion-completa). La plantilla del acta está en la [práctica evaluable](#acta-de-baja).
@@ -389,7 +389,7 @@ flowchart TB
     PD["<b>prevent_destroy</b><br><small>se retira en una rama<br>que cita la aprobación</small>"]:::act
     D["<b>tofu destroy</b>"]:::act
     M["<b>Creado a mano</b><br><small>router-pre, VNets de pre,<br>rutas en gestión</small>"]:::riesgo
-    Q["<b>qm, pvesh, ip route</b><br><small>se deshace a mano</small>"]:::act
+    Q["<b>Web de Proxmox, ip route</b><br><small>se deshace a mano</small>"]:::act
     C["<b>Compartido</b><br><small>una red o un usuario de API</small>"]:::riesgo
     R["<b>tofu state rm</b><br><small>sacarlo del estado antes de destruir</small>"]:::act
     V(["<b>Preguntar desde fuera</b><br><small>API de Proxmox, ping, ip route: la única prueba</small>"]):::ok
@@ -413,7 +413,7 @@ flowchart TB
 | Recurso | Cómo se libera | Cómo se verifica |
 |---|---|---|
 | VM declaradas | `tofu destroy` del entorno, tras retirar `prevent_destroy` | `tofu state list` vacío; Proxmox sin las VM |
-| VM y redes creadas a mano | `qm destroy --purge`; `pvesh delete` de subredes y VNets | la API de Proxmox no las lista |
+| VM y redes creadas a mano | en la web de Proxmox: **Remove** de la VM con purga; subredes y VNets en **Datacenter → SDN**, y **Apply** | la API de Proxmox no las lista |
 | Rutas y DNS | quitar la ruta y su unidad de systemd; el DNS de pre muere con su router | `ip route show` vacío; `ping` y `dig` sin respuesta |
 | Reglas de firewall | quitar reglas y después aliases | matriz de reglas actualizada; escaneo desde fuera |
 | Certificados | revocar en la CA y publicar la CRL | `index.txt` con `R`; `openssl verify -crl_check` |
@@ -439,20 +439,17 @@ tofu state list                           # vacío
 
 #### Proxmox: lo que no está en el estado
 
-**Lo que se deshace a mano, y en qué orden.** `router-pre` (ID 200) y las VNets de pre se destruyen en el nodo con `qm` y `pvesh`, en ese orden, porque una VNet con una VM conectada no se deja borrar. Cada VNet lleva su subred, que se borra antes que la VNet, y los cambios del SDN no se aplican hasta `pvesh set /cluster/sdn`, igual que al crearlas:
+**Lo que se deshace a mano, y en qué orden.** `router-pre` (ID 200) y las VNets de pre se crearon a mano en la web de Proxmox, y en la web se deshacen, en este orden, porque una VNet con una VM conectada no se deja borrar:
 
-```bash
-qm stop 200 --timeout 60 && qm destroy 200 --purge
-i=0
-for Z in mgmt front back data; do                  # premgmt 10.20.0.0/24 ... predata 10.20.3.0/24
-  pvesh delete /cluster/sdn/vnets/pre$Z/subnets/lab-10.20.$i.0-24
-  pvesh delete /cluster/sdn/vnets/pre$Z
-  i=$((i+1))
-done
-pvesh set /cluster/sdn
-```
+| Qué | Dónde en la web |
+|---|---|
+| Parar `router-pre` | VM 200 → **Shutdown** (o **Stop** si no responde) |
+| Destruir `router-pre` | VM 200 → **More → Remove**: escribe el ID para confirmar y marca **Purge from job configurations** y **Destroy unreferenced disks owned by guest** |
+| Borrar las subredes | **Datacenter → SDN → VNets**: selecciona cada VNet de pre (`premgmt`, `prefront`, `preback`, `predata`) y quita su subred (`10.20.0.0/24` ... `10.20.3.0/24`) en el panel **Subnets** |
+| Borrar las VNets | en la misma vista, **Remove** de cada VNet ya sin subred |
+| Aplicar | **Datacenter → SDN → Apply**: hasta entonces los cambios del SDN quedan pendientes, igual que al crearlas |
 
-**Lo que `--purge` limpia y lo que no.** `--purge` quita la VM de los trabajos de backup, de la replicación y de la configuración de alta disponibilidad; sin él, un trabajo de vzdump (las copias de VM de Proxmox) fallaría con "VM 200 not found" cada semana hasta que alguien lo edite. Los snapshots se destruyen con la VM; los backups vzdump ya hechos y las plantillas clonadas de ella, no: se listan con `pvesm list local --content backup` y `qm list`, y se borran aparte. En el laboratorio no hay trabajos de vzdump ni reservas en el IPAM del SDN (el registro en el que el SDN de Proxmox apunta qué dirección tiene cada VM), porque las direcciones de pre son fijas; cómo se borran las copias en Proxmox Backup Server y cómo se libera a mano una IP del IPAM está en [Para ampliar](../ampliacion.md#lo-que-proxmox-guarda-fuera-de-la-vm).
+**Lo que la purga limpia y lo que no.** La casilla de purga quita la VM de los trabajos de backup, de la replicación y de la configuración de alta disponibilidad; sin ella, un trabajo de copia de VM de Proxmox fallaría con "VM 200 not found" cada semana hasta que alguien lo edite. Los snapshots se destruyen con la VM; las copias de VM ya hechas y las plantillas clonadas de ella, no: se ven en la pestaña **Backups** del almacén `local` y en el árbol de recursos, y se borran aparte. En el laboratorio no hay trabajos de copia de VM ni reservas en el IPAM del SDN (el registro en el que el SDN de Proxmox apunta qué dirección tiene cada VM), porque las direcciones de pre son fijas; cómo se borran las copias en Proxmox Backup Server y cómo se libera a mano una IP del IPAM está en [Para ampliar](../ampliacion.md#lo-que-proxmox-guarda-fuera-de-la-vm).
 
 #### Rutas, DNS y firewall
 
@@ -519,18 +516,18 @@ curl -X POST -u admin:$JENKINS_TOKEN "$JP/doDelete"
 - Entra en el puesto de administración con `ssh -A` y carga `. ~/baja-pre.env`.
 - Enciende `jenkins01` y `agent01`, porque hoy tocas Jenkins y la ruta de agent01, y apaga `web01` y `db01` de dev, como en la A8.1.
 - A8.2 terminada: pre silenciado, volcado de bloqueo guardado y comprobado, y app01-pre vacía.
-- La consola del nodo Proxmox (Shell en la interfaz web) abierta en otra pestaña: solo el paso 2 se hace allí, y el resto, desde el puesto.
+- La interfaz web de tu Proxmox abierta en otra pestaña del navegador: solo el paso 2 se hace allí, y el resto, desde el puesto.
 - Lo explicado antes: [lo que `tofu destroy` no se lleva](#destruir-lo-declarado-no-basta) y [cómo se libera cada capa fuera de la VM](#como-se-libera-cada-capa-fuera-de-la-vm), cuyos bloques se copian aquí tal cual.
 
 <span class="et et-pas">Pasos</span>
 
-Vas de lo más grande a lo más pequeño y de lo declarado a lo hecho a mano: primero las VM que conoce OpenTofu, después lo que hay que borrar en el nodo porque OpenTofu no lo conoce, luego los caminos que llevaban a pre desde otras máquinas, y al final las credenciales y los certificados. Cada paso termina con una comprobación desde fuera, y esa comprobación es la evidencia, no la orden que borró.
+Vas de lo más grande a lo más pequeño y de lo declarado a lo hecho a mano: primero las VM que conoce OpenTofu, después lo que hay que borrar en la web de Proxmox porque OpenTofu no lo conoce, luego los caminos que llevaban a pre desde otras máquinas, y al final las credenciales y los certificados. Cada paso termina con una comprobación desde fuera, y esa comprobación es la evidencia, no la orden que borró.
 
 1. **Destruye las VM declaradas desde una rama que deje rastro.** Crea en `iac-lab` una rama `baja-pre` que retire el `prevent_destroy`, como en [OpenTofu: la rama, el plan y el estado](#opentofu-la-rama-el-plan-y-el-estado): su commit cita `operacion/baja/pre/ev/01-aprobacion.txt` y la rama se sube a Gitea sin fusionarla, para que `main` siga protegiendo y quede constancia de quién levantó la protección y con qué permiso. Lee el plan entero antes de aplicarlo: `3 to destroy` y solo las tres VM de pre; si sale algo más, sácalo con `tofu state rm`, repite el plan y anótalo en "Incidencias". Las pruebas van a `$EV/06-rama-baja.txt` (`git log -1 --stat`), `$EV/07-tofu-plan.txt` y `$EV/08-tofu-state.txt` (`tofu state list` vacío).
 
     *Pista:* `grep -rn prevent_destroy modules/ envs/pre/` dice en qué fichero está el bloque `lifecycle`.
 
-2. **Destruye en el nodo lo que OpenTofu no conoce.** `router-pre` y las cuatro VNets de pre se crearon a mano y han sobrevivido al paso 1. Destrúyelos en la consola del nodo con el bloque de [Proxmox: lo que no está en el estado](#proxmox-lo-que-no-esta-en-el-estado), tal cual, porque su orden es el que Proxmox exige. Desde el puesto, guarda en `$EV/09-proxmox.txt` la verificación desde fuera: la API de Proxmox sin nada de la franja 200 ni VNets `pre*`, y sin respuesta al `ping` la pata de gestión de `router-pre` (`10.10.0.2`) y app01-pre (`10.20.2.10`). El `ping` solo confirma, porque una VM apagada tampoco contesta: la prueba es la API.
+2. **Destruye en Proxmox lo que OpenTofu no conoce.** `router-pre` y las cuatro VNets de pre se crearon a mano y han sobrevivido al paso 1. Destrúyelos en la interfaz web siguiendo la tabla de [Proxmox: lo que no está en el estado](#proxmox-lo-que-no-esta-en-el-estado), en su orden, porque es el que Proxmox exige. Desde el puesto, guarda en `$EV/09-proxmox.txt` la verificación desde fuera: la API de Proxmox sin nada de la franja 200 ni VNets `pre*`, y sin respuesta al `ping` la pata de gestión de `router-pre` (`10.10.0.2`) y app01-pre (`10.20.2.10`). El `ping` solo confirma, porque una VM apagada tampoco contesta: la prueba es la API.
 
 3. **Cierra los caminos que llevaban a pre.** Una ruta hacia una red que ya no existe es un camino abierto para quien reutilice ese rango. Quita la ruta a pre del puesto, de agent01 (`10.10.0.12`) y de mon01 (`10.10.0.20`), tanto la ruta como la unidad de systemd que la vuelve a poner en cada arranque, como en [Rutas, DNS y firewall](#rutas-dns-y-firewall). Guarda en `$EV/10-rutas-dns.txt` que `ip route show 10.20.0.0/16` sale vacío en las tres y que el DNS de gestión ya no resuelve `app01.pre.lab`.
 
@@ -586,7 +583,7 @@ flowchart LR
 - **SSD y wear leveling.** El controlador del SSD reparte las escrituras entre celdas para que se desgasten por igual. Cuando `shred` escribe tres veces sobre el mismo LBA (la dirección lógica del bloque, lo que el sistema operativo cree que es "el mismo sitio"), el controlador escribe en tres páginas físicas distintas y deja la original marcada como inválida, legible con acceso al chip. TRIM (`fstrim`, `blkdiscard`) le dice al controlador que puede borrar esas páginas, pero "puede" no es "debe".
 - **Copy-on-write en ZFS y btrfs.** Estos sistemas de ficheros nunca sobrescriben un bloque en su sitio: escriben el nuevo en otro lugar y actualizan los punteros. `shred` en ZFS crea tres copias nuevas y deja la original intacta, y si hay un snapshot, el bloque original está referenciado y ni siquiera se marca libre. Los snapshots de LVM-thin, el almacenamiento del nodo del curso, se comportan igual.
 - **Versionado en el almacenamiento de objetos.** Un bucket S3 o MinIO con versionado activado no borra nunca: `DELETE` crea un marcador de borrado y la versión anterior sigue ahí. Con Object Lock en modo compliance, ni el administrador puede borrarla antes de que venza la retención.
-- **Snapshots del hipervisor y backups.** Un snapshot de "antes de la actualización" contiene el disco completo con los datos recién borrados dentro de la VM. Lo mismo un vzdump de cada domingo.
+- **Snapshots del hipervisor y backups.** Un snapshot de "antes de la actualización" contiene el disco completo con los datos recién borrados dentro de la VM. Lo mismo una copia de VM de Proxmox de cada domingo.
 
 **La consecuencia.** El borrado fiable de un soporte que no se controla físicamente (una VM, un bucket en un proveedor, un disco de un servidor alquilado) solo se consigue de una manera: que los datos nunca hayan estado en claro. De ahí el orden de opciones.
 
@@ -754,7 +751,7 @@ Vas sistema por sistema, de lo que más datos guarda a lo que menos: primero las
 
     *Pista:* la búsqueda de Mailpit devuelve 50 mensajes como mucho si no le pasas `limit`. Si Loki guardara algo de pre, su petición de borrado tarda 24 horas: apúntalo en el acta.
 
-4. **Pon a prueba lo que dice la teoría.** Hasta aquí has borrado fiándote de la teoría; ahora compruebas con photorec qué deja cada forma de borrar en los tres escenarios de [Verificar con photorec](#verificar-con-photorec-sobre-un-volumen-de-pruebas), cada uno en su imagen con un volcado de 500 líneas `INSERT INTO usuarios ...`: `rm` y `shred` en ext4 (64 MB) y `shred` con un snapshot previo en btrfs (256 MB). Antes de lanzar cada uno, apunta qué esperas que salga, y después lo que queda de verdad, en `$EV/20-photorec.txt`. Si `sudo modprobe btrfs` falla, haz el de btrfs en tu portátil si es Linux y anótalo.
+4. **Pon a prueba lo que dice la teoría.** Hasta aquí has borrado fiándote de la teoría; ahora compruebas con photorec qué deja cada forma de borrar en los tres escenarios de [Verificar con photorec](#verificar-con-photorec-sobre-un-volumen-de-pruebas), cada uno en su imagen con un volcado de 500 líneas `INSERT INTO usuarios ...`: `rm` y `shred` en ext4 (64 MB) y `shred` con un snapshot previo en btrfs (256 MB). Antes de lanzar cada uno, apunta qué esperas que salga, y después lo que queda de verdad, en `$EV/20-photorec.txt`. Si `sudo modprobe btrfs` falla, haz el de btrfs en tu VM `puesto` y anótalo.
 
     *Pista:* sin `sync` antes de borrar, ext4 puede no haber escrito nunca el volcado y la prueba sale falsamente limpia. En btrfs el volcado va en un subvolumen, y el snapshot se hace con `btrfs subvolume snapshot -r`.
 
@@ -841,7 +838,7 @@ Cada decisión del guion tiene su motivo:
 
 #### Si la base de datos se elimina entera
 
-**El soporte.** Se para el servicio, se borra el volumen o el disco y se aplica al soporte lo visto en [Opciones de más a menos fiable](#opciones-de-mas-a-menos-fiable). Con el volumen cifrado con LUKS, se destruyen las claves y listo. Sin cifrado, la única garantía en una VM es la destrucción del disco virtual más la confianza en que el almacenamiento del hipervisor no lo conserve en snapshots, que conviene verificar antes de destruir con `qm listsnapshot <ID>`. Es lo que pasó con db01-pre.
+**El soporte.** Se para el servicio, se borra el volumen o el disco y se aplica al soporte lo visto en [Opciones de más a menos fiable](#opciones-de-mas-a-menos-fiable). Con el volumen cifrado con LUKS, se destruyen las claves y listo. Sin cifrado, la única garantía en una VM es la destrucción del disco virtual más la confianza en que el almacenamiento del hipervisor no lo conserve en snapshots, que conviene verificar antes de destruir en la pestaña **Snapshots** de la VM. Es lo que pasó con db01-pre.
 
 **Cachés y colas.** Quedan las cachés y las colas: Redis guarda en memoria y, si tiene persistencia, en `dump.rdb` y en el AOF (su fichero de registro de escrituras); `FLUSHDB` y borrar los ficheros. En RabbitMQ o similar, se purga la cola y se borra el vhost. Un mensaje encolado con datos de un cliente puede sobrevivir años en una cola muerta que nadie consume.
 
@@ -992,7 +989,7 @@ Entrega el acta de baja del entorno pre con todas las secciones de la plantilla 
 
 **`tofu plan -destroy` quiere borrar algo que no es de pre.** Un recurso compartido (una red, un usuario de API) entró en el estado del entorno. Diagnóstico: el plan lo lista. Solución: `tofu state rm` de ese recurso antes de destruir, y mover su definición a un estado propio para el futuro.
 
-**`pvesh delete` de una VNet responde que está en uso.** Queda una VM conectada: casi siempre `router-pre`, porque el bucle de las VNets se lanzó antes del `qm destroy 200`, o una VM de pre que el estado de OpenTofu no conocía. `qm config` de cada VM de la franja 200 dice cuál.
+**Proxmox no deja borrar una VNet porque está en uso.** Queda una VM conectada: casi siempre `router-pre`, porque las VNets se borraron antes de destruir la VM 200, o una VM de pre que el estado de OpenTofu no conocía. La pestaña **Hardware** de cada VM de la franja 200 dice cuál (el `bridge` de sus tarjetas de red).
 
 **Después de reiniciar mon01 vuelve la ruta a 10.20.0.0/16.** Se borró la ruta con `ip route del`, pero no la unidad `ruta-pre.service`, que la vuelve a poner en cada arranque. Van las dos cosas (paso 3 de la A8.3).
 

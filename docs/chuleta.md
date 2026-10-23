@@ -1,6 +1,6 @@
 # Chuleta de comandos
 
-Lo que se teclea una y otra vez en esta asignatura. Los comandos de Proxmox, OpenTofu, Ansible, Jenkins y certificados están en la [chuleta de la asignatura de despliegue](https://victor-educ.github.io/apuntes-5166/chuleta/).
+Lo que se teclea una y otra vez en esta asignatura. Proxmox (dónde está cada cosa en su web) y los comandos de OpenTofu, Ansible, Jenkins y certificados están en la [chuleta de la asignatura de despliegue](https://victor-educ.github.io/apuntes-5166/chuleta/).
 
 Tres reglas para que los comandos funcionen tal cual durante todo el curso:
 
@@ -206,7 +206,7 @@ docker compose -f /opt/registry/compose.yml stop registry
 docker compose -f /opt/registry/compose.yml run --rm registry garbage-collect --delete-untagged /etc/docker/registry/config.yml
 docker compose -f /opt/registry/compose.yml start registry
 cd ~/iac-lab/envs/pre && tofu plan -destroy -out=destroy.plan && tofu apply destroy.plan   # A8.3, desde la rama baja-pre sin prevent_destroy
-qm stop 200 && qm destroy 200 --purge     # router-pre, en el nodo: no es de OpenTofu, viene de la A2.5
+# router-pre (200, de la A2.5) y las VNets de pre no son de OpenTofu: se destruyen en la web de Proxmox (VM → More → Remove, con purga; Datacenter → SDN)
 restic forget --prune $(restic snapshots --tag pre --json | jq -r '.[].short_id')   # sin --keep-*, forget solo borra por identificador
 restic snapshots --tag pre                # vacío
 mc version info lab/backups                                      # un-versioned: lo que prune borra no se queda

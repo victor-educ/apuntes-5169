@@ -172,7 +172,7 @@ Términos de esta asignatura, en una o dos frases, con la unidad donde se tratan
 
 **Prune** · Operación de restic que reempaqueta el repositorio y elimina los datos que ya no pertenecen a ningún snapshot después de un `forget`. Es lenta, bloquea el repositorio y se programa aparte de la copia. UT6, UT8.
 
-**RAM** · Memoria principal. En el laboratorio se asigna a cada VM al clonarla con `qm set <ID> --memory`, y su reparto está en la página del laboratorio. UT1, UT5.
+**RAM** · Memoria principal. En el laboratorio se asigna a cada VM al clonarla, en la pestaña Hardware de la VM en la web de Proxmox, y su reparto está en la página del laboratorio. UT1, UT5.
 
 **Recording rule** · Regla de Prometheus que precalcula una expresión y la guarda como métrica nueva. UT2.
 

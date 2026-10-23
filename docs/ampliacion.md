@@ -508,19 +508,11 @@ La regla que ordena todo esto es la de siempre: si los datos estuvieron cifrados
 
 ### Lo que Proxmox guarda fuera de la VM
 
-Destruir una VM con `qm destroy --purge` no se lleva todo lo que Proxmox guarda de ella. En el laboratorio del curso no hace falta ninguna de estas dos cosas, porque no hay Proxmox Backup Server y las direcciones de pre son fijas, pero en una instalación con copias y con el IPAM del SDN en uso sí.
+Destruir una VM desde la web con la casilla de purga marcada no se lleva todo lo que Proxmox guarda de ella. En el laboratorio del curso no hace falta ninguna de estas dos cosas, porque no hay Proxmox Backup Server y las direcciones de pre son fijas, pero en una instalación con copias y con el IPAM del SDN en uso sí.
 
 En Proxmox Backup Server, si está en uso, los snapshots del grupo `vm/210` se eliminan con `proxmox-backup-client forget` o desde la interfaz, y el espacio se libera en el siguiente garbage collect del datastore, que respeta un periodo de 24 horas y 5 minutos sobre los chunks. Hasta entonces, los datos están ahí.
 
-Con el SDN de Proxmox y el IPAM integrado (`pve`), las IP se asignan por vnet y las reservas se guardan en el IPAM y en la configuración de dnsmasq. Al destruir las vnets de pre se liberan las dos cosas; si alguna sigue porque es compartida, se liberan las IP una a una, cada una en la vnet de su zona:
-
-```bash
-pvesh delete /cluster/sdn/vnets/preback/ips --zone lab --vnet preback --ip 10.20.2.10
-pvesh delete /cluster/sdn/vnets/prefront/ips --zone lab --vnet prefront --ip 10.20.1.10
-pvesh delete /cluster/sdn/vnets/predata/ips --zone lab --vnet predata --ip 10.20.3.10
-pvesh set /cluster/sdn                       # aplicar
-pvesh get /cluster/sdn/ipams/pve/status --output-format json | jq '.[]|select(.ip|startswith("10.20."))'
-```
+Con el SDN de Proxmox y el IPAM integrado (`pve`), las IP se asignan por vnet y las reservas se guardan en el IPAM y en la configuración de dnsmasq. Al destruir las vnets de pre se liberan las dos cosas; si alguna sigue porque es compartida, se liberan las IP una a una en **Datacenter → SDN → IPAM**, que lista cada reserva con su vnet y su IP (`10.20.1.10`, `10.20.2.10`, `10.20.3.10`) y permite borrarla. Después, **Apply** en **Datacenter → SDN**, y la misma vista del IPAM confirma que no queda ninguna `10.20.`.
 
 ### OCSP y step-ca
 
@@ -570,7 +562,7 @@ mc replicate ls lab/backups                                                     
 - [Docker Compose: `docker compose down`](https://docs.docker.com/reference/cli/docker/compose/down/): qué borra cada opción y qué deja.
 - [Distribution registry: API HTTP](https://distribution.github.io/distribution/spec/api/) y [garbage collection](https://distribution.github.io/distribution/about/garbage-collection/): borrado por digest y recolección de blobs.
 - [OpenTofu: `tofu destroy`](https://opentofu.org/docs/cli/commands/destroy/) y [`tofu state rm`](https://opentofu.org/docs/cli/commands/state/rm/): destruir sin llevarse lo compartido.
-- [Proxmox VE: página de manual de `qm`](https://pve.proxmox.com/pve-docs/qm.1.html): opciones `--purge` y `--destroy-unreferenced-disks` de `qm destroy`.
+- [Proxmox VE: página de manual de `qm`](https://pve.proxmox.com/pve-docs/qm.1.html): qué hacen las opciones de purga y de discos no referenciados que la web ofrece al borrar una VM (`--purge` y `--destroy-unreferenced-disks`).
 - [Grafana Loki: borrado de logs](https://grafana.com/docs/loki/latest/operations/storage/logs-deletion/) y [retención](https://grafana.com/docs/loki/latest/operations/storage/retention/): API del compactor, modos de borrado y `retention_stream`.
 - [Prometheus: API de administración del TSDB](https://prometheus.io/docs/prometheus/latest/querying/api/#tsdb-admin-apis): `delete_series` y `clean_tombstones`.
 - [PostgreSQL 17: VACUUM](https://www.postgresql.org/docs/17/sql-vacuum.html): qué hace VACUUM y qué hace VACUUM FULL con el espacio.
