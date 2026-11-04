@@ -86,7 +86,7 @@ Tres campos marcan la diferencia entre una ficha útil y una de relleno:
 | `pg_stat_activity_count{datname="servicio"}` | gauge | postgres_exporter | Conexiones abiertas por estado (`state="active"`, `"idle"`) |
 | `pg_settings_max_connections` | gauge | postgres_exporter | Valor de `max_connections` en `postgresql.conf` |
 
-**Por qué `/data`.** `/data` no es la raíz de `db01`: es un disco aparte montado ahí, donde vive el clúster de PostgreSQL desde que lo separa la [A3.3 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/) el 27 de noviembre. Medir la capacidad de la base de datos sobre `/` mezclaría los datos con los logs del sistema, y llenar el sistema de ficheros a propósito, como hace la prueba cruzada de la A4.3, dejaría la máquina sin PostgreSQL, sin journald y sin SSH. Dos de los nueve indicadores de la A4.2 y dos de las alarmas de la A4.3 miden ese punto de montaje: si `node_filesystem_avail_bytes{mountpoint="/data"}` no devuelve nada en Prometheus, lo que falta es el disco, no la consulta.
+**Por qué `/data`.** `/data` no es la raíz de `db01`: es un disco aparte montado ahí, donde vive el clúster de PostgreSQL desde que lo separa la [A3.2 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#a32-aplicacion-y-datos-sesion-16) el 27 de noviembre. Medir la capacidad de la base de datos sobre `/` mezclaría los datos con los logs del sistema, y llenar el sistema de ficheros a propósito, como hace la prueba cruzada de la A4.3, dejaría la máquina sin PostgreSQL, sin journald y sin SSH. Dos de los nueve indicadores de la A4.2 y dos de las alarmas de la A4.3 miden ese punto de montaje: si `node_filesystem_avail_bytes{mountpoint="/data"}` no devuelve nada en Prometheus, lo que falta es el disco, no la consulta.
 
 **Rendimiento** responde a "¿cuánto tarda y cuánto procesa?" y suelen ser histogramas o counters derivados en el tiempo:
 
@@ -272,10 +272,10 @@ sum by (service)(rate(app_http_requests_total{status=~"5.."}[5m]))
 
 <span class="et et-pre">Antes de empezar</span>
 
-- `alerting` en mon01, con las recording rules de la A2.3 en `prometheus/rules.yml`.
+- `alerting` en mon01, con las recording rules de la A2.2 en `prometheus/rules.yml`.
 - Prometheus guardando 45 días, que es lo que pide la disponibilidad mensual: compruébalo en `http://localhost:29090/flags` (`storage.tsdb.retention.time`) y, si no, ajústalo en el `command` de Prometheus.
 - `cpus` (de 1 o menos, por lo que explica la saturación de CPU en [los nueve indicadores](#los-nueve-indicadores-del-servicio)) y `mem_limit` en el servicio `app` de app01. El `keep` de cAdvisor no deja pasar `container_spec_cpu_quota`, `container_spec_cpu_period` ni `container_cpu_cfs_throttled_periods_total`, que usa la A4.5: añádelas como en la A4.1. Sin todo eso, la CPU no devuelve nada y la memoria da `+Inf`.
-- db01 con su disco de datos en `/data`, node_exporter y postgres_exporter (de la [A3.3 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/)), recogidos por Prometheus: de ahí salen tres indicadores.
+- db01 con su disco de datos en `/data`, node_exporter y postgres_exporter (de la [A3.2 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut3-seguridad-por-capas/#a32-aplicacion-y-datos-sesion-16)), recogidos por Prometheus: de ahí salen tres indicadores.
 - El bucle de tráfico de la A2.1 contra `https://api.dev.lab/items` en el puesto de administración, para que los cocientes no den `NaN`. Por su `-s`, falla en silencio si `curl` no confía en la CA del curso: compruébalo antes e instala `~/ca/ca.crt` en el sistema si hace falta.
 - Lo explicado al principio de la sesión: [SLI, SLO y presupuesto de error](#indicadores-formulas-y-umbrales), [los nueve indicadores](#los-nueve-indicadores-del-servicio) y [cómo fijar umbrales](#como-fijar-umbrales).
 
@@ -334,7 +334,7 @@ Desde noviembre hay diez alarmas que saltan solas y llegan por correo, por Teleg
 2. Los comandos son exactos, copiables, con el host desde el que se ejecutan. "Mirar los logs" no vale; `ssh ops@10.10.2.10 docker compose -f /opt/servicio/compose.yml logs --since 10m app | grep -ci error` sí.
 3. Las acciones de resolución están ordenadas por reversibilidad: primero lo que no rompe nada (reiniciar un contenedor), luego lo que tiene coste (rollback), y lo destructivo (borrar datos, ampliar disco en caliente) solo con escalado.
 4. Hay un criterio de escalado con tiempo y persona o rol, no "avisar a alguien".
-5. Se enlaza desde la anotación `runbook` de la regla de alerta (como en la A2.4), y cambiar la alarma obliga a revisar su runbook en el mismo turno: en el laboratorio las reglas viven en `alerting` y los runbooks en `operacion`, así que el pull request que toca la regla (la propuesta de cambio, hecha desde una rama, que otra persona revisa antes de aceptarla) enlaza el cambio del runbook.
+5. Se enlaza desde la anotación `runbook` de la regla de alerta (como en la A2.2), y cambiar la alarma obliga a revisar su runbook en el mismo turno: en el laboratorio las reglas viven en `alerting` y los runbooks en `operacion`, así que el pull request que toca la regla (la propuesta de cambio, hecha desde una rama, que otra persona revisa antes de aceptarla) enlaza el cambio del runbook.
 
 **Un runbook se mantiene.** Cada vez que una alarma salta y el runbook no resuelve el caso, el cierre de la incidencia incluye actualizar el runbook. Un runbook que no cambia en un año es un runbook que nadie usa.
 
@@ -368,7 +368,7 @@ Dos fichas más, escritas con el mismo esquema, para ver cómo cambia el conteni
 
 <span class="et et-pre">Antes de empezar</span>
 
-- `alerting` en mon01, con las diez alarmas de la A2.4 (siete en `prometheus/alerts.yml` y tres en `loki/loki-alerts.yml`) y las reglas grabadas de la A4.2.
+- `alerting` en mon01, con las diez alarmas de la A2.2 (siete en `prometheus/alerts.yml` y tres en `loki/loki-alerts.yml`) y las reglas grabadas de la A4.2.
 - `operacion` en el puesto de administración y los túneles de [Cómo se llega a la pila](../laboratorio.md#como-se-llega-a-la-pila-desde-el-3-de-diciembre).
 - Lo explicado al principio de la sesión: [la ficha de alarma](#catalogo-de-alarmas-y-runbooks), [qué hace bueno a un runbook](#que-hace-bueno-a-un-runbook) y [los dos ejemplos completos](#dos-runbooks-mas).
 
@@ -376,7 +376,7 @@ Dos fichas más, escritas con el mismo esquema, para ver cómo cambia el conteni
 
 Primero completas las alarmas, para que el catálogo nazca con todas; después escribes el catálogo, que es corto y da la vista de conjunto; luego los cinco runbooks, que es donde está el trabajo; y al final enlazas cada regla con su documento, que va el último porque la URL no existe hasta que el fichero está escrito y empujado.
 
-1. **Convierte los indicadores nuevos en alarmas.** Añade a `prometheus/alerts.yml` las cinco alarmas nuevas, con las etiquetas de la A2.4 y los umbrales de tu `indicadores.md`. Son las que vigilan los indicadores que grabaste en la A4.2; sin ellas, el catálogo estaría incompleto desde el primer día:
+1. **Convierte los indicadores nuevos en alarmas.** Añade a `prometheus/alerts.yml` las cinco alarmas nuevas, con las etiquetas de la A2.2 y los umbrales de tu `indicadores.md`. Son las que vigilan los indicadores que grabaste en la A4.2; sin ellas, el catálogo estaría incompleto desde el primer día:
 
     - `AppLowAvailability`, crítica: `app:availability:30d` por debajo del SLO durante 15 min.
     - `AppCpuSaturated`, crítica: `app:cpu:ratio5m` por encima del umbral crítico durante 10 min.
@@ -391,7 +391,7 @@ Primero completas las alarmas, para que el catálogo nazca con todas; después e
 
 4. **Enlaza cada regla con su documento.** Pon en la anotación `runbook` de cada regla de `alerts.yml` y `loki-alerts.yml` la URL de su documento: las cinco del paso 3, a su fichero, y el resto, al catálogo, con URL como `http://gitea.lab:23001/ops/operacion/src/branch/main/alarmas/AppHighErrorRate.md`. Así el aviso que llega por Telegram, y la incidencia que abre en Gitea, llevan el enlace dentro. Rellena la columna Runbook, empuja los dos repositorios y recarga.
 
-    *Pista:* usa `gitea.lab` y no la IP de mon01: el 12 de febrero Gitea se muda a gitea01, y ese día solo cambia el principio de la URL, de `http://gitea.lab:23001` a `https://gitea.lab`. Cambia también la URL esperada en `prometheus/tests/alerts_test.yml` de la A2.4, o `promtool test rules` dejará de pasar.
+    *Pista:* usa `gitea.lab` y no la IP de mon01: el 12 de febrero Gitea se muda a gitea01, y ese día solo cambia el principio de la URL, de `http://gitea.lab:23001` a `https://gitea.lab`. Cambia también la URL esperada en `prometheus/tests/alerts_test.yml` de la A2.2, o `promtool test rules` dejará de pasar.
 
 <span class="et et-com">Comprobación</span> `promtool check rules` sin errores con las cinco alarmas nuevas; el catálogo tiene una fila por cada regla de `alerts.yml` y `loki-alerts.yml`; cinco runbooks con las seis filas; cada regla tiene anotación `runbook` con una URL que responde.
 

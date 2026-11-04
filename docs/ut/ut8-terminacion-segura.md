@@ -545,7 +545,7 @@ Vas de lo más grande a lo más pequeño y de lo declarado a lo hecho a mano: pr
 
 <span class="et et-ent">Para practicar</span> Haz commit en `operacion` del acta al día y de `ev/06` a `ev/13`, y deja la rama `baja-pre` en `iac-lab`, sin fusionar.
 
-<span class="et et-ext">Si te sobra tiempo</span> Practica la revocación que pre no ha necesitado: emite en `~/ca` un certificado de prueba `prueba.pre.lab` con las dos órdenes de la A3.2 de Despliegue, revócalo con el bloque del apartado de certificados y guarda la salida de `openssl verify` (`certificate revoked`) en `ev/13b-revocacion.txt`. Anota en el acta que era de prueba y que se revocó el mismo día.
+<span class="et et-ext">Si te sobra tiempo</span> Practica la revocación que pre no ha necesitado: emite en `~/ca` un certificado de prueba `prueba.pre.lab` con las dos órdenes de la preparación de la A3.1 de Despliegue, revócalo con el bloque del apartado de certificados y guarda la salida de `openssl verify` (`certificate revoked`) en `ev/13b-revocacion.txt`. Anota en el acta que era de prueba y que se revocó el mismo día.
 
 ## Sesión 38 · Copias y logs
 

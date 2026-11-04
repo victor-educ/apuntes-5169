@@ -4,7 +4,7 @@ Esta página recoge, unidad por unidad, dos cosas que no caben en las sesiones: 
 
 ## UT1 · Observabilidad de contenedores: métricas, logs y eventos
 
-Apartados y enlaces para ampliar de la [UT1](ut/ut1-observabilidad.md). Se recogen el reparto interno de Loki en componentes (el laboratorio lo ejecuta todo en un mismo proceso), otros drivers de logs de Docker, el relevo de Promtail por Grafana Alloy, el exporter de nginx y el Prometheus local con remote_write del «Si te sobra tiempo» de la A1.6. Después, la documentación de referencia de cgroups, cAdvisor, Prometheus, la librería cliente, Promtail, Loki, remote_write y chrony.
+Apartados y enlaces para ampliar de la [UT1](ut/ut1-observabilidad.md). Se recogen el reparto interno de Loki en componentes (el laboratorio lo ejecuta todo en un mismo proceso), otros drivers de logs de Docker, el relevo de Promtail por Grafana Alloy, el exporter de nginx y el Prometheus local con remote_write, que ninguna hoja monta. Después, la documentación de referencia de cgroups, cAdvisor, Prometheus, la librería cliente, Promtail, Loki, remote_write y chrony.
 
 ### El reparto interno de Loki en componentes
 
@@ -79,7 +79,7 @@ remote_write:
 
 El Prometheus central tiene que arrancar con `--web.enable-remote-write-receiver` para aceptar escrituras en `/api/v1/write`. En Prometheus 3 el protocolo de remote write tiene versión 2.0 (más compacto, con metadatos); por defecto se sigue usando la 1.0 y no hace falta tocar nada. Las métricas del emisor que dicen si va bien: `prometheus_remote_storage_samples_pending` (cola), `prometheus_remote_storage_samples_retried_total`, `prometheus_remote_storage_samples_failed_total` (perdidas de verdad) y `prometheus_remote_storage_highest_timestamp_in_seconds` frente a `prometheus_remote_storage_queue_highest_sent_timestamp_seconds` (retraso en segundos).
 
-En el laboratorio la práctica se hace con scrape directo, que es lo que tiene cualquier empresa con una red plana; el remote_write solo se monta en el «Si te sobra tiempo» de la A1.6, para comparar el comportamiento ante el corte. Es el mismo mecanismo que usan los servicios gestionados (Grafana Cloud, Amazon Managed Prometheus, Thanos Receive).
+En el laboratorio la práctica se hace con scrape directo, que es lo que tiene cualquier empresa con una red plana; el remote_write no lo monta ninguna hoja y queda como ampliación: quien lo monte puede repetir con él el corte de red de la práctica evaluable de la UT1 y comparar qué se pierde y qué se recupera. Es el mismo mecanismo que usan los servicios gestionados (Grafana Cloud, Amazon Managed Prometheus, Thanos Receive).
 
 ### Enlaces
 

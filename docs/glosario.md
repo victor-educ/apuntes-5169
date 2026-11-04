@@ -24,7 +24,7 @@ Términos de esta asignatura, en una o dos frases, con la unidad donde se tratan
 
 **Burn rate** · Velocidad a la que se consume el presupuesto de error. Un burn rate de 2 gasta en medio mes lo previsto para uno. UT4.
 
-**CA** · Autoridad de certificación: quien firma los certificados y en quien confían los clientes. La del curso, `Lab 5166 CA`, se crea con `openssl ca` en la A3.2 de Despliegue, vive en `~/ca/` del puesto de administración y firma todo lo que se cifra en las dos asignaturas. UT3.
+**CA** · Autoridad de certificación: quien firma los certificados y en quien confían los clientes. La del curso, `Lab 5166 CA`, se crea con `openssl ca` en la preparación de la A3.1 de Despliegue, vive en `~/ca/` del puesto de administración y firma todo lo que se cifra en las dos asignaturas. UT3.
 
 **cAdvisor** · Exporter que lee los cgroups y expone métricas de CPU, memoria, red y disco por contenedor. UT1.
 

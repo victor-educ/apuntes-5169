@@ -106,8 +106,8 @@ flowchart LR
 
 | UT | Título | Horas | Dónde | RA · CE |
 |----|--------|------:|-------|---------|
-| [UT1](ut/ut1-observabilidad.md) | Observabilidad de contenedores: métricas, logs y eventos | 14 | Centro | RA1 a |
-| [UT2](ut/ut2-alarmas.md) | Umbrales, agregación y gestión de alarmas | 16 | Centro | RA1 b–e |
+| [UT1](ut/ut1-observabilidad.md) | Observabilidad de contenedores: métricas, logs y eventos | 22 | Centro | RA1 a |
+| [UT2](ut/ut2-alarmas.md) | Umbrales, agregación y gestión de alarmas | 8 | Centro | RA1 b–e |
 | [UT3](ut/ut3-seguridad-monitorizacion.md) | Seguridad de las comunicaciones de monitorización | 6 | Centro | RA1 f, g |
 | [UT4](ut/ut4-kpi-pruebas.md) | Indicadores, KPI y pruebas del servicio | 16 | Centro | RA2 a–f |
 | [UT5](ut/ut5-logs-accesos-rendimiento.md) | Explotación de logs, accesos y rendimiento | 14 | Empresa | RA3 a–d |
@@ -126,7 +126,7 @@ Las unidades del centro van seguidas de octubre a marzo, y la teoría y los exá
 
 ## Antes de empezar
 
-Se da por hecho lo mismo que en la asignatura de despliegue: terminal de Linux, redes básicas, Docker y Git. No hace falta tener el laboratorio montado para empezar, porque no existe todavía: la asignatura arranca el 1 de octubre con Docker en el puesto del alumno, con el servicio del curso (nginx, API y PostgreSQL en un solo compose) y una pila mínima de monitorización en localhost. El laboratorio va llegando por fases desde la asignatura de despliegue: app01 y mon01 el 14 de octubre, y la VPC dev y el cortafuegos en noviembre, y cada unidad indica sobre qué se trabaja ese día. La página de [laboratorio](laboratorio.md) detalla qué hay disponible en cada momento.
+Se da por hecho lo mismo que en la asignatura de despliegue: terminal de Linux, redes básicas, Docker y Git. No hace falta tener el laboratorio montado para empezar, porque no existe todavía: la asignatura arranca el 1 de octubre con Docker en el puesto del alumno, con el servicio del curso (nginx, API y PostgreSQL en un solo compose) y una pila mínima de monitorización en localhost. El laboratorio va llegando por fases desde la asignatura de despliegue: app01 y mon01 el 14 de octubre (el servicio se traslada a ellas el 5 de noviembre), y la VPC dev y el cortafuegos en noviembre, y cada unidad indica sobre qué se trabaja ese día. La página de [laboratorio](laboratorio.md) detalla qué hay disponible en cada momento.
 
 ## Sobre estos apuntes
 

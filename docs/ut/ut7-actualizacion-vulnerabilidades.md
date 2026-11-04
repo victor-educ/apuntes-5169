@@ -756,7 +756,7 @@ Después de actualizar se repite con `integridad-despues.txt`, y un `diff` entre
 **El orden dentro de la ventana** es siempre el mismo:
 
 1. Aviso previo a los usuarios (banner o correo, 48 horas antes para las versiones mayores).
-2. Silencio de las alarmas afectadas en Alertmanager, como en los [silencios de la UT2](ut2-alarmas.md#silencios), con fecha de fin. El corte está planificado y no debe despertar a nadie ni abrir incidencias por el receptor de la A2.6; la fecha de fin evita que el silencio, olvidado, tape después un fallo de verdad.
+2. Silencio de las alarmas afectadas en Alertmanager, como en los [silencios de la UT2](ut2-alarmas.md#silencios), con fecha de fin. El corte está planificado y no debe despertar a nadie ni abrir incidencias por el receptor de incidencias de la UT2; la fecha de fin evita que el silencio, olvidado, tape después un fallo de verdad.
 3. Copia.
 4. Despliegue.
 5. Verificación.

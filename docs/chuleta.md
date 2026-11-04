@@ -206,7 +206,7 @@ docker compose -f /opt/registry/compose.yml stop registry
 docker compose -f /opt/registry/compose.yml run --rm registry garbage-collect --delete-untagged /etc/docker/registry/config.yml
 docker compose -f /opt/registry/compose.yml start registry
 cd ~/iac-lab/envs/pre && tofu plan -destroy -out=destroy.plan && tofu apply destroy.plan   # A8.3, desde la rama baja-pre sin prevent_destroy
-# router-pre (200, de la A2.5) y las VNets de pre no son de OpenTofu: se destruyen en la web de Proxmox (VM → More → Remove, con purga; Datacenter → SDN)
+# router-pre (200, de la A2.3 de Despliegue) y las VNets de pre no son de OpenTofu: se destruyen en la web de Proxmox (VM → More → Remove, con purga; Datacenter → SDN)
 restic forget --prune $(restic snapshots --tag pre --json | jq -r '.[].short_id')   # sin --keep-*, forget solo borra por identificador
 restic snapshots --tag pre                # vacío
 mc version info lab/backups                                      # un-versioned: lo que prune borra no se queda

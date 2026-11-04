@@ -102,7 +102,7 @@ Varias herramientas salen en las dos asignaturas. Cada una se explica a fondo en
 
 | Herramienta | Se explica a fondo en | Se instala en |
 |-------------|-----------------------|---------------|
-| nmap y tcpdump | [Despliegue, sesión 10](https://victor-educ.github.io/apuntes-5166/ut/ut2-vpc/#sesion-10-comunicacion-entre-zonas) (6 nov) | El puesto de administración y la VM que indique cada hoja |
+| nmap y tcpdump | [Despliegue, sesión 12](https://victor-educ.github.io/apuntes-5166/ut/ut2-vpc/#como-se-prueba-una-red) (13 nov) | El puesto de administración y la VM que indique cada hoja |
 | nftables en el propio host | [Sesión 17](ut/ut3-seguridad-monitorizacion.md#sesion-17-red-firewall-y-tls) (1 dic) | Cada host que se cierra |
 | Trivy | [Sesión 25](ut/ut4-kpi-pruebas.md#sesion-25-estres-y-seguridad) (21 ene) | El puesto de administración, en la A4.6 |
 | gitleaks y pre-commit | [Despliegue, sesión 28](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/#sesion-28-correccion-de-hallazgos) (27 ene) | El puesto de administración |
