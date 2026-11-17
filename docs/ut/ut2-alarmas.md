@@ -2,7 +2,7 @@
 
 <p class="ut-meta">8 h · Sesiones 12 a 15 · RA1 CE b, c, d, e</p>
 
-La UT1 dejó mon01 recogiendo los datos del contenedor de referencia: en Prometheus, las métricas de recursos, las de la API y las de PostgreSQL; en Loki, los logs y los eventos del demonio Docker. Pero esos datos solo sirven si alguien mira el dashboard justo cuando algo falla, y a las tres de la madrugada no mira nadie. Esta unidad los convierte en alarmas: condiciones que se evalúan solas, avisan a quien tiene que actuar sin repetirse de más y dejan rastro en un gestor de incidencias.
+La UT1 dejó mon01 recogiendo los datos del contenedor de referencia: en Prometheus, las métricas de recursos, las de la API y las de PostgreSQL; en Loki, los logs y los eventos del demonio Docker. Pero esos datos solo sirven si alguien mira las gráficas justo cuando algo falla, y a las tres de la madrugada no mira nadie. Esta unidad los convierte en alarmas: condiciones que se evalúan solas, avisan a quien tiene que actuar sin repetirse de más y dejan rastro en un gestor de incidencias.
 
 La unidad monta la cadena en el orden en que la recorre una alarma: qué condiciones vigilar (sesión 12), cómo se calculan los indicadores y se escriben las reglas (sesión 13), a quién se avisa y cómo queda registrada cada alarma (sesión 14). La práctica evaluable monta el registro de incidencias y prueba la cadena entera de punta a punta.
 
@@ -46,7 +46,7 @@ Todo lo que se escribe en la unidad va al repositorio `alerting`, en `/opt/alert
 | A quién se avisa y cuándo | `alertmanager/alertmanager.yml` | 19 nov |
 | Incidencias | el receptor `tickets/` | 24 nov |
 
-El umbral sale de la documentación del servicio o de un acuerdo de nivel de servicio (lo que el servicio promete a quien lo usa). Alertmanager está en la pila mínima desde la A1.1, pero con una configuración que no avisa a nadie.
+El umbral sale de la documentación del servicio o de un acuerdo de nivel de servicio (lo que el servicio promete a quien lo usa). Alertmanager ya corre en mon01 desde la UT1, pero sin configurar: no avisa a nadie.
 
 #### Alertar por síntomas, no por causas
 
@@ -73,7 +73,7 @@ up{job="node"} == 0     # solo las máquinas que no responden; con todas en pie,
 
 #### rate, increase y la ventana
 
-**Qué hacen.** `rate(c[5m])` es cuánto sube por segundo el contador `c`, de media en los últimos cinco minutos; `increase(c[5m])` es cuánto ha subido en total en esa ventana. Las dos corrigen los reinicios del contador. Ya se usaron en la [A1.3](ut1-observabilidad.md#a13-instrumentar-la-aplicacion-sesion-3) para el p95 y el porcentaje de errores.
+**Qué hacen.** `rate(c[5m])` es cuánto sube por segundo el contador `c`, de media en los últimos cinco minutos; `increase(c[5m])` es cuánto ha subido en total en esa ventana. Las dos corrigen los reinicios del contador. Con `rate` se calculan el p95 y el porcentaje de errores de la UT1 ([Las dos consultas de la sesión](ut1-observabilidad.md#las-dos-consultas-de-la-sesion)).
 
 **La ventana.** Para alertar, entre 2 y 10 minutos: con menos, dos peticiones fallidas parecen una avería; con más, el aviso llega tarde. El curso usa `[5m]` en todos los indicadores.
 
@@ -165,30 +165,50 @@ El `sum` junta los streams; con `sum by (host)` se conserva la máquina, para qu
 
 ### A2.1 Umbrales y cadenas (sesión 12)
 
-<span class="et et-obj">Objetivo</span> Las condiciones que la unidad convertirá en alarmas, probadas con un fallo real y con un origen que se puede defender: los seis umbrales en PromQL, con el valor normal medido en tu servicio, y las cadenas en LogQL, con dos mensajes sacados del código de la API y el evento `oom` de Docker. Al terminar tienes `docs/umbrales.md` y `docs/cadenas.md`, la base de las reglas del 17 de noviembre y lo que revisa la práctica evaluable en el criterio b.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** saber cuándo tu servicio está mal. Al terminar tienes, por escrito, el valor a partir del cual cada indicador es un problema y los mensajes de log que delatan una avería, y los has visto reaccionar a un fallo provocado por ti.
+
+**Para qué sirve en un trabajo:** una alarma con un umbral inventado salta de más o no salta nunca. En una empresa, cada umbral se mide sobre el servicio real y se puede justificar; si no, el equipo acaba ignorando las alarmas.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- `app01` y `mon01` encendidas, con todos los targets de `http://mon01:29090` en UP y los logs y eventos de app01 llegando a Loki.
-- Los nombres `app01` y `mon01` en el `/etc/hosts` de tu VM `puesto` y de mon01, como los dejó la A1.4; si el DHCP les ha cambiado la IP, corrígela.
-- `logcli` en tu VM `puesto` con `export LOKI_ADDR=http://mon01:23100`. Si no lo instalaste en la UT1, es un binario de la [release de Loki](https://github.com/grafana/loki/releases).
+- app01 y mon01 encendidas, con todos los targets de `http://mon01:29090` en UP y los logs y eventos de app01 llegando a Loki.
+- Los nombres `app01` y `mon01` en el `/etc/hosts` de tu VM `puesto` y de mon01. Si no están, o el DHCP les ha cambiado la IP, añade o corrige esta línea en los dos (la IP de cada VM sale en su *Summary* de Proxmox):
+
+    ```bash
+    echo "<IP de app01> app01
+    <IP de mon01> mon01" | sudo tee -a /etc/hosts
+    ```
+
+- En tu VM `puesto`, `jq` (lee JSON en la terminal) y `logcli` (el cliente de consola de Loki), de la misma versión que el Loki de mon01. Si no los tienes:
+
+    ```bash
+    sudo apt install -y jq unzip
+    curl -LO https://github.com/grafana/loki/releases/download/v3.5.3/logcli-linux-amd64.zip
+    unzip logcli-linux-amd64.zip && sudo install logcli-linux-amd64 /usr/local/bin/logcli
+    echo 'export LOKI_ADDR=http://mon01:23100' >> ~/.bashrc && source ~/.bashrc
+    logcli labels                     # debe listar host, service, level...
+    ```
+
 - La documentación del servicio (la da el profesor) y el código de la API, en `/opt/servicio/api/` de app01.
-- Explicado hoy: [Alertar por síntomas](#alertar-por-sintomas-no-por-causas), [Tabla de umbrales](#tabla-de-umbrales-del-contenedor-de-referencia), [Una consulta vacía no es un cero](#una-consulta-vacia-no-es-un-cero), [Cómo elegir el for](#como-elegir-el-for), [Selectores de stream y filtros de línea](#selectores-de-stream-y-filtros-de-linea) y [Métricas sobre logs](#metricas-sobre-logs).
+- La teoría de hoy: [Alertar por síntomas](#alertar-por-sintomas-no-por-causas), [Tabla de umbrales](#tabla-de-umbrales-del-contenedor-de-referencia), [Una consulta vacía no es un cero](#una-consulta-vacia-no-es-un-cero), [Cómo elegir el for](#como-elegir-el-for), [Selectores de stream y filtros de línea](#selectores-de-stream-y-filtros-de-linea) y [Métricas sobre logs](#metricas-sobre-logs).
 
 <span class="et et-pas">Pasos</span>
 
-Primero preparas el repositorio y un tráfico de fondo, sin el cual los ratios no tienen nada que dividir. Después mides el valor normal de cada indicador y buscas las cadenas en el código. Con todo listo provocas dos fallos para ver reaccionar números y texto, y al final fijas los umbrales y documentas las cadenas.
+Trabajas entre mon01, app01 y tu VM `puesto`. El recorrido: preparas el repositorio y un tráfico de fondo (paso 1), mides lo normal (paso 2), buscas los mensajes de error en el código (paso 3), provocas dos averías para ver reaccionar números y logs (pasos 4 y 5) y lo dejas todo escrito (paso 6).
 
-1. **Prepara el repositorio y el tráfico.** Todo lo de la unidad va al repositorio `alerting` de mon01, que entregas en la práctica evaluable. Nace con `secrets/` ignorado, porque ahí irán los tokens de Telegram y de Gitea. En mon01:
+1. **Prepara el repositorio y el tráfico.** *En mon01 y en tu VM `puesto`.*
+
+    Todo lo de la unidad va al repositorio `alerting` de mon01, que entregas en la práctica evaluable. Nace con `secrets/` ignorado, porque ahí irán los tokens de Telegram y de Gitea. En mon01 (la primera línea solo hace falta si Git aún no sabe tu nombre en esa máquina):
 
     ```bash
+    git config --global user.name ops && git config --global user.email ops@lab
     sudo mkdir -p /opt/alerting && sudo chown "$USER" /opt/alerting && cd /opt/alerting
     git init && mkdir -p docs secrets && echo "secrets/" > .gitignore
     echo "# alerting. Sin remoto todavía: lo recibe en la práctica evaluable." > README.md
     git add . && git commit -m "Repositorio alerting"
     ```
 
-    Y en tu VM `puesto`, un bucle que deja corriendo toda la sesión (las hojas siguientes también lo usan). Mete una ruta inexistente de cada diez, para comprobar que un 404 no cuenta como error del servicio:
+    Sin peticiones, el porcentaje de errores no tiene nada que dividir. En tu VM `puesto`, deja este bucle corriendo toda la sesión (las hojas siguientes también lo usan). Pide una ruta inexistente de cada diez, para comprobar que un 404 (página no encontrada) no cuenta como error del servicio:
 
     ```bash
     i=0; while true; do
@@ -198,18 +218,25 @@ Primero preparas el repositorio y un tráfico de fondo, sin el cual los ratios n
     done
     ```
 
-    Comprobación: el bucle imprime `200` sin parar.
+    **Sale bien si:** el bucle imprime `200` sin parar.
 
-2. **Mide el valor normal de cada indicador.** Ejecuta las seis consultas de la [tabla de umbrales](#tabla-de-umbrales-del-contenedor-de-referencia) en *Graph* de `http://mon01:29090`, o desde el puesto con esta función, y apunta el valor que se mantiene con el tráfico de fondo:
+2. **Mide el valor normal de cada indicador.** *En tu VM `puesto` o en el navegador.*
+
+    Antes de decidir cuándo algo va mal, hay que saber cuánto marca cuando va bien. Ejecuta las seis consultas de la [tabla de umbrales](#tabla-de-umbrales-del-contenedor-de-referencia) en *Graph* de `http://mon01:29090`, o desde el puesto con esta función `q`, y apunta el valor que se mantiene con el tráfico de fondo. La función queda en tu `~/.bashrc`, porque la A2.2 la vuelve a usar:
 
     ```bash
-    q() { curl -s http://mon01:29090/api/v1/query --data-urlencode "query=$1" | jq -c '.data.result[] | [.metric, .value[1]]'; }
+    echo 'q() { curl -s http://mon01:29090/api/v1/query --data-urlencode "query=$1" | jq -c ".data.result[] | [.metric, .value[1]]"; }' >> ~/.bashrc
+    source ~/.bashrc
     q 'sum(rate(app_http_requests_total{status=~"5.."}[5m])) / sum(rate(app_http_requests_total[5m]))'
     ```
 
-    Si una sale vacía, busca el motivo con [Una consulta vacía no es un cero](#una-consulta-vacia-no-es-un-cero) antes de seguir. La de servicio ausente, con la API respondiendo, sale vacía y es lo correcto: su número se lee en `up{job="app"}`. La de errores puede salir vacía si la API aún no ha dado ningún 5xx; apúntalo así.
+    Si una sale vacía, busca el motivo en [Una consulta vacía no es un cero](#una-consulta-vacia-no-es-un-cero) antes de seguir. Dos casos son normales: la de servicio ausente sale vacía mientras la API responde (su número se lee en `up{job="app"}`), y la de errores puede salir vacía si la API aún no ha dado ningún 5xx (error del servidor); apúntalo así.
 
-3. **Busca las cadenas en su origen.** Saca del código de la API dos mensajes de error distintos que se escriban cuando falla la base de datos, con su fichero y su línea, y escribe para cada uno una consulta LogQL (al menos una con `| json`). En app01 y en el puesto:
+    **Sale bien si:** tienes un valor (o «vacía» con su motivo) para cada una de las seis.
+
+3. **Busca las cadenas en su origen.** *En app01 y en tu VM `puesto`.*
+
+    Una cadena es un texto del log que delata una avería. Saca del código de la API dos mensajes de error distintos que se escriban cuando falla la base de datos, con su fichero y su línea. Para cada uno, escribe una consulta LogQL (el lenguaje de consultas de Loki), al menos una con `| json` (lee la línea como JSON para filtrar por sus campos):
 
     ```bash
     grep -rnE "log(ger)?\.(error|exception)\(" /opt/servicio/api/     # en app01
@@ -218,18 +245,22 @@ Primero preparas el repositorio y un tráfico de fondo, sin el cual los ratios n
     logcli query --since=1h '{service="app", level="error"} | json | msg=~"<inicio del mensaje>.*"'
     ```
 
-    Comprobación: todavía no tienen por qué devolver líneas; las verás aparecer en el paso siguiente.
+    **Sale bien si:** las dos consultas se ejecutan sin error de sintaxis. Todavía no tienen por qué devolver líneas: aparecen en el paso siguiente.
 
-4. **Provoca un fallo y mira reaccionar números y texto.** Para `db` dos minutos con el bucle corriendo y vuelve a arrancarla. Mientras está parada, repite la consulta de errores del paso 2 y tus dos consultas LogQL del paso 3:
+4. **Provoca un fallo y mira reaccionar números y texto.** *En app01 y en tu VM `puesto`.*
+
+    Una condición que no se ha visto saltar no está probada. Con el bucle corriendo, para `db` dos minutos y vuelve a arrancarla. Mientras está parada, repite la consulta de errores del paso 2 y tus dos consultas LogQL del paso 3:
 
     ```bash
     cd /opt/servicio && docker compose stop db      # en app01
     docker compose start db                          # dos minutos después
     ```
 
-    Comprobación: el ratio de errores sube y tus dos consultas devuelven líneas. Una consulta que no ha devuelto ninguna línea no está probada: cambia el texto o el selector. Apunta también qué hacen las otras cinco consultas de la tabla.
+    **Sale bien si:** el ratio de errores sube y tus dos consultas devuelven líneas. Si una no devuelve ninguna, no está probada: cambia el texto o el selector y repite.
 
-5. **Provoca un `oom` y convierte las consultas en números.** En app01, un contenedor de usar y tirar que muere por falta de memoria. Después busca el evento y pasa la consulta del `oom` y una de la API a consultas métricas, como en [Métricas sobre logs](#metricas-sobre-logs):
+5. **Provoca un `oom` y convierte las consultas en números.** *En app01 y en tu VM `puesto`.*
+
+    Un `oom` (*out of memory*) es un contenedor que el sistema mata por pasarse de memoria; Docker lo anota como evento. Lanza un contenedor de usar y tirar que muere así. Después busca el evento y pasa la consulta del `oom` y una de la API a consultas métricas (cuentan líneas en vez de enseñarlas), como en [Métricas sobre logs](#metricas-sobre-logs):
 
     ```bash
     docker run --rm -m 32m python:3-slim python -c "x = bytearray(200 * 1024 * 1024)"   # en app01
@@ -238,9 +269,11 @@ Primero preparas el repositorio y un tráfico de fondo, sin el cual los ratios n
     logcli instant-query 'sum(count_over_time(<tu consulta de la API> [10m]))'
     ```
 
-    Comprobación: las dos consultas métricas dan más de cero. Son las que irán al ruler de Loki el 17 de noviembre.
+    **Sale bien si:** las dos consultas métricas dan más de cero.
 
-6. **Fija los umbrales y documenta las cadenas.** Con el valor normal y la documentación delante, decide umbral, `for` y severidad de cada indicador ([Cómo elegir el for](#como-elegir-el-for)) y escribe los dos ficheros. `docs/umbrales.md`:
+6. **Fija los umbrales y documenta las cadenas.** *En mon01.*
+
+    Con el valor normal y la documentación delante, decide para cada indicador el umbral, el `for` (cuánto tiempo tiene que durar el problema antes de avisar, mira [Cómo elegir el for](#como-elegir-el-for)) y la severidad (`critical` o `warning`). Escríbelo en `docs/umbrales.md`:
 
     ```markdown
     | Indicador | Consulta | Valor normal | Umbral | for | Severidad | De dónde sale |
@@ -248,7 +281,7 @@ Primero preparas el repositorio y un tráfico de fondo, sin el cual los ratios n
     | Tasa de errores | `<consulta>` | <medido> | <umbral> | <for> | critical | Disponibilidad del 99 % (documentación, <página>) |
     ```
 
-    `docs/cadenas.md`, una entrada por cadena (las dos de la API y la del `oom`):
+    Y en `docs/cadenas.md`, una entrada por cadena (las dos de la API y la del `oom`):
 
     ```markdown
     ## <nombre corto>
@@ -257,13 +290,24 @@ Primero preparas el repositorio y un tráfico de fondo, sin el cual los ratios n
     - Qué significa que aparezca: <qué ha pasado y qué hay que mirar>
     ```
 
-    Haz commit de los dos. Comprobación: `git log` muestra el commit, y ningún umbral está por debajo de su valor normal.
+    Haz commit de los dos.
 
-<span class="et et-com">Comprobación</span> Las seis consultas devuelven lo esperado con el tráfico de fondo y el ratio de errores ha reaccionado a la parada de `db`; cada consulta de `docs/cadenas.md` ha devuelto al menos una línea, la del evento encuentra el `oom` y las dos métricas dan más de cero; `docs/umbrales.md` está en el repositorio con las siete columnas rellenas.
+    **Sale bien si:** `git log` muestra el commit y ningún umbral está por debajo de su valor normal.
 
-<span class="et et-ent">Para practicar</span> Guarda `docs/umbrales.md` y `docs/cadenas.md` en el repositorio `alerting`: las reglas de la A2.2 salen de ellos, y la práctica evaluable los revisa para el criterio b.
+<span class="et et-com">Comprobación</span>
 
-<span class="et et-ext">Si te sobra tiempo</span> Reinicia `app` cuatro veces, con medio minuto entre una y otra para que Prometheus vea cada arranque, y comprueba que la consulta de reinicios marca 4. Y provoca un `unhealthy` con un contenedor de usar y tirar con `--health-cmd "exit 1"` y un intervalo corto (bórralo después): su `action` es `health_status: unhealthy`, así que se filtra con `action=~"health_status.*"`. Añade la cadena a `docs/cadenas.md`.
+- [ ] Las seis consultas devuelven lo esperado con el tráfico de fondo.
+- [ ] El ratio de errores reaccionó a la parada de `db`.
+- [ ] Cada consulta de `docs/cadenas.md` ha devuelto al menos una línea, y la del evento encuentra el `oom`.
+- [ ] Las dos consultas métricas dan más de cero.
+- [ ] `docs/umbrales.md` está en el repositorio con las siete columnas rellenas.
+
+<span class="et et-ent">Para practicar</span>
+
+- **Guarda** `docs/umbrales.md` y `docs/cadenas.md` en el repositorio `alerting`. Las reglas de la A2.2, el 17 de noviembre, salen de ellos, y la práctica evaluable los revisa para el criterio b.
+- **Piensa:** si pusieras el umbral de errores justo en el valor normal, ¿cuántas veces al día te despertaría la alarma?
+
+<span class="et et-ext">Si te sobra tiempo</span> Para probar la alarma de reinicios: reinicia `app` cuatro veces, con medio minuto entre una y otra para que Prometheus vea cada arranque, y comprueba que la consulta de reinicios marca 4. Para tener una cadena más: provoca un `unhealthy` (la comprobación de salud del contenedor falla) con un contenedor de usar y tirar con `--health-cmd "exit 1"` y un intervalo corto, y bórralo después. Su `action` es `health_status: unhealthy`, así que se filtra con `action=~"health_status.*"`. Añade la cadena a `docs/cadenas.md`.
 
 ## Sesión 13 · Recording rules y reglas de alerta
 
@@ -319,7 +363,7 @@ groups:
 
 ### Reglas de alerta
 
-**Qué es.** Lo mismo que una recording rule, pero el resultado se usa como condición: cada serie que devuelve la expresión es una alerta, y si la sigue devolviendo durante el `for`, Prometheus la manda a Alertmanager. El bloque `alerting` de `prometheus.yml` ya dice dónde está Alertmanager.
+**Qué es.** Lo mismo que una recording rule, pero el resultado se usa como condición: cada serie que devuelve la expresión es una alerta, y si la sigue devolviendo durante el `for`, Prometheus la manda a Alertmanager. Dónde está Alertmanager lo dice el bloque `alerting` de `prometheus.yml`, que se añade en la hoja si la pila no lo trae.
 
 **El fichero.** `alerts.yml` traduce la tabla de umbrales a seis reglas más `HostDown`, que avisa si una máquina deja de contestar al job `node`. Los umbrales y los `for` son los orientativos; en la hoja se cambian por los de cada `docs/umbrales.md`:
 
@@ -513,64 +557,106 @@ La cadena de `AppDbTimeout` es un ejemplo: la buena sale del `docs/cadenas.md` d
 
 ### A2.2 Recording rules y reglas de alerta (sesión 13)
 
-<span class="et et-obj">Objetivo</span> Los indicadores del servicio como métricas con nombre propio y las diez alarmas del catálogo evaluándose solas: siete en `alerts.yml` de Prometheus y tres en `loki-alerts.yml` del ruler de Loki, todas con las cinco etiquetas. Al terminar tienes además una prueba de `promtool test rules` que pasa y una alarma real medida en su paso por `pending` y `firing`. `rules.yml` es la evidencia del criterio c.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** que Prometheus y Loki vigilen el servicio **solos**, sin que nadie mire las gráficas. Al terminar, las diez alarmas del catálogo están cargadas y has visto una dispararse de verdad.
+
+**Para qué sirve en un trabajo:** nadie está mirando Grafana a las tres de la madrugada. Una alarma bien escrita es la que avisa por ti, y saber cargarla, probarla y comprobar que salta es el trabajo diario de quien mantiene un servicio.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- `docs/umbrales.md` y `docs/cadenas.md` de la A2.1, y el bucle de tráfico de la A2.1 corriendo en tu VM `puesto`.
-- `lokitool` en mon01, de la release de Loki 3.5.3:
+- De la A2.1: el repositorio `/opt/alerting` con `docs/umbrales.md` y `docs/cadenas.md`, el bucle de tráfico corriendo en tu VM `puesto` y la función `q` en su `~/.bashrc`. Si te falta el repositorio, créalo con el [paso 1 de la A2.1](#a21-umbrales-y-cadenas-sesion-12); si te falta `q`, con el comienzo de su paso 2.
+- La pila de mon01 como repositorio Git, porque hoy cambias su `compose.yml`, `prometheus.yml` y `loki.yml` y esos cambios tienen que quedar registrados. Si `/opt/monitoring` todavía no lo es (`git status` dice `not a git repository`), conviértelo con un primer commit de lo que hay. Las contraseñas no entran: si `git status` enseña un `.env` o un directorio de datos que no esté en la lista, añádelo al `.gitignore` antes del commit:
 
     ```bash
+    cd /opt/monitoring
+    git init && printf '.env\nsecrets/\ntls/\n' >> .gitignore
+    git status                        # solo ficheros de configuración
+    git add . && git commit -m "Pila de monitorización tal como la dejó la UT1"
+    ```
+
+- Instala `lokitool` en mon01. Es la herramienta que revisa las reglas de Loki:
+
+    ```bash
+    sudo apt install -y unzip
     curl -LO https://github.com/grafana/loki/releases/download/v3.5.3/lokitool-linux-amd64.zip
     unzip lokitool-linux-amd64.zip && sudo install lokitool-linux-amd64 /usr/local/bin/lokitool
     ```
 
-- Explicado hoy: [El fichero rules.yml](#el-fichero-rulesyml), [Reglas de alerta](#reglas-de-alerta), [Probar las reglas con promtool](#probar-las-reglas-con-promtool) y [Alertas en el ruler de Loki](#alertas-en-el-ruler-de-loki).
+- Ten a mano la teoría de hoy, porque vas a copiar de ella: [El fichero rules.yml](#el-fichero-rulesyml), [Reglas de alerta](#reglas-de-alerta), [Probar las reglas con promtool](#probar-las-reglas-con-promtool) y [Alertas en el ruler de Loki](#alertas-en-el-ruler-de-loki).
 
 <span class="et et-pas">Pasos</span>
 
-Escribes los dos ficheros de Prometheus y los cargas a la vez. En cuanto están cargados provocas una alarma real, porque tarda en disparar, y mientras esperas compruebas las métricas grabadas. Después pruebas la regla con `promtool`, cargas las reglas de Loki y lo guardas todo.
+Hoy trabajas en **mon01** (salvo un momento en app01 para parar la base de datos). El recorrido es este: escribes las reglas, las cargas, provocas una avería para ver una alarma dispararse, pruebas la regla sin avería, haces lo mismo con Loki y lo guardas todo en Git.
 
-1. **Escribe los dos ficheros de reglas.** En `/opt/alerting/prometheus/`, copia `rules.yml` de [El fichero rules.yml](#el-fichero-rulesyml) y `alerts.yml` de [Reglas de alerta](#reglas-de-alerta). Cambia solo lo tuyo: en `rules.yml`, las etiquetas que corregiste en la A2.1 para que las consultas no salieran vacías; en `alerts.yml`, los umbrales (`> 0.01`...) y los `for` de tu `docs/umbrales.md`. Las cinco etiquetas de cada regla se quedan como están.
+1. **Escribe los dos ficheros de reglas.** *En mon01.*
 
-    Comprobación: las alarmas sobre ratios, percentiles y porcentajes usan una métrica con dos puntos (`app:...`, `db:...`).
+    Hay dos ficheros: `rules.yml` calcula los indicadores (el % de errores, el p95...) y les pone nombre; `alerts.yml` dice cuándo uno de esos indicadores es una alarma.
+    Crea los directorios de hoy con `mkdir -p /opt/alerting/prometheus/tests /opt/alerting/loki`, copia los dos ficheros de la teoría en `/opt/alerting/prometheus/` y cambia **solo** los números: los umbrales (`> 0.01`...) y los `for` que decidiste en tu `docs/umbrales.md`. Las etiquetas se quedan como están.
 
-2. **Cárgalos en Prometheus.** Valídalos, móntalos de solo lectura en el contenedor y referéncialos en `prometheus.yml`. En el `compose.yml` de `/opt/monitoring`, añade estas dos líneas a los `volumes` del servicio `prometheus`:
+    **Sale bien si:** las alarmas de porcentajes y tiempos usan un nombre con dos puntos (`app:errors:ratio5m`, `db:connections:ratio`...), no la consulta larga.
+
+2. **Cárgalos en Prometheus.** *En mon01.*
+
+    Prometheus tiene que poder leer los ficheros (se los montas en el contenedor) y saber que existen (se lo dices en `prometheus.yml`). En el `compose.yml` de `/opt/monitoring`, añade estas dos líneas a los `volumes` de `prometheus`:
 
     ```yaml
           - /opt/alerting/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
           - /opt/alerting/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
     ```
 
-    y a `prometheus.yml`, la línea `rule_files: [ "rules.yml", "alerts.yml" ]`. Después:
+    En `prometheus.yml`, al nivel de `scrape_configs` (sin sangría), añade la lista de ficheros de reglas y, si no está ya, el bloque `alerting`, que dice a Prometheus adónde mandar las alertas:
 
-    ```bash
-    cd /opt/alerting/prometheus
-    docker run --rm -v "$PWD:/w" --entrypoint promtool prom/prometheus:v3.5.0 check rules /w/rules.yml /w/alerts.yml
-    cd /opt/monitoring && docker compose up -d prometheus     # un montaje nuevo obliga a recrear
+    ```yaml
+    rule_files: [ "rules.yml", "alerts.yml" ]
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ["alertmanager:29093"]
     ```
 
-    Comprobación: `promtool` dice `SUCCESS` y las siete reglas salen en *Alerts* de `http://mon01:29090` como `inactive`. Si no aparecen, mira `prometheus_config_last_reload_successful` y el log de Prometheus.
+    Después revisa los ficheros con el `promtool` de la propia imagen de Prometheus (así no descargas otra) y recrea Prometheus:
 
-3. **Provoca una alarma real y, mientras, comprueba las métricas grabadas.** Para `db` en app01 con el bucle de tráfico corriendo y apunta las horas de la parada, de `pending` y de `firing` de `AppHighErrorRate` en *Alerts*. Con la alerta en `firing`, arranca `db` y apunta cuándo desaparece. Mientras esperas, ejecuta cada métrica grabada junto a su consulta cruda (el `expr` de `rules.yml`) con la función `q` de la A2.1:
+    ```bash
+    cd /opt/monitoring
+    docker compose run --rm --no-deps --entrypoint promtool prometheus check rules /etc/prometheus/rules.yml /etc/prometheus/alerts.yml
+    docker compose up -d prometheus
+    ```
+
+    **Sale bien si:** `promtool` dice `SUCCESS` y en `http://mon01:29090` → *Alerts* aparecen las siete alarmas en verde (`inactive`, es decir, todo normal).
+
+3. **Provoca una avería y mira cómo salta la alarma.** *En app01 y en el navegador.*
+
+    Es la prueba de verdad: si la alarma no salta con una avería que provocas tú, no saltará con una real. Con el bucle de tráfico corriendo, para la base de datos en app01:
+
+    ```bash
+    cd /opt/servicio && docker compose stop db
+    ```
+
+    Mira `AppHighErrorRate` en *Alerts* y **apunta la hora** de cada cambio: cuando paras `db`, cuando se pone amarilla (`pending`: se cumple, pero espera el `for` por si es un pico pasajero) y cuando se pone roja (`firing`: avisa). Entonces arranca `db` con `docker compose start db` y apunta cuándo vuelve a verde. La vuelta tarda unos minutos, hasta que los errores salen de la ventana de 5 min: mientras, sigue con el paso 4 y vuelve a mirar al terminarlo.
+
+    Mientras esperas, comprueba en tu VM `puesto` que el nombre corto calcula lo mismo que la consulta larga, con la función `q` de la A2.1:
 
     ```bash
     q 'app:errors:ratio5m'
     q 'sum by (service)(rate(app_http_requests_total{status=~"5.."}[5m])) / sum by (service)(rate(app_http_requests_total[5m]))'
     ```
 
-    Comprobación: cada pareja da el mismo valor; si no, la regla no calcula lo que crees. Compara los retrasos medidos con la ventana y el `for` de la regla ([Cómo elegir el for](#como-elegir-el-for)).
+    **Sale bien si:** la alarma pasa por amarillo y rojo, y vuelve a verde; las dos consultas dan el mismo número.
 
-4. **Prueba la regla sin esperar.** Copia la prueba de [Probar las reglas con promtool](#probar-las-reglas-con-promtool) en `prometheus/tests/alerts_test.yml` y cambia el `eval_time` y las anotaciones esperadas para que coincidan con tu `AppHighErrorRate`. Pásala:
+4. **Prueba la regla sin romper nada.** *En mon01.*
+
+    Parar la base de datos cada vez que cambias un umbral es lento. `promtool test rules` se inventa los datos y comprueba en un segundo si la alarma saltaría. Copia la prueba de la teoría en `prometheus/tests/alerts_test.yml`, ajusta el `eval_time` y el texto esperado a tu `AppHighErrorRate`, y pásala:
 
     ```bash
-    cd /opt/alerting/prometheus
-    docker run --rm -v "$PWD:/w" -w /w/tests --entrypoint promtool prom/prometheus:v3.5.0 test rules alerts_test.yml
+    cd /opt/monitoring
+    docker compose run --rm --no-deps -v /opt/alerting/prometheus:/w -w /w/tests --entrypoint promtool prometheus test rules alerts_test.yml
     ```
 
-    Comprobación: `SUCCESS`. Si falla, la salida enseña lo esperado y lo obtenido: casi siempre es una anotación que no coincide letra a letra.
+    **Sale bien si:** dice `SUCCESS`. Si falla, enseña lo que esperabas y lo que ha salido: casi siempre es una letra distinta en el texto del aviso.
 
-5. **Activa el ruler de Loki con las tres reglas de texto.** Añade a `/opt/monitoring/loki/loki.yml` el bloque `ruler` de [Alertas en el ruler de Loki](#alertas-en-el-ruler-de-loki) y copia las tres reglas del mismo apartado en `/opt/alerting/loki/loki-alerts.yml`, con la cadena de `AppDbTimeout` cambiada por una de tu `docs/cadenas.md`. Móntalo con esta línea en los `volumes` del servicio `loki` del compose:
+5. **Haz lo mismo con los logs: las alarmas de Loki.** *En mon01.*
+
+    Tres alarmas vigilan texto, no números: muchas líneas de error, un mensaje concreto de la API y el `oom` de Docker. Las evalúa Loki, con su *ruler*.
+    Añade a `/opt/monitoring/loki/loki.yml` el bloque `ruler` de la teoría. Copia las tres reglas en `/opt/alerting/loki/loki-alerts.yml` y cambia la cadena de `AppDbTimeout` por una de tu `docs/cadenas.md`. Móntalo con esta línea en los `volumes` de `loki`:
 
     ```yaml
           - /opt/alerting/loki/loki-alerts.yml:/loki/rules/fake/loki-alerts.yml:ro
@@ -579,24 +665,42 @@ Escribes los dos ficheros de Prometheus y los cargas a la vez. En cuanto están 
     ```bash
     lokitool rules lint -n /opt/alerting/loki/loki-alerts.yml
     cd /opt/monitoring && docker compose up -d loki
-    curl -s http://mon01:23100/loki/api/v1/rules
+    curl -s http://localhost:23100/loki/api/v1/rules
     ```
 
-    Comprobación: el `lint` sale limpio y el `curl` devuelve tus tres reglas. Si no salen, el fichero no ha quedado en `/loki/rules/fake/`.
+    **Sale bien si:** el `lint` no se queja y el `curl` enseña tus tres reglas.
 
-6. **Guárdalo con las horas medidas.** Apunta las horas del paso 3 en `docs/umbrales.md`, junto a `AppHighErrorRate`, y haz commit de `prometheus/`, `loki/` y `docs/` en `alerting`; en `monitoring`, de `compose.yml`, `prometheus.yml` y `loki/loki.yml`.
+6. **Guárdalo todo en Git.** *En mon01.*
 
-<span class="et et-com">Comprobación</span> `promtool check rules` y `promtool test rules` terminan en `SUCCESS`; las cinco métricas grabadas dan el mismo valor que su consulta cruda; *Alerts* muestra las siete reglas de Prometheus; `lokitool rules lint` sale limpio y `curl http://mon01:23100/loki/api/v1/rules` devuelve tus tres reglas; tienes anotado `pending`, `firing` y resolución, con horas.
+    Apunta en `docs/umbrales.md`, junto a `AppHighErrorRate`, las horas del paso 3. Después haz un commit en cada repositorio:
 
-<span class="et et-ent">Para practicar</span> Guarda `prometheus/rules.yml`, `prometheus/alerts.yml`, `prometheus/tests/alerts_test.yml` y `loki/loki-alerts.yml` en el repositorio `alerting`. Para la sesión del 19 de noviembre, trae creado un bot de Telegram con @BotFather, metido en un grupo de pruebas y con el `chat_id` del grupo apuntado: cómo se hace está en [Receptores y plantillas](#receptores-y-plantillas).
+    ```bash
+    cd /opt/alerting && git add prometheus loki docs && git commit -m "A2.2: recording rules y alarmas"
+    cd /opt/monitoring && git add compose.yml prometheus.yml loki/loki.yml && git commit -m "A2.2: reglas en Prometheus y ruler de Loki"
+    ```
 
-<span class="et et-ext">Si te sobra tiempo</span> En el dashboard de la A1.2, cambia la consulta del porcentaje de memoria por `app:memory:ratio` y añade un panel con `app:errors:ratio5m` y otro con `app:latency_p95:5m`: así el panel y las alarmas leen la misma serie. Exporta el dashboard a `grafana/dashboard.json` de `alerting`.
+    **Sale bien si:** `git log` enseña los dos commits.
+
+<span class="et et-com">Comprobación</span>
+
+- [ ] `promtool check rules` y `promtool test rules` dicen `SUCCESS`.
+- [ ] Las siete alarmas de Prometheus están en *Alerts*, y las tres de Loki salen en `/loki/api/v1/rules`.
+- [ ] Cada nombre corto da el mismo valor que su consulta larga.
+- [ ] Tienes apuntadas las horas de la avería: parada, `pending`, `firing` y vuelta a verde.
+
+<span class="et et-ent">Para practicar</span>
+
+- **Guarda** en el repositorio `alerting`: `prometheus/rules.yml`, `prometheus/alerts.yml`, `prometheus/tests/alerts_test.yml` y `loki/loki-alerts.yml`. Las usa la práctica evaluable, y `rules.yml` es la evidencia del criterio c.
+- **Piensa:** ¿cuánto tardó la alarma en ponerse roja desde que paraste `db`? ¿De dónde sale ese retraso?
+- **Para el 19 de noviembre**, trae creado un bot de Telegram: [Receptores y plantillas](#receptores-y-plantillas) explica cómo.
+
+<span class="et et-ext">Si te sobra tiempo</span> Crea en Grafana un dashboard `Alarmas` con tres paneles de serie temporal, uno por consulta: `app:errors:ratio5m`, `app:latency_p95:5m` y `app:memory:ratio`. Así el panel y la alarma leen la misma serie y no pueden contradecirse. Exporta el dashboard (*Share → Export → Save to file*) a `grafana/dashboard.json` de `alerting`.
 
 ## Sesión 14 · Alertmanager e incidencias
 
 <p class="ut-meta" markdown>19 de noviembre · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Alertmanager · 15 min&#10;Categorizar, notificar y tratar · 5 min&#10;Demostración: incidencias en Gitea · 15 min&#10;A2.3 Alertmanager · 75 min" data-dur="Alertmanager · 15 min&#10;Categorizar, notificar y tratar · 5 min&#10;Demostración: incidencias en Gitea · 15 min&#10;A2.3 Alertmanager · 75 min">:material-school:<i class="dur-barra" style="--teoria:32%"></i>:material-flask:</span></p>
 
-Prometheus y el ruler de Loki ya mandan sus alertas a Alertmanager, pero su configuración de partida las manda a un receptor vacío, `nadie`. Y si cada alerta fuera un mensaje, una máquina caída daría diez mensajes repetidos a todo el mundo. Alertmanager decide con qué alertas va cada una, a quién se manda, cuándo y qué se calla. Como no guarda historial, la cadena termina en un **gestor de incidencias** donde cada alarma queda registrada. La teoría sigue ese camino: rutas, tiempos, inhibición, silencios, receptores y pruebas con alertas sintéticas; después, qué datos clasifican cada alarma y una demostración que lleva las alarmas a incidencias de Gitea. La hoja monta las rutas y las prueba; las incidencias se montan en la práctica evaluable.
+Prometheus y el ruler de Loki ya mandan sus alertas a Alertmanager, pero Alertmanager sigue sin configurar y no avisa a nadie. Y si cada alerta fuera un mensaje, una máquina caída daría diez mensajes repetidos a todo el mundo. Alertmanager decide con qué alertas va cada una, a quién se manda, cuándo y qué se calla. Como no guarda historial, la cadena termina en un **gestor de incidencias** donde cada alarma queda registrada. La teoría sigue ese camino: rutas, tiempos, inhibición, silencios, receptores y pruebas con alertas sintéticas; después, qué datos clasifican cada alarma y una demostración que lleva las alarmas a incidencias de Gitea. La hoja monta las rutas y las prueba; las incidencias se montan en la práctica evaluable.
 
 ### Alertmanager
 
@@ -987,18 +1091,31 @@ Va en los tres para que ninguna alarma se quede sin incidencia; una alerta que p
 
 ### A2.3 Alertmanager (sesión 14)
 
-<span class="et et-obj">Objetivo</span> Que las alertas de la A2.2 lleguen a quien tienen que llegar, juntas cuando son del mismo problema y calladas cuando sobran. Al terminar tienes Alertmanager con tres rutas, una inhibición comprobada y un silencio, avisando por Mailpit y por Telegram con plantilla propia. Es la notificación de los criterios d y e; las incidencias se añaden en la práctica evaluable, como en la [demostración](#demostracion-incidencias-en-gitea).
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** que las alarmas de la A2.2 te lleguen de verdad, al correo o a Telegram según su gravedad, juntas cuando son del mismo problema y calladas cuando sobran.
+
+**Para qué sirve en un trabajo:** una alarma que nadie recibe no sirve, y una que manda cien mensajes por la misma avería hace que se dejen de leer. Decidir quién recibe qué, y callar las alertas durante un mantenimiento, es parte del trabajo diario de guardia.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Las reglas de la A2.2 cargadas y el bot de Telegram en un grupo de pruebas, con el `chat_id` del grupo apuntado y el token en `/opt/alerting/secrets/tg_token`. Sin bot, pon de momento en el receptor `critical` un `email_configs` a `guardia@lab` en lugar del `telegram_configs`; la captura final será la de Mailpit.
-- Explicado hoy: [Alertmanager](#alertmanager), de [El árbol de rutas](#el-arbol-de-rutas) a [Alertas sintéticas](#alertas-sinteticas).
+- Las reglas de la A2.2 cargadas en Prometheus y Loki.
+- El bot de Telegram en un grupo de pruebas, con el `chat_id` (el número que identifica el grupo) apuntado y el token en `/opt/alerting/secrets/tg_token`. Si no tienes bot, deja de momento el receptor `critical` así, con correo en lugar de Telegram, y la captura final será la de Mailpit:
+
+    ```yaml
+      - name: critical
+        email_configs:
+          - to: guardia@lab
+            send_resolved: true
+    ```
+
+- La teoría de hoy: [Alertmanager](#alertmanager), de [El árbol de rutas](#el-arbol-de-rutas) a [Alertas sintéticas](#alertas-sinteticas).
 
 <span class="et et-pas">Pasos</span>
 
-Primero preparas la pila para que Alertmanager lea su configuración del repositorio y guarde los silencios. Después cargas la configuración y compruebas las rutas sin mandar nada. Por último pruebas con alertas sintéticas, que llegan en segundos; el silencio va antes porque una de las pruebas tiene que esquivarlo.
+Hoy trabajas en **mon01**. El recorrido: preparas los contenedores (paso 1), cargas la configuración y compruebas las rutas sin mandar nada (paso 2), pones un silencio (paso 3), lanzas alertas de prueba para ver adónde llega cada una (paso 4) y lo guardas en Git (paso 5). El silencio va antes de las pruebas porque una de ellas tiene que esquivarlo.
 
-1. **Prepara la pila.** En el `compose.yml` de `/opt/monitoring`, añade el servicio `mailpit` de [Mailpit como SMTP de pruebas](#mailpit-como-smtp-de-pruebas) y cambia el de `alertmanager` para que lea del repositorio `alerting` y guarde sus datos en un volumen (sin él, cada reinicio borraría los silencios):
+1. **Prepara la pila.** *En mon01.*
+
+    Alertmanager es el que recibe las alertas de Prometheus y decide a quién avisar. Mailpit es un servidor de correo de pruebas: recoge los correos y los enseña en una web. En el `compose.yml` de `/opt/monitoring`, añade el servicio `mailpit` de [Mailpit como SMTP de pruebas](#mailpit-como-smtp-de-pruebas) y cambia el de `alertmanager` por este, que lee su configuración del repositorio `alerting` y guarda sus datos en un volumen (sin él, cada reinicio borraría los silencios):
 
     ```yaml
       alertmanager:
@@ -1015,9 +1132,13 @@ Primero preparas la pila para que Alertmanager lea su configuración del reposit
         restart: unless-stopped
     ```
 
-    Declara `alertmanager_data:` en el bloque `volumes` del final. Comprobación: `docker compose config` no da errores.
+    Declara `alertmanager_data:` en el bloque `volumes` del final del fichero.
 
-2. **Carga la configuración y comprueba las rutas.** Copia el `alertmanager.yml` de [El árbol de rutas](#el-arbol-de-rutas) en `/opt/alerting/alertmanager/`, cambiando `chat_id` por el de tu grupo, y la plantilla de [Receptores y plantillas](#receptores-y-plantillas) en `alertmanager/templates/lab.tmpl`. Valida, levanta y prueba las rutas:
+    **Sale bien si:** `docker compose config` no da errores.
+
+2. **Carga la configuración y comprueba las rutas.** *En mon01.*
+
+    Las rutas deciden a qué receptor (correo, Telegram) va cada alerta según sus etiquetas. Crea los directorios con `mkdir -p /opt/alerting/alertmanager/templates`. Copia el `alertmanager.yml` de [El árbol de rutas](#el-arbol-de-rutas) en `/opt/alerting/alertmanager/`, cambiando `chat_id` por el de tu grupo, y la plantilla de [Receptores y plantillas](#receptores-y-plantillas) en `alertmanager/templates/lab.tmpl`. Después valida, levanta y pregunta adónde iría una alerta de ejemplo:
 
     ```bash
     cd /opt/monitoring
@@ -1027,18 +1148,24 @@ Primero preparas la pila para que Alertmanager lea su configuración del reposit
       --config.file=/etc/alertmanager/alertmanager.yml severity=warning team=dev
     ```
 
-    Comprobación: `check-config` dice `SUCCESS` y `http://mon01:29093` responde. Decide si te convence a qué receptor llega una `warning` del equipo de desarrollo: si no, cambia el orden de las rutas o su `continue`, y apunta la decisión y su porqué en el README.
+    Mira a qué receptor llega una `warning` del equipo de desarrollo. Si no te convence, cambia el orden de las rutas o su `continue` (que la alerta siga buscando más rutas después de encajar en una), y apunta la decisión y su porqué en el README.
 
-3. **Pon un silencio.** Crea un silencio de una hora sobre `service=db`, como si fueras a hacer un mantenimiento de la base de datos, y déjalo puesto:
+    **Sale bien si:** `check-config` dice `SUCCESS` y `http://mon01:29093` responde.
+
+3. **Pon un silencio.** *En mon01.*
+
+    Un silencio calla durante un tiempo las alertas que cumplen una condición, como se hace antes de un mantenimiento para no despertar a nadie. Crea uno de una hora sobre `service=db` y déjalo puesto:
 
     ```bash
     AM="docker compose exec alertmanager amtool --alertmanager.url=http://localhost:29093"
     $AM silence add service=db --duration=1h --author=ops --comment="<motivo del mantenimiento>"
     ```
 
-    Comprobación: `$AM silence query` lo lista y se ve en la pestaña *Silences* de la web.
+    **Sale bien si:** `$AM silence query` lo lista y se ve en la pestaña *Silences* de la web.
 
-4. **Prueba con alertas sintéticas.** Lanza estas alertas, con `service=app` para que el silencio no las tape:
+4. **Prueba con alertas sintéticas.** *En mon01, con Telegram y Mailpit abiertos.*
+
+    Las alertas sintéticas son de mentira: las lanzas a mano y llegan en segundos, sin esperar a una avería. Llevan `service=app` para que el silencio no las tape. Las dos `PruebaGrupo` tienen que llegar juntas; `HostDown` tiene que tapar a `PruebaInhibida` (eso es una inhibición: si el servidor está caído, no hace falta avisar también de lo que corre en él):
 
     ```bash
     $AM alert add alertname=PruebaGrupo severity=critical service=app instance=r1 --annotation=summary="Prueba de grupo"
@@ -1049,15 +1176,31 @@ Primero preparas la pila para que Alertmanager lea su configuración del reposit
     $AM alert query -i      # las inhibidas
     ```
 
-    Comprobación: las dos `PruebaGrupo` llegan a Telegram en un solo mensaje; `PruebaAviso` llega a Mailpit (`http://mon01:28025`) y no a Telegram; `PruebaInhibida` sale en `alert query -i` y no llega a ningún sitio. A los 5 minutos se resuelven y llega el `[RESOLVED]` en el siguiente `group_interval`.
+    A los 5 minutos se resuelven solas, y el aviso de resuelta llega en el siguiente `group_interval` (cada cuánto se manda la actualización de un grupo ya avisado).
 
-5. **Guárdalo sin secretos.** Haz commit de `alertmanager/` en `alerting` y del `compose.yml` en `monitoring`. Comprobación: `git status` no muestra nada de `secrets/`.
+    **Sale bien si:** las dos `PruebaGrupo` llegan a Telegram en un solo mensaje; `PruebaAviso` llega a Mailpit (`http://mon01:28025`) y no a Telegram; `PruebaInhibida` sale en `alert query -i` y no llega a ningún sitio; al rato llega el `[RESOLVED]`.
 
-<span class="et et-com">Comprobación</span> `amtool check-config` sin errores; en Mailpit hay un correo de `PruebaAviso` y ninguno de `PruebaInhibida`, que `alert query -i` da como inhibida; en Telegram, un `[FIRING:2]` con dos alertas y su `[RESOLVED]`; el silencio se ve en la interfaz; no hay secretos en el repositorio.
+5. **Guárdalo sin secretos.** *En mon01.*
 
-<span class="et et-ent">Para practicar</span> Guarda `alertmanager/` y el `compose.yml` de mon01 en sus repositorios, y una captura de Telegram con la notificación agrupada en `docs/capturas/` de `alerting`. La práctica evaluable añade a estos tres receptores el webhook de incidencias: repasa antes la [demostración](#demostracion-incidencias-en-gitea), porque la repites en tu mon01.
+    Haz commit de `alertmanager/` en `alerting` y del `compose.yml` en `monitoring`. El token de Telegram se queda fuera, en `secrets/`.
 
-<span class="et et-ext">Si te sobra tiempo</span> Cambia en la ruta `critical` el agrupamiento a `group_by: [service]`, recarga Alertmanager y lanza dos sintéticas `critical` con `alertname` distinto y el mismo `service=app`. Compara cuántos mensajes llegan con uno y otro `group_by`, y deja el que prefieras, justificado en el README.
+    **Sale bien si:** `git status` no muestra nada de `secrets/`.
+
+<span class="et et-com">Comprobación</span>
+
+- [ ] `amtool check-config` sin errores.
+- [ ] En Mailpit hay un correo de `PruebaAviso` y ninguno de `PruebaInhibida`, que `alert query -i` da como inhibida.
+- [ ] En Telegram, un `[FIRING:2]` con dos alertas y después su `[RESOLVED]`.
+- [ ] El silencio se ve en la interfaz de Alertmanager.
+- [ ] No hay secretos en el repositorio.
+
+<span class="et et-ent">Para practicar</span>
+
+- **Guarda** `alertmanager/` y el `compose.yml` de mon01 en sus repositorios, y una captura de Telegram con la notificación agrupada en `docs/capturas/` de `alerting`. Los usa la práctica evaluable para los criterios d y e.
+- **Piensa:** si se cae app01 de verdad, ¿cuántos mensajes recibirías con esta configuración y cuántos sin la inhibición?
+- **Antes de la práctica evaluable**, repasa la [demostración](#demostracion-incidencias-en-gitea): allí añades a estos receptores el webhook que abre incidencias en Gitea, y la repites en tu mon01.
+
+<span class="et et-ext">Si te sobra tiempo</span> Para ver cómo cambia el número de mensajes según cómo se agrupan: cambia en la ruta `critical` el agrupamiento a `group_by: [service]`, recarga Alertmanager y lanza dos sintéticas `critical` con `alertname` distinto y el mismo `service=app`. Compara cuántos mensajes llegan con uno y otro `group_by`, y deja el que prefieras, justificado en el README.
 
 ## Sesión 15 · Práctica evaluable
 
@@ -1091,21 +1234,41 @@ Entrega el repositorio `alerting`, comprimido y subido por Aules, con `rules.yml
 
 Trabaja en este orden: primero el tratamiento de incidencias, porque sin él la verificación no deja rastro; después las provocaciones, que tardan (una alarma puede llevar un cuarto de hora de punta a punta), lanzando juntas las que no se estorban y dejando para el final la que inhibe a las demás; y al final repasa el repositorio contra la lista de abajo.
 
-1. **Monta el tratamiento de incidencias.** Repite en tu mon01 las cuatro primeras partes de la [demostración](#demostracion-incidencias-en-gitea): Gitea con la organización `ops` y sus cuatro repositorios; el receptor `tickets` con el código, el `Dockerfile` y el compose tal cual; la prueba con `firing.json` y `resolved.json`, con un reinicio del receptor en medio; y el webhook en los tres receptores de `alertmanager.yml`. Es la parte de tratamiento del criterio e.
+1. **Monta el tratamiento de incidencias.** Repite en tu mon01 las cuatro primeras partes de la [demostración](#demostracion-incidencias-en-gitea): Gitea con la organización `ops` y sus cuatro repositorios; el receptor `tickets` con el código, el `Dockerfile` y el compose tal cual; la prueba con `firing.json` y `resolved.json`, con un reinicio del receptor en medio; y el webhook en los tres receptores de `alertmanager.yml`. Es la parte de tratamiento del criterio e. Lo mecánico, para copiar:
+
+    ```bash
+    # en tu VM puesto, en mon01 y en app01: el nombre de Gitea va en la línea de mon01
+    echo "<IP de mon01> gitea.lab" | sudo tee -a /etc/hosts
+    # en mon01, con firing.json ya guardado: la copia resuelta
+    cd /opt/alerting/tickets/tests
+    sed 's/"firing"/"resolved"/g; s/0001-01-01T00:00:00Z/2026-11-24T10:00:00Z/' firing.json > resolved.json
+    ```
 
     *Pista:* si el receptor responde 500 o no aparece ninguna issue, mira `docker compose logs tickets`: casi siempre es el token o `GITEA_REPO` ([Errores frecuentes](#errores-frecuentes-en-el-laboratorio)).
 
-2. **Prepara la tabla de verificación.** Crea `docs/verificacion.md` con estas columnas: alarma, origen, criticidad, servicio, cómo se provoca, hora y tiempo hasta firing, canales, issue creada, hora y tiempo hasta resolved, issue cerrada, cambios. Origen, criticidad y servicio salen de las etiquetas de la regla.
+2. **Prepara la tabla de verificación.** Crea `docs/verificacion.md` con esta cabecera y una fila por alarma. Origen, criticidad y servicio salen de las etiquetas de la regla:
+
+    ```markdown
+    | Alarma | Origen | Criticidad | Servicio | Cómo se provoca | Firing (hora y tiempo) | Canales | Issue creada | Resolved (hora y tiempo) | Issue cerrada | Cambios |
+    |---|---|---|---|---|---|---|---|---|---|---|
+    ```
 
 3. **Lanza primero las provocaciones lentas.** Provoca a la vez `ContainerOOM` y la parada de `db`, que dispara `AppHighErrorRate` desde Prometheus y `AppLogErrorsBurst` desde Loki, anotando la hora de cada una; vuelve a arrancar `db` en cuanto estén abiertas sus dos issues. Son tres grupos distintos en Alertmanager y no se pisan. Mientras esperas los cierres, adelanta los remotos del paso 6.
 
-    *Pista:* el `oom` sale del mismo contenedor de usar y tirar de la A2.1, y `ContainerOOM` se resuelve sola cuando el evento sale de su ventana de 10 min.
+    *Pista:* el `oom` sale del mismo contenedor de usar y tirar de la A2.1 (en app01, `docker run --rm -m 32m python:3-slim python -c "x = bytearray(200 * 1024 * 1024)"`), y `ContainerOOM` se resuelve sola cuando el evento sale de su ventana de 10 min.
 
 4. **Deja para el final la que inhibe.** Cuando esas tres issues estén cerradas, provoca `HostDown` parando el node_exporter de app01 (`sudo systemctl stop prometheus-node-exporter`) y arráncalo en cuanto llegue el aviso. Va la última por la [inhibición](#inhibicion): mientras está activa, calla las alertas de app01.
 
 5. **Rellena las filas y ajusta lo que piden los tiempos.** Completa la fila de cada alarma siguiendo el [procedimiento](#procedimiento-de-verificacion-de-una-alarma); las horas de firing y resolved están en el cuerpo y el comentario de su issue. Rellena *Cambios* y aplícalos en `alerts.yml`: qué `for` o ventana bajas si tarda demasiado, o qué subes si ha saltado por un pico. Valida, recarga y haz commit de `docs/verificacion.md` y de las reglas que hayas tocado.
 
-6. **Dale un remoto a cada repositorio.** Haz commit de `tickets/` y `alertmanager/` en `alerting`, con los enlaces a las issues en el README en lugar de la nota del remoto pendiente, y del `compose.yml` en `monitoring`. Da a cada copia (`alerting` y `monitoring` en mon01, `servicio` en app01) su remoto `http://gitea.lab:23001/ops/<repo>.git` y haz el primer push: las unidades siguientes trabajan sobre esos remotos. Antes de comprimir `alerting`, comprueba que no hay secretos ni en el repositorio ni en su historial.
+6. **Dale un remoto a cada repositorio.** Haz commit de `tickets/` y `alertmanager/` en `alerting`, con los enlaces a las issues en el README en lugar de la nota del remoto pendiente, y del `compose.yml` en `monitoring`. Da a cada copia (`alerting` y `monitoring` en mon01, `servicio` en app01) su remoto y haz el primer push, con el usuario administrador de Gitea; las unidades siguientes trabajan sobre esos remotos:
+
+    ```bash
+    git remote add origin http://gitea.lab:23001/ops/<repo>.git    # alerting, monitoring o servicio
+    git push -u origin HEAD
+    ```
+
+    Antes de comprimir `alerting`, comprueba que no hay secretos ni en el repositorio ni en su historial.
 
     *Pista:* antes del primer push de `alerting`, `git check-ignore secrets/tickets.env` tiene que imprimir la ruta.
 

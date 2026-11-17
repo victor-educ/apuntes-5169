@@ -181,38 +181,47 @@ rst() { ( set -a; . /etc/restic/env; set +a; exec restic "$@" ); }   # restic co
 
 ### A8.1 Plan de baja (sesión 35)
 
-<span class="et et-obj">Objetivo</span> El puesto de administración preparado para las cinco hojas de la unidad y `operacion/baja/pre/acta.md` abierta con el inventario real de pre y la lista de comprobación, con un comando de verificación por punto. Es lo que se hace en una empresa antes de retirar cualquier servicio: lo que no salga hoy en el inventario no lo borrará nadie, y sin la aprobación que pides al final no se toca nada.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** el puesto de administración listo para toda la unidad y el acta de baja de pre abierta, con todo lo que existe de pre y la orden que demostrará que se ha quitado. Hoy no se borra nada.
+
+**Para qué sirve en un trabajo:** antes de retirar cualquier servicio se hace inventario y se pide permiso por escrito. Lo que no aparezca hoy en el inventario no lo borrará nadie, y sin aprobación no se toca nada.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Entra en el puesto de administración con `ssh -A ops@<IP de admin01 en la red del laboratorio>`: el `-A` le presta tu clave para llegar a mon01, agent01, db01 y las VM de pre.
-- Enciende `jenkins01`, `router-pre`, `app01-pre` y `db01-pre`. Para que quepa en la memoria, apaga `web01` y `db01` de dev, como indica el [presupuesto de memoria](https://victor-educ.github.io/apuntes-5166/laboratorio/#presupuesto-de-memoria) de Despliegue.
-- A mano, en el gestor de contraseñas del puesto: el token `tofu` de Proxmox (A5.1 de Despliegue), los secretos de las credenciales `tofu` y `restic` de MinIO (A5.2), la contraseña del usuario del registry (A6.6) y la de `admin` en Jenkins. En el puesto, `~/iac-lab/envs/pre` con su backend inicializado (A5.4) y el entorno de restic de la A7.4 en `/etc/restic/`.
-- Lo explicado hoy: [la baja como cambio](#la-baja-es-un-cambio-mas), [el inventario de rastros](#inventario-de-rastros), [el puesto como base de la baja](#el-puesto-de-administracion-como-base-de-la-baja) y la [lista de comprobación completa](#lista-de-comprobacion-completa). La plantilla del acta está en la [práctica evaluable](#acta-de-baja).
+- Entra en el puesto de administración con `ssh -A ops@<IP de admin01 en la red del laboratorio>`. El `-A` le presta tu clave para que desde allí llegues a mon01, agent01, db01 y las VM de pre.
+- Enciende `jenkins01`, `router-pre`, `app01-pre` y `db01-pre`. Para que quepan en la memoria, apaga `web01` y `db01` de dev, como indica el [presupuesto de memoria](https://victor-educ.github.io/apuntes-5166/laboratorio/#presupuesto-de-memoria) de Despliegue.
+- Ten a mano, en el gestor de contraseñas del puesto: el token `tofu` de Proxmox (A5.1 de Despliegue), los secretos de las credenciales `tofu` y `restic` de MinIO (A5.2), la contraseña del usuario del registry (A6.6) y la de `admin` en Jenkins.
+- En el puesto tienes ya `~/iac-lab/envs/pre` con su backend inicializado (A5.4) y el entorno de restic de la A7.4 en `/etc/restic/`.
+- La teoría de hoy: [la baja como cambio](#la-baja-es-un-cambio-mas), [el inventario de rastros](#inventario-de-rastros), [el puesto como base de la baja](#el-puesto-de-administracion-como-base-de-la-baja) y la [lista de comprobación completa](#lista-de-comprobacion-completa). La plantilla del acta está en la [práctica evaluable](#acta-de-baja).
 
 <span class="et et-pas">Pasos</span>
 
-Hoy no borras nada. Preparas el puesto con el fichero de la unidad y las herramientas que faltan, inventarías pre con el script de la teoría, escribes la lista de comprobación del acta y pides la aprobación, que es lo que abre la puerta a la A8.2.
+Hoy trabajas en el **puesto de administración**. El recorrido: preparas sus accesos (pasos 1 y 2), inventarías pre (paso 3), conviertes el inventario en la lista del acta (paso 4) y pides la aprobación, que es lo que abre la puerta a la A8.2 (paso 5).
 
-1. **Prepara el fichero de la unidad.** Copia el bloque de [El puesto de administración como base de la baja](#el-puesto-de-administracion-como-base-de-la-baja) en `~/baja-pre.env`, con cada `...` cambiado por su secreto y la IP del nodo por la tuya. No cambies los nombres de variables y funciones: las cinco hojas cuentan con ellos. Los tokens de Grafana y Jenkins los creas en el paso 2; de momento déjalos en `...`.
+1. **Prepara el fichero de accesos de la unidad.** *En el puesto.*
+
+    Las cinco hojas usan las mismas variables y funciones, y van en un solo fichero que cargas al empezar cada sesión. Copia el bloque de [El puesto de administración como base de la baja](#el-puesto-de-administracion-como-base-de-la-baja) en `~/baja-pre.env`, cambia cada `...` por su secreto y la IP del nodo por la tuya. No cambies ningún nombre: las hojas siguientes cuentan con ellos. Los tokens de Grafana y Jenkins los creas en el paso 2; de momento déjalos en `...`.
 
     ```bash
     nano ~/baja-pre.env
     chmod 600 ~/baja-pre.env && . ~/baja-pre.env && mkdir -p $EV
     ```
 
-    Comprueba: `ls -l ~/baja-pre.env` muestra `-rw-------` y `echo $EV` da la carpeta de evidencias.
+    **Sale bien si:** `ls -l ~/baja-pre.env` muestra `-rw-------` (solo tú puedes leerlo) y `echo $EV` da la carpeta de evidencias.
 
-2. **Completa el puesto y prueba cada acceso.** Faltan la CA del curso en el almacén del sistema (para que `curl` y `logcli` confíen en los servicios del laboratorio), `jq` para leer las API, el cliente `mc` de MinIO y los dos tokens. Instala lo primero:
+2. **Completa el puesto y prueba cada acceso.** *En el puesto.*
+
+    Faltan cinco cosas: la CA del curso en el sistema (para que `curl` y `logcli` se fíen de los servicios del laboratorio), `jq` (lee las respuestas de las API), `mc` (el cliente de MinIO), `logcli` (el cliente de consola de Loki, de la misma versión que el Loki de mon01) y los dos tokens. Instala lo primero; si alguna herramienta ya está en el puesto, sáltate su línea:
 
     ```bash
     sudo cp ~/ca/ca.crt /usr/local/share/ca-certificates/ca-curso.crt && sudo update-ca-certificates
-    sudo apt install -y jq
+    sudo apt install -y jq unzip
     curl -fsSLO https://dl.min.io/client/mc/release/linux-amd64/mc && chmod +x mc && sudo mv mc /usr/local/bin/
     mc alias set lab http://10.10.0.30:29000 restic '<secreto de la credencial restic>'
+    curl -fsSLO https://github.com/grafana/loki/releases/download/v3.5.3/logcli-linux-amd64.zip
+    unzip -o logcli-linux-amd64.zip && sudo install logcli-linux-amd64 /usr/local/bin/logcli
     ```
 
-    Crea los tokens: en Grafana, Administration → Users and access → Service accounts → cuenta `baja-pre` con rol Editor → Add service account token; en Jenkins, tu usuario `admin` → Security → API Token → Add new token. Pégalos en `~/baja-pre.env` y vuelve a cargarlo. Después abre el túnel y prueba cada acceso:
+    Crea los tokens (un token es una contraseña para un programa, que se revoca sin tocar la de nadie). En Grafana: Administration → Users and access → Service accounts → cuenta `baja-pre` con rol Editor → Add service account token. En Jenkins: tu usuario `admin` → Security → API Token → Add new token. Pégalos en `~/baja-pre.env`, vuelve a cargarlo, abre el túnel y prueba cada acceso:
 
     ```bash
     . ~/baja-pre.env && tunel
@@ -225,9 +234,11 @@ Hoy no borras nada. Preparas el puesto con el fichero de la unidad y las herrami
     pve /version | jq -r .data.version                                   # Proxmox
     ```
 
-    Comprueba: las siete órdenes responden sin error de conexión ni de autenticación. Lo que falle se arregla hoy: un acceso que se rompe a mitad de la baja deja el entorno a medio destruir.
+    **Sale bien si:** las siete órdenes responden sin error de conexión ni de autenticación. Lo que falle, arréglalo hoy: un acceso que se rompe a mitad de la baja deja pre a medio destruir.
 
-3. **Inventaría pre.** Copia el script de [Inventario de rastros](#inventario-de-rastros) en `~/inventario-pre.sh` y lánzalo:
+3. **Haz el inventario de pre.** *En el puesto.*
+
+    El script de la teoría recorre todos los sistemas donde pre deja rastro y lo vuelca en un fichero. Copia el de [Inventario de rastros](#inventario-de-rastros) en `~/inventario-pre.sh` y lánzalo:
 
     ```bash
     nano ~/inventario-pre.sh
@@ -237,34 +248,49 @@ Hoy no borras nada. Preparas el puesto con el fichero de la unidad y las herrami
 
     Léelo sección por sección y marca lo que no esperabas. La carpeta `servicio/pre` de Jenkins nace mañana, en la A6.8 de Despliegue: hoy su sección sale con error, y la A8.2 la repite.
 
-    Comprueba: el fichero tiene las catorce secciones, y en las de OpenTofu y Proxmox aparecen las VM de pre.
+    **Sale bien si:** el fichero tiene las catorce secciones, y en las de OpenTofu y Proxmox aparecen las VM de pre.
 
-4. **Convierte el inventario en la lista del acta.** Copia la [plantilla](#acta-de-baja) y rellena la identificación:
+4. **Convierte el inventario en la lista del acta.** *En el puesto.*
+
+    El inventario dice qué hay; la lista del acta dice en qué orden se quita y con qué orden se comprueba. La [plantilla](#acta-de-baja) ya trae una fila por punto de la [lista completa](#lista-de-comprobacion-completa), con su verificación, la hoja que la ejecuta y el fichero de evidencia que la probará. Cópiala y rellena la identificación:
 
     ```bash
     nano ~/operacion/baja/pre/acta.md
     ```
 
-    En "Lista de comprobación" escribe una fila por rastro del inventario, en el orden de la [lista completa](#lista-de-comprobacion-completa), con su verificación y la hoja que la ejecuta; las columnas de resultado y evidencia quedan vacías. Lo que lista Proxmox y no está en el estado de OpenTofu (`router-pre` y las VNets) se destruye a mano y lleva sus propias filas; lo que no esperabas va a "Incidencias durante la baja".
+    Después repasa tu inventario sección por sección y busca cada rastro en la lista. Lo que tenga contenido en el inventario y no tenga fila (un dashboard, una credencial o una ruta que no esperabas) recibe una fila nueva, con su verificación, en el sitio que le toque por orden. Lo que no esperabas va también a "Incidencias durante la baja". La columna de resultado queda vacía: se rellena en cada hoja.
 
-    Comprueba: la lista empieza por la aprobación y el silencio, termina con la expiración del silencio y el cierre del acta, y ninguna fila está sin verificación.
+    **Sale bien si:** cada sección del inventario con contenido tiene al menos una fila en la lista, y ninguna fila está sin verificación.
 
-5. **Decide qué se conserva y pide la aprobación.** Rellena "Qué se conserva" con motivo, dónde y hasta cuándo: el volcado de bloqueo, el repositorio `servicio` con su webhook y su Multibranch (dev los sigue usando), el token de OpenTofu, el repositorio restic (guarda más copias que las de pre) y el historial de despliegues de Jenkins. Después sube el acta:
+5. **Decide qué se conserva y pide la aprobación.** *En el puesto y en Aules.*
+
+    Rellena "Qué se conserva" con el motivo, dónde y hasta cuándo: el volcado de bloqueo, el repositorio `servicio` con su webhook y su Multibranch (dev los sigue usando), el token de OpenTofu, el repositorio restic (guarda más copias que las de pre) y el historial de despliegues de Jenkins. Después sube el acta:
 
     ```bash
     cd ~/operacion && git add baja/pre/acta.md baja/pre/ev/00-inventario.txt
     git commit -m "Baja de pre: plan e inventario" && git push
     ```
 
-    Pide la aprobación al profesor en un mensaje de Aules con el enlace del commit, para que apruebe exactamente lo que vas a hacer. Su respuesta, con fecha, va a `$EV/01-aprobacion.txt` antes del 9 de marzo: sin ella la A8.2 no empieza.
+    Pide la aprobación al profesor en un mensaje de Aules con el enlace del commit, para que apruebe exactamente lo que vas a hacer. Guarda su respuesta, con fecha, en `$EV/01-aprobacion.txt`.
 
-    Comprueba: el commit está en Gitea con el acta y el inventario.
+    **Sale bien si:** el commit está en Gitea con el acta y el inventario.
 
-<span class="et et-com">Comprobación</span> `tunel` y las siete comprobaciones del paso 2 responden; `ev/00-inventario.txt` tiene todas sus secciones, con las VM de pre en el estado de OpenTofu y en la franja 200 de Proxmox; la lista del acta empieza por la aprobación y el silencio y termina con la expiración del silencio y el cierre del acta; ninguna fila sin verificación.
+<span class="et et-com">Comprobación</span>
 
-<span class="et et-ent">Para practicar</span> Deja `acta.md` y `ev/00-inventario.txt` en un commit de `operacion`, y la respuesta del profesor en `ev/01-aprobacion.txt`. Apunta cuántas VM salen en el estado de OpenTofu y cuántas en la franja 200 de Proxmox, y qué explica la diferencia. Esa acta es la práctica evaluable.
+- [ ] `tunel` y las siete órdenes del paso 2 responden.
+- [ ] `ev/00-inventario.txt` tiene todas sus secciones, con las VM de pre en el estado de OpenTofu y en la franja 200 de Proxmox.
+- [ ] Cada rastro del inventario tiene su fila en la lista del acta, y lo inesperado está también en "Incidencias".
+- [ ] Ninguna fila de la lista está sin verificación.
+- [ ] El commit con `acta.md` y `ev/00-inventario.txt` está en Gitea.
 
-<span class="et et-ext">Si te sobra tiempo</span> Redacta en la identificación del acta la comunicación de la baja: el aviso a los usuarios, a soporte y a la guardia, con la fecha de cada uno.
+<span class="et et-ent">Para practicar</span>
+
+- **Guarda** en `operacion` el commit con `acta.md` y `ev/00-inventario.txt`, y la respuesta del profesor en `ev/01-aprobacion.txt`. Esa acta es la práctica evaluable: se completa hoja a hoja hasta la A8.5.
+- **Apunta** cuántas VM salen en el estado de OpenTofu y cuántas en la franja 200 de Proxmox.
+- **Piensa:** ¿qué explica la diferencia entre esas dos cifras?
+- **Antes del 9 de marzo**, la aprobación tiene que estar en `ev/01-aprobacion.txt`: sin ella la A8.2 no empieza.
+
+<span class="et et-ext">Si te sobra tiempo</span> Para que nadie se lleve una sorpresa el día de la baja, redacta en la identificación del acta la comunicación: el aviso a los usuarios, a soporte y a la guardia, con la fecha de cada uno.
 
 ## Sesión 36 · Liberar la infraestructura: servicio y contenedores
 
@@ -350,41 +376,49 @@ sha256sum ~/pre-bloqueo.dump.gpg                             # la huella que va 
 
 ### A8.2 Liberar el servicio y los contenedores (sesión 36)
 
-<span class="et et-obj">Objetivo</span> pre silenciado, con el volcado de bloqueo guardado y comprobado, el despliegue a pre deshabilitado y app01-pre sin contenedores, volúmenes, imágenes ni redes del servicio, cada verificación en `$EV` y apuntada en el acta. Es la mitad reversible de una baja: el servicio ya no existe, pero lo necesario para levantarlo sigue en su sitio hasta el 11 de marzo.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** pre deja de funcionar sin que salte ninguna alarma. Queda silenciado, con una copia cifrada de sus datos guardada, sin despliegues automáticos y con app01-pre vacía de contenedores. Las VM siguen en pie, así que aún se puede dar marcha atrás.
+
+**Para qué sirve en un trabajo:** es la mitad reversible de una baja. En una empresa se para el servicio antes de destruir nada, por si alguien descubre que todavía lo necesitaba, y cada paso queda probado en el acta.
 
 <span class="et et-pre">Antes de empezar</span>
 
 - Entra en el puesto de administración con `ssh -A`, carga `. ~/baja-pre.env` y abre el túnel con `tunel`.
 - Enciende lo mismo que en la A8.1: `jenkins01`, `router-pre`, `app01-pre` y `db01-pre`, con `web01` y `db01` de dev apagadas.
-- La aprobación del profesor en `ev/01-aprobacion.txt`. Sin ella no se toca nada.
+- Tienes la aprobación del profesor en `ev/01-aprobacion.txt`. Sin ella no se toca nada.
 - La A6.8 de Despliegue (26 de febrero) fue el último despliegue en pre, y su práctica evaluable de mañana no despliega.
-- Lo explicado hoy: [el orden de la baja](#el-orden-importa) y [cómo se libera cada capa dentro de la VM](#como-se-libera-cada-capa-dentro-de-la-vm), cuyos bloques se copian aquí.
+- La teoría de hoy: [el orden de la baja](#el-orden-importa) y [cómo se libera cada capa dentro de la VM](#como-se-libera-cada-capa-dentro-de-la-vm), cuyos bloques copias aquí.
 
 <span class="et et-pas">Pasos</span>
 
-Sigues el orden de [El orden importa](#el-orden-importa): pones al día el inventario, silencias, guardas lo que se conserva, cortas el despliegue y solo entonces paras y liberas. El último paso deja escrito en el acta lo de hoy.
+Trabajas desde el **puesto**, en el orden de [El orden importa](#el-orden-importa): pones al día el inventario (paso 1), silencias las alarmas (paso 2), guardas los datos (paso 3), cortas el despliegue (paso 4), paras y vacías app01-pre (paso 5) y lo apuntas en el acta (paso 6).
 
-1. **Pon al día el inventario.** Desde el 25 de febrero, la A6.8 de Despliegue creó la carpeta `servicio/pre` en Jenkins, dio a agent01 una ruta hacia pre y desplegó en app01-pre. Relanza el script de la A8.1:
+1. **Pon al día el inventario.** *En el puesto.*
+
+    Desde el 25 de febrero, la A6.8 de Despliegue creó la carpeta `servicio/pre` en Jenkins, dio a agent01 una ruta hacia pre y desplegó en app01-pre. Relanza el script de la A8.1 y compara con el de entonces:
 
     ```bash
     bash ~/inventario-pre.sh > $EV/00b-inventario.txt 2>&1
     diff $EV/00-inventario.txt $EV/00b-inventario.txt
     ```
 
-    Añade al acta las filas que falten. Las etiquetas `app:<commit>` de app01-pre son las que llegaron a pre, y este fichero es lo único que las recordará cuando la A8.4 vaya a borrarlas del registry.
+    Añade al acta las filas que falten. Las etiquetas `app:<commit>` de app01-pre son las imágenes que llegaron a pre: este fichero es lo único que las recordará cuando la A8.4 vaya a borrarlas del registry.
 
-    Comprueba: la sección de Jenkins ya lista la carpeta de pre y su credencial.
+    **Sale bien si:** la sección de Jenkins ya lista la carpeta de pre y su credencial.
 
-2. **Silencia pre antes de tocar nada.** En cuanto las VM de pre dejen de contestar saltaría `HostDown` por cada una. Crea un silencio que dure hasta después del 18 de marzo, cuando lo retira la A8.5 (el comentario va sin espacios porque `amt` pasa por SSH):
+2. **Silencia pre antes de tocar nada.** *En el puesto.*
+
+    En cuanto las VM de pre dejen de contestar saltaría `HostDown` por cada una. Un silencio es una orden a Alertmanager para que calle, durante un tiempo, las alarmas con una etiqueta. Este dura hasta después del 18 de marzo, cuando lo retira la A8.5 (el comentario va sin espacios porque `amt` pasa por SSH):
 
     ```bash
     amt silence add env=pre --author=ops --comment=baja-pre --duration=264h
     amt silence query env=pre > $EV/02-silencio.txt
     ```
 
-    Comprueba: en `ev/02-silencio.txt` el silencio aparece con su fin después del 18 de marzo.
+    **Sale bien si:** en `ev/02-silencio.txt` el silencio aparece con su fin después del 18 de marzo.
 
-3. **Guarda lo que se conserva mientras todavía existe.** Instala el cliente de PostgreSQL y lanza el bloque de [El volcado de bloqueo](#el-volcado-de-bloqueo), guardando el índice y la huella:
+3. **Guarda los datos mientras todavía existen.** *En el puesto.*
+
+    El volcado de bloqueo es una copia completa de la base de pre que no usa nadie: se guarda cifrada por si hay una reclamación. Desde el 11 de marzo será la única copia de esos datos. Instala el cliente de PostgreSQL y lanza el bloque de [El volcado de bloqueo](#el-volcado-de-bloqueo), guardando el índice y la huella (`gpg` te pide una frase de paso):
 
     ```bash
     sudo apt install -y postgresql-client
@@ -392,11 +426,13 @@ Sigues el orden de [El orden importa](#el-orden-importa): pones al día el inven
     { gpg -d ~/pre-bloqueo.dump.gpg | pg_restore -l | head -20; sha256sum ~/pre-bloqueo.dump.gpg; } > $EV/03-dump-bloqueo.txt
     ```
 
-    Guarda la frase de paso en el gestor de contraseñas; ni ella ni el `.gpg` van al repositorio. Si el inventario encontró dashboards de pre, exporta cada uno: `curl -s -H "Authorization: Bearer $GRAFANA_TOKEN" "$G/api/dashboards/uid/<uid>" | jq .dashboard > ~/operacion/dashboards/pre/<nombre>.json`.
+    Guarda la frase de paso en el gestor de contraseñas; ni ella ni el `.gpg` van al repositorio. Si el inventario encontró dashboards de pre, exporta cada uno (antes, `mkdir -p ~/operacion/dashboards/pre`): `curl -s -H "Authorization: Bearer $GRAFANA_TOKEN" "$G/api/dashboards/uid/<uid>" | jq .dashboard > ~/operacion/dashboards/pre/<nombre>.json`.
 
-    Comprueba: `ev/03-dump-bloqueo.txt` tiene el índice del volcado y una línea con la huella. Desde el 11 de marzo, este volcado es la única copia de los datos de pre.
+    **Sale bien si:** `ev/03-dump-bloqueo.txt` tiene el índice del volcado y una línea con la huella.
 
-4. **Corta el camino que podría volver a levantar pre.** Deshabilita el job `despliegue` de `servicio/pre` (un POST a su URL terminada en `/disable`) y guarda su estado:
+4. **Corta el despliegue a pre.** *En el puesto.*
+
+    Mientras el job `despliegue` de `servicio/pre` funcione, Jenkins podría volver a levantar pre. Deshabilítalo (un POST a su URL terminada en `/disable`) y guarda su estado:
 
     ```bash
     curl -s -X POST -u admin:$JENKINS_TOKEN "$J/job/servicio/job/pre/job/despliegue/disable"
@@ -405,9 +441,11 @@ Sigues el orden de [El orden importa](#el-orden-importa): pones al día el inven
 
     Deshabilitar, no borrar: durante el periodo de gracia es tu vuelta atrás. El Multibranch `ci` no se toca.
 
-    Comprueba: el campo `color` de `ev/04-jenkins.txt` dice `disabled`.
+    **Sale bien si:** el campo `color` de `ev/04-jenkins.txt` dice `disabled`.
 
-5. **Para el servicio y libera lo que `down` deja.** Lanza en app01-pre el bloque de [Docker en app01-pre](#docker-en-app01-pre) y guarda las pruebas desde el puesto, empezando por la API vista como la vería un cliente:
+5. **Para el servicio y vacía app01-pre.** *En el puesto, con órdenes a app01-pre por SSH.*
+
+    `down -v --rmi all` quita los contenedores con sus volúmenes y sus imágenes, y `prune` borra lo que quede sin usar. Es el bloque de [Docker en app01-pre](#docker-en-app01-pre). Lánzalo y guarda las pruebas, empezando por la API vista como la vería un cliente:
 
     ```bash
     ssh ops@10.20.2.10 'sudo docker compose -f /opt/servicio/compose.yml down -v --rmi all --remove-orphans && sudo docker system prune -af --volumes'
@@ -417,19 +455,31 @@ Sigues el orden de [El orden importa](#el-orden-importa): pones al día el inven
 
     El `prune` solo vale en app01-pre, que no aloja nada más; en app01 de dev se llevaría los volúmenes del servicio.
 
-    Comprueba: en `ev/05-docker.txt`, la API sin respuesta y las cuatro listas sin nada del servicio.
+    **Sale bien si:** en `ev/05-docker.txt` la API no responde y las cuatro listas no tienen nada del servicio.
 
-6. **Cierra la mitad de hoy en el acta.** Apunta el resultado y la evidencia de cada fila ejecutada (`ev/00b` y `ev/02` a `ev/05`), el volcado con su huella en "Qué se conserva" y cualquier desviación en "Incidencias". Sube el acta (si exportaste dashboards, añade también `dashboards/pre`):
+6. **Apunta lo de hoy en el acta.** *En el puesto.*
+
+    Rellena el resultado y la evidencia de cada fila ejecutada (`ev/00b` y `ev/02` a `ev/05`), el volcado con su huella en "Qué se conserva" y cualquier desviación en "Incidencias". Sube el acta (si exportaste dashboards, añade también `dashboards/pre`):
 
     ```bash
     cd ~/operacion && git add baja/pre && git commit -m "Baja de pre: servicio y contenedores (A8.2)" && git push
     ```
 
-    Comprueba: el commit está en Gitea y `pre-bloqueo.dump.gpg` no está en él.
+    **Sale bien si:** el commit está en Gitea y `pre-bloqueo.dump.gpg` no está en él.
 
-<span class="et et-com">Comprobación</span> `ev/02-silencio.txt` con el silencio activo y su fin después del 18 de marzo; `ev/03-dump-bloqueo.txt` con el índice del volcado y su huella; el job de despliegue en `disabled`; en `ev/05-docker.txt`, la API sin respuesta y las cuatro listas vacías. Las VM de pre siguen en pie: al acabar hoy, eso es lo correcto.
+<span class="et et-com">Comprobación</span>
 
-<span class="et et-ent">Para practicar</span> Haz commit en `operacion` del acta al día y de `ev/00b` y `ev/02` a `ev/05`, y deja `pre-bloqueo.dump.gpg` en el puesto, fuera de los repositorios, y su frase de paso en el gestor de contraseñas.
+- [ ] `ev/02-silencio.txt` muestra el silencio activo, con su fin después del 18 de marzo.
+- [ ] `ev/03-dump-bloqueo.txt` tiene el índice del volcado y su huella.
+- [ ] El job de despliegue está en `disabled`.
+- [ ] En `ev/05-docker.txt`, la API no responde y las cuatro listas están vacías.
+- [ ] Las VM de pre siguen en pie: al acabar hoy, eso es lo correcto.
+
+<span class="et et-ent">Para practicar</span>
+
+- **Guarda** en `operacion` el commit con el acta al día y `ev/00b` y `ev/02` a `ev/05`, que son evidencias de la práctica evaluable.
+- **Guarda** `pre-bloqueo.dump.gpg` en el puesto, fuera de los repositorios, y su frase de paso en el gestor de contraseñas.
+- **Piensa:** si mañana alguien pidiera recuperar pre, ¿qué tendrías que hacer con lo que queda en pie?
 
 ## Sesión 37 · Liberar la infraestructura: VM, red y credenciales
 
@@ -556,25 +606,33 @@ curl -X POST -u admin:$JENKINS_TOKEN "$J/job/servicio/job/dev/job/ver-ssh-pre/do
 
 ### A8.3 Liberar la VM, la red y las credenciales (sesión 37)
 
-<span class="et et-obj">Objetivo</span> pre sin VM, sin `router-pre` ni VNets, sin rutas desde gestión y sin carpeta en Jenkins, cada punto verificado desde fuera y guardado en `$EV`, con la retirada del `prevent_destroy` en una rama de `iac-lab` como evidencia de la aprobación. Es la parte irreversible de la baja, y en un trabajo es la que más se revisa.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** pre desaparece de verdad. Sin VM, sin su router ni sus redes, sin rutas que lleven a ella y sin nada suyo en Jenkins, y cada punto comprobado desde fuera.
+
+**Para qué sirve en un trabajo:** es la parte de la baja que no tiene vuelta atrás, y por eso la que más se revisa. Lo que se quita a mano y no queda probado, nadie puede asegurar después que se quitó.
 
 <span class="et et-pre">Antes de empezar</span>
 
 - Entra en el puesto de administración con `ssh -A` y carga `. ~/baja-pre.env`.
 - Enciende `jenkins01` y `agent01`, porque hoy tocas Jenkins y la ruta de agent01, y apaga `web01` y `db01` de dev, como en la A8.1.
-- A8.2 terminada: pre silenciado, volcado de bloqueo guardado y comprobado, y app01-pre vacía.
-- La interfaz web de tu Proxmox abierta en otra pestaña: solo el paso 2 se hace allí.
-- Lo explicado hoy: [lo que `tofu destroy` no se lleva](#destruir-lo-declarado-no-basta) y [cómo se libera cada capa fuera de la VM](#como-se-libera-cada-capa-fuera-de-la-vm), cuyos bloques se copian aquí tal cual.
+- Tienes la A8.2 terminada: pre silenciado, volcado de bloqueo guardado y comprobado, y app01-pre vacía.
+- Abre la interfaz web de tu Proxmox en otra pestaña: solo el paso 2 se hace allí.
+- La teoría de hoy: [lo que `tofu destroy` no se lleva](#destruir-lo-declarado-no-basta) y [cómo se libera cada capa fuera de la VM](#como-se-libera-cada-capa-fuera-de-la-vm), cuyos bloques copias aquí tal cual.
 
 <span class="et et-pas">Pasos</span>
 
-Vas de lo declarado a lo hecho a mano: primero las VM que conoce OpenTofu, después lo que hay que borrar en la web de Proxmox, luego las rutas que llevaban a pre y al final Jenkins y la CA. Cada paso termina con una comprobación desde fuera, y esa comprobación es la evidencia.
+Trabajas desde el **puesto**, de lo que conoce OpenTofu a lo que se hizo a mano: las VM declaradas (paso 1), lo que se borra en la web de Proxmox (paso 2), las rutas que llevaban a pre (paso 3), Jenkins (paso 4) y la CA (paso 5). El paso 6 lo apunta en el acta. Cada paso termina con una comprobación desde fuera, y esa comprobación es la evidencia.
 
-1. **Destruye las VM declaradas desde una rama que deje rastro.** Lanza el bloque de [OpenTofu: la rama, el plan y el estado](#opentofu-la-rama-el-plan-y-el-estado), borrando el bloque `lifecycle` del fichero que te indique el `grep` antes del commit. Lee el plan entero antes del `apply`: solo pueden salir las tres VM de pre. Si sale algo más, sácalo con `tofu state rm`, repite el plan y anótalo en "Incidencias".
+1. **Destruye las VM de pre con OpenTofu.** *En el puesto.*
 
-    Comprueba: `ev/07-tofu-plan.txt` dice `3 to destroy`, `ev/08-tofu-state.txt` está vacío y la rama `baja-pre` está en Gitea sin fusionar.
+    Las VM de pre llevan `prevent_destroy`, una protección que impide destruirlas. Para quitarla con permiso, la retiras en una rama propia (`baja-pre`) cuyo commit cita la aprobación. Lanza línea a línea el bloque de [OpenTofu: la rama, el plan y el estado](#opentofu-la-rama-el-plan-y-el-estado) y, antes del commit, borra el bloque `lifecycle` del fichero que te indique el `grep`.
 
-2. **Destruye en Proxmox lo que OpenTofu no conoce.** Sigue en la web la tabla de [Proxmox: lo que no está en el estado](#proxmox-lo-que-no-esta-en-el-estado), en su orden. Después guarda desde el puesto la verificación desde fuera:
+    Lee el plan entero antes del `apply`: solo pueden salir las tres VM de pre. Si sale algo más, sácalo con `tofu state rm`, repite el plan y anótalo en "Incidencias".
+
+    **Sale bien si:** `ev/07-tofu-plan.txt` dice `3 to destroy`, `ev/08-tofu-state.txt` está vacío y la rama `baja-pre` está en Gitea sin fusionar.
+
+2. **Borra en Proxmox lo que OpenTofu no conoce.** *En la web de Proxmox y en el puesto.*
+
+    `router-pre` y las VNets de pre (las redes virtuales de Proxmox) se crearon a mano, así que `tofu` no las destruye. Sigue en la web la tabla de [Proxmox: lo que no está en el estado](#proxmox-lo-que-no-esta-en-el-estado), en su orden. Después guarda desde el puesto la comprobación:
 
     ```bash
     { pve '/cluster/resources?type=vm' | jq -r '.data[] | select(.vmid>=200 and .vmid<300) | "\(.vmid) \(.name)"'
@@ -582,47 +640,76 @@ Vas de lo declarado a lo hecho a mano: primero las VM que conoce OpenTofu, despu
       ping -c2 -W1 10.10.0.2; ping -c2 -W1 10.20.2.10; } > $EV/09-proxmox.txt 2>&1
     ```
 
-    Comprueba: la API no lista nada de la franja 200 ni VNets `pre*`, y los dos `ping` fallan. El `ping` solo confirma, porque una VM apagada tampoco contesta: la prueba es la API.
+    **Sale bien si:** la API no lista nada de la franja 200 (los ID 200 a 299, los de pre) ni VNets `pre*`, y los dos `ping` fallan. El `ping` solo confirma, porque una VM apagada tampoco contesta: la prueba es la API.
 
-3. **Cierra los caminos que llevaban a pre.** Lanza el bloque de [Rutas, DNS y firewall](#rutas-dns-y-firewall): las dos primeras líneas en el puesto (en `ruta-lab.service` se borra solo la línea de pre, porque la unidad lleva también la ruta a dev) y las tres últimas en agent01 (`ssh ops@10.10.0.12`) y en mon01 (`ssh ops@10.10.0.20`). Guarda la comprobación desde el puesto:
+3. **Quita las rutas que llevaban a pre.** *En el puesto, agent01 y mon01.*
+
+    Una ruta hacia una red que ya no existe es un camino abierto para quien use ese rango después. Es el bloque de [Rutas, DNS y firewall](#rutas-dns-y-firewall): las dos primeras líneas en el puesto (en `ruta-lab.service` se borra solo la línea de pre, porque la unidad lleva también la ruta a dev) y las tres últimas en agent01 y en mon01, que lanzas desde el puesto con un bucle para no cambiar de máquina:
+
+    ```bash
+    sudo sed -i '/10\.20\.0\.0\/16/d' /etc/systemd/system/ruta-lab.service
+    sudo systemctl daemon-reload && sudo ip route del 10.20.0.0/16
+    for h in 10.10.0.12 10.10.0.20; do
+      ssh ops@$h 'sudo systemctl disable --now ruta-pre.service; sudo rm /etc/systemd/system/ruta-pre.service; sudo systemctl daemon-reload; sudo ip route del 10.20.0.0/16'
+    done
+    ```
+
+    Guarda la comprobación:
 
     ```bash
     { ip route show 10.20.0.0/16; for h in 10.10.0.12 10.10.0.20; do echo "-- $h"; ssh ops@$h ip route show 10.20.0.0/16; done
       dig +short app01.pre.lab @10.10.0.1; } > $EV/10-rutas-dns.txt
     ```
 
-    Comprueba: ninguna de las tres máquinas tiene ruta y `dig` no devuelve nada.
+    **Sale bien si:** ninguna de las tres máquinas tiene ruta y `dig` no devuelve nada.
 
-4. **Retira de Jenkins lo que era de pre, salvando antes su historia.** Lanza el bloque de [Credenciales y tokens](#credenciales-y-tokens): guarda el historial en `$EV/11-despliegues-pre.json` y borra la credencial, la carpeta y el job de prueba. Guarda el resultado:
+4. **Retira de Jenkins lo que era de pre, salvando antes su historial.** *En el puesto.*
+
+    El historial de despliegues es la única prueba de qué versión estuvo en pre y cuándo, y desaparece con la carpeta. Lanza el bloque de [Credenciales y tokens](#credenciales-y-tokens): guarda el historial en `$EV/11-despliegues-pre.json` y borra la credencial, la carpeta y el job de prueba. Después guarda el resultado:
 
     ```bash
     { curl -s -o /dev/null -w '%{http_code}\n' -u admin:$JENKINS_TOKEN "$J/job/servicio/job/pre/api/json"
       curl -s -u admin:$JENKINS_TOKEN "$J/job/servicio/api/json?tree=jobs[name]" | jq -r '.jobs[].name'; } > $EV/12-jenkins.txt
     ```
 
-    Comprueba: la carpeta de pre da 404 y en `servicio` solo quedan `ci` y `dev`. `ev/11` no está vacío.
+    **Sale bien si:** la carpeta de pre da 404, en `servicio` solo quedan `ci` y `dev`, y `ev/11` no está vacío.
 
-5. **Comprueba que la CA no firmó nada para pre.** Un certificado emitido vale aunque su máquina ya no exista, así que la prueba es el registro de la propia CA:
+5. **Comprueba que la CA no firmó nada para pre.** *En el puesto.*
+
+    Un certificado sigue valiendo aunque su máquina ya no exista. La prueba es el `index.txt` de la CA, que registra todo lo que ha firmado:
 
     ```bash
     grep -i 'pre\.lab' ~/ca/index.txt > $EV/13-certificados.txt
     ```
 
-    Comprueba: el fichero está vacío. Si saliera alguno, revócalo con el bloque de [Certificados](#certificados-revocar-en-la-ca-del-curso) y añade la salida de `openssl verify`.
+    **Sale bien si:** el fichero está vacío. Si saliera alguno, revócalo con el bloque de [Certificados](#certificados-revocar-en-la-ca-del-curso) y añade la salida de `openssl verify`.
 
-6. **Cierra la mitad de hoy en el acta.** Apunta el resultado y la evidencia de cada fila (`ev/06` a `ev/13`), la rama `baja-pre` y el historial de despliegues en "Qué se conserva", y cualquier desviación en "Incidencias".
+6. **Apunta lo de hoy en el acta.** *En el puesto.*
+
+    Rellena el resultado y la evidencia de cada fila (`ev/06` a `ev/13`), la rama `baja-pre` y el historial de despliegues en "Qué se conserva", y cualquier desviación en "Incidencias".
 
     ```bash
     cd ~/operacion && git add baja/pre && git commit -m "Baja de pre: VM, red y credenciales (A8.3)" && git push
     ```
 
-    Comprueba: el commit está en Gitea con `ev/06` a `ev/13`.
+    **Sale bien si:** el commit está en Gitea con `ev/06` a `ev/13`.
 
-<span class="et et-com">Comprobación</span> El plan dice `3 to destroy` y `tofu state list` sale vacío; la API de Proxmox no lista nada de la franja 200 ni VNets `pre*`; los dos `ping` fallan; `ip route show 10.20.0.0/16` vacío en las tres máquinas y `dig` sin respuesta; la carpeta de pre responde 404 y en `servicio` solo quedan `ci` y `dev`; `ev/13` vacío; la rama `baja-pre` está en Gitea y no en `main`.
+<span class="et et-com">Comprobación</span>
 
-<span class="et et-ent">Para practicar</span> Haz commit en `operacion` del acta al día y de `ev/06` a `ev/13`, y deja la rama `baja-pre` en `iac-lab`, sin fusionar.
+- [ ] El plan dice `3 to destroy` y `tofu state list` sale vacío.
+- [ ] La API de Proxmox no lista nada de la franja 200 ni VNets `pre*`, y los dos `ping` fallan.
+- [ ] `ip route show 10.20.0.0/16` sale vacío en las tres máquinas y `dig` no responde.
+- [ ] La carpeta de pre responde 404 y en `servicio` solo quedan `ci` y `dev`.
+- [ ] `ev/13` está vacío.
+- [ ] La rama `baja-pre` está en Gitea y no en `main`.
 
-<span class="et et-ext">Si te sobra tiempo</span> Practica la revocación que pre no ha necesitado: emite en `~/ca` un certificado de prueba `prueba.pre.lab` con las dos órdenes de la preparación de la A3.1 de Despliegue, revócalo con el bloque del apartado de certificados y guarda la salida de `openssl verify` (`certificate revoked`) en `ev/13b-revocacion.txt`. Anota en el acta que era de prueba y que se revocó el mismo día.
+<span class="et et-ent">Para practicar</span>
+
+- **Guarda** en `operacion` el commit con el acta al día y `ev/06` a `ev/13`, que son evidencias de la práctica evaluable.
+- **Deja** la rama `baja-pre` en `iac-lab`, sin fusionar: es la prueba de que la protección se quitó con aprobación.
+- **Piensa:** ¿qué pasaría en el próximo reinicio de agent01 si hubieras quitado la ruta pero no la unidad `ruta-pre.service`?
+
+<span class="et et-ext">Si te sobra tiempo</span> Para practicar la revocación que pre no ha necesitado: emite en `~/ca` un certificado de prueba `prueba.pre.lab` con las dos órdenes de la preparación de la A3.1 de Despliegue, revócalo con el bloque del apartado de certificados y guarda la salida de `openssl verify` (`certificate revoked`) en `ev/13b-revocacion.txt`. Anota en el acta que era de prueba y que se revocó el mismo día.
 
 ## Sesión 38 · Copias y logs
 
@@ -748,31 +835,37 @@ sudo grep -rl 'INSERT INTO usuarios' rec-rm.1/
 
 ### A8.4 Copias y logs (sesión 38)
 
-<span class="et et-obj">Objetivo</span> Las copias de pre fuera del repositorio restic, sus etiquetas fuera del registry, su correo fuera de Mailpit y Loki sin nada suyo, cada punto verificado en `$EV`, y un informe de photorec con tres escenarios que justifica qué método garantiza la irrecuperabilidad. En un trabajo, lo difícil no es borrar, sino borrar solo lo de un cliente en sistemas compartidos y poder demostrarlo.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** que no quede nada de pre en los sistemas que comparte con el resto del curso: las copias, el registry, el correo de alertas y Loki. Además, compruebas con photorec qué forma de borrar deja los datos de verdad irrecuperables.
+
+**Para qué sirve en un trabajo:** lo difícil no es borrar, sino borrar solo lo de un cliente en sistemas que usan otros, y poder demostrar que no se puede recuperar.
 
 <span class="et et-pre">Antes de empezar</span>
 
 - Entra en el puesto de administración con `ssh -A`, carga `. ~/baja-pre.env` y abre el túnel con `tunel`.
-- A8.3 terminada: las VM de pre no existen.
-- Trabajo que se puede traer hecho: `testdisk` (trae photorec) y `btrfs-progs` instalados en el puesto, para el paso 4.
-- Lo explicado hoy: [por qué borrar no borra](#por-que-borrar-no-borra), con sus [opciones](#opciones-de-mas-a-menos-fiable) y los [logs externos](#logs-externos), [cómo se borra del registry](#borrar-del-registry) y [qué tiene que recuperar photorec](#verificar-con-photorec-sobre-un-volumen-de-pruebas).
+- Tienes la A8.3 terminada: las VM de pre no existen.
+- Instala al llegar, porque tarda y lo necesitas en el paso 4: `sudo apt install -y testdisk btrfs-progs` (`testdisk` trae photorec).
+- La teoría de hoy: [por qué borrar no borra](#por-que-borrar-no-borra), con sus [opciones](#opciones-de-mas-a-menos-fiable) y los [logs externos](#logs-externos), [cómo se borra del registry](#borrar-del-registry) y [qué tiene que recuperar photorec](#verificar-con-photorec-sobre-un-volumen-de-pruebas).
 
 <span class="et et-pas">Pasos</span>
 
-Vas sistema por sistema, de lo que más datos guarda a lo que menos: copias, imágenes, correo y logs. En todos el riesgo es llevarse lo que no es de pre, así que cada paso empieza listando y termina comprobando que lo demás sigue intacto. Los dos últimos pasos son la prueba con photorec y la conclusión que va al acta.
+Trabajas desde el **puesto**, sistema por sistema y de lo que más datos guarda a lo que menos: copias (paso 1), imágenes (paso 2), correo y logs (paso 3). En todos el riesgo es llevarte lo que no es de pre, así que cada paso empieza listando y termina comprobando que lo demás sigue intacto. Después pruebas photorec (paso 4) y escribes la conclusión para el acta (paso 5).
 
-1. **Saca las copias de pre del repositorio sin dañar las demás.** Lanza los bloques de los puntos 2 y 3 de [Opciones de más a menos fiable](#opciones-de-mas-a-menos-fiable), guardando las comprobaciones:
+1. **Saca las copias de pre del repositorio restic.** *En el puesto.*
+
+    El repositorio restic es de todo el curso, así que solo se quitan los snapshots (cada copia guardada) con la etiqueta `pre`. Lanza los bloques de los puntos 2 y 3 de [Opciones de más a menos fiable](#opciones-de-mas-a-menos-fiable) y guarda las comprobaciones:
 
     ```bash
     { rst snapshots --tag pre; rst check; } > $EV/14-restic.txt 2>&1
     { mc version info lab/backups; mc replicate ls lab/backups; } > $EV/15-minio.txt 2>&1
     ```
 
-    El `mc rm --non-current` solo si el bucket tiene versionado. Ni borrado criptográfico ni `mc rm` sin `--non-current`: los dos se llevarían las demás copias del curso.
+    El `mc rm --non-current` (borra las versiones antiguas que guarda el bucket) solo si el bucket tiene versionado. Ni borrado criptográfico ni `mc rm` sin `--non-current`: los dos se llevarían las demás copias del curso.
 
-    Comprueba: `ev/14` sin snapshots de pre y con `no errors were found`.
+    **Sale bien si:** `ev/14` no tiene snapshots de pre y dice `no errors were found`.
 
-2. **Borra del registry las imágenes que corrieron en pre.** Son las etiquetas `app:<commit>` de `ev/00b-inventario.txt`. Con el bloque de [Borrar del registry](#borrar-del-registry), guarda primero la lista agrupada (las cuatro primeras líneas) y después borra cada etiqueta (la quinta, con la etiqueta cambiada):
+2. **Borra del registry las imágenes que corrieron en pre.** *En el puesto.*
+
+    Son las etiquetas `app:<commit>` que guardaste en `ev/00b-inventario.txt`. El registry borra por digest (la huella de la imagen), y varias etiquetas pueden compartir el mismo. Del bloque de [Borrar del registry](#borrar-del-registry), lanza las tres primeras líneas, que definen `U`, `ACC` y la función `digest`. Después guarda la lista agrupada y borra cada etiqueta de pre (la segunda orden, una vez por etiqueta):
 
     ```bash
     for T in $(curl -s -u "$U" $R/tags/list | jq -r '.tags[]'); do echo "$(digest $T) $T"; done | sort > $EV/16-registry-antes.txt
@@ -782,9 +875,11 @@ Vas sistema por sistema, de lo que más datos guarda a lo que menos: copias, im�
 
     Una etiqueta que comparta digest con otra en uso no se borra: va al acta como conservada, con su motivo. Si no lanzas hoy el recolector de basura, va a "Pendientes con fecha".
 
-    Comprueba: cada DELETE devuelve `202` y esas etiquetas ya no salen en `tags/list`.
+    **Sale bien si:** cada DELETE devuelve `202` y esas etiquetas ya no salen en `tags/list`.
 
-3. **Borra el correo de pre y comprueba Loki.** Lanza el bloque de Mailpit de [Logs externos](#logs-externos) tal cual, con su comprobación de lista vacía: sin ella, el DELETE borra la bandeja entera, dev incluido. Guarda las comprobaciones:
+3. **Borra el correo de pre y comprueba Loki.** *En el puesto.*
+
+    La bandeja de Mailpit es de toda la pila: se borran solo los mensajes de pre. Lanza tal cual el bloque de Mailpit de [Logs externos](#logs-externos), con su comprobación de lista vacía: sin ella, el DELETE borra la bandeja entera, dev incluido. Guarda las comprobaciones:
 
     ```bash
     curl -s -G $MP/search --data-urlencode 'query=10.20.' | jq .messages_count > $EV/18-mailpit.txt
@@ -793,13 +888,30 @@ Vas sistema por sistema, de lo que más datos guarda a lo que menos: copias, im�
 
     Si Loki guardara algo de pre, manda la petición de borrado del mismo apartado y apunta en el acta que se ejecuta 24 horas después.
 
-    Comprueba: Mailpit da 0 para pre y el resto de la bandeja sigue ahí; `ev/19` no lista streams.
+    **Sale bien si:** Mailpit da 0 para pre y el resto de la bandeja sigue ahí, y `ev/19` no lista streams (grupos de logs de una máquina).
 
-4. **Pon a prueba lo que dice la teoría.** Haz los tres escenarios de [Verificar con photorec](#verificar-con-photorec-sobre-un-volumen-de-pruebas). Antes de lanzar cada uno, apunta en `$EV/20-photorec.txt` qué esperas; después, lo que queda de verdad.
+4. **Comprueba con photorec qué se puede recuperar.** *En el puesto.*
 
-    - **`rm` en ext4:** el bloque del apartado tal cual.
-    - **`shred` en ext4:** el mismo bloque con `shred.img`, `sudo shred -u` en lugar de `sudo rm` y `rec-shred`.
-    - **`shred` con snapshot en btrfs:**
+    photorec busca ficheros borrados bloque a bloque en un disco. Lo pruebas en tres discos de juguete, siguiendo [Verificar con photorec](#verificar-con-photorec-sobre-un-volumen-de-pruebas). Antes de lanzar cada escenario, apunta en `$EV/20-photorec.txt` qué esperas y por qué; después, lo que queda de verdad.
+
+    Los dos escenarios de ext4 son el bloque del apartado con una sola diferencia, la orden que borra. Para no teclearlo dos veces, va en una función que crea el disco, copia el volcado, lo borra con la orden que le pases, lanza photorec y cuenta cuántos ficheros recuperados contienen el volcado:
+
+    ```bash
+    mkdir -p ~/photorec && cd ~/photorec && sudo mkdir -p /mnt/prueba
+    seq 1 500 | sed "s/.*/INSERT INTO usuarios VALUES (&, 'usuario&@pre.lab');/" > volcado.sql
+    esc() {   # uso: esc rm    o    esc shred -u
+      n=$1; cd ~/photorec && rm -rf $n.img rec-$n.*
+      dd if=/dev/zero of=$n.img bs=1M count=64 status=none && mkfs.ext4 -q $n.img
+      sudo mount -o loop $n.img /mnt/prueba && sudo cp volcado.sql /mnt/prueba/ && sync
+      sudo "$@" /mnt/prueba/volcado.sql && sync && sudo umount /mnt/prueba
+      sudo photorec /d rec-$n /cmd $n.img search > /dev/null
+      echo "$*: $(sudo grep -rl 'INSERT INTO usuarios' rec-$n.1/ 2>/dev/null | wc -l) ficheros con el volcado"
+    }
+    esc rm
+    esc shred -u
+    ```
+
+    El tercer escenario, `shred` con un snapshot previo en btrfs, se monta de otra forma:
 
     ```bash
     cd ~/photorec && dd if=/dev/zero of=btrfs.img bs=1M count=256 && mkfs.btrfs -q btrfs.img
@@ -811,21 +923,32 @@ Vas sistema por sistema, de lo que más datos guarda a lo que menos: copias, im�
 
     Si `sudo modprobe btrfs` falla en el puesto, haz el de btrfs en tu VM `puesto` y anótalo.
 
-    Comprueba: `ev/20` tiene, por escenario, lo esperado y lo obtenido.
+    **Sale bien si:** `ev/20` tiene, por escenario, lo esperado y lo obtenido.
 
-5. **Escribe la conclusión y pon el acta al día.** Redacta `~/operacion/baja/pre/informe-photorec.md` con una tabla (escenario, método, qué se recuperó, por qué) y la conclusión: qué método garantiza la irrecuperabilidad en un soporte que no controlas. Es lo que permite escribir "irrecuperable" en el acta. Pon el acta al día con `ev/14` a `ev/20`:
+5. **Escribe la conclusión y pon el acta al día.** *En el puesto.*
+
+    Redacta `~/operacion/baja/pre/informe-photorec.md` con una tabla (escenario, método, qué se recuperó, por qué) y la conclusión: qué método garantiza que los datos no se pueden recuperar en un disco que no controlas. Es lo que permite escribir "irrecuperable" en el acta. Pon el acta al día con `ev/14` a `ev/20` y súbela:
 
     ```bash
     cd ~/operacion && git add baja/pre && git commit -m "Baja de pre: copias y logs (A8.4)" && git push
     ```
 
-    Comprueba: el commit lleva el informe y `ev/14` a `ev/20`.
+    **Sale bien si:** el commit lleva el informe y `ev/14` a `ev/20`.
 
-<span class="et et-com">Comprobación</span> `restic snapshots --tag pre` vacío y `restic check` sin errores; el bucket sin versionado o sin versiones antiguas; cada DELETE del registry con `202` y esas etiquetas fuera de `tags/list`; Mailpit con 0 correos de pre y el resto de la bandeja intacto; `ev/19` vacío; el escenario `rm` recupera al menos un fichero con el volcado, el `shred` ninguno, y el snapshot conserva las 500 líneas.
+<span class="et et-com">Comprobación</span>
 
-<span class="et et-ent">Para practicar</span> Haz commit en `operacion` del acta al día, `ev/14` a `ev/20` e `informe-photorec.md`.
+- [ ] `restic snapshots --tag pre` sale vacío y `restic check` no da errores.
+- [ ] El bucket no tiene versionado, o no le quedan versiones antiguas.
+- [ ] Cada DELETE del registry devolvió `202` y esas etiquetas ya no están en `tags/list`.
+- [ ] Mailpit tiene 0 correos de pre y el resto de la bandeja intacto, y `ev/19` está vacío.
+- [ ] `ev/20` tiene, para los tres escenarios, lo que esperabas antes de lanzarlo y lo que salió, y donde no coinciden, la explicación.
 
-<span class="et et-ext">Si te sobra tiempo</span> Libera las capas de las imágenes borradas: en gitea01, el recolector de basura del apartado del registry, con el registry parado, guardando su salida en `ev/17b-gc.txt`, y quita del acta ese pendiente. Después, un cuarto escenario: una imagen con LUKS, `cryptsetup luksErase` y photorec sobre la imagen en bruto, que no encuentra ningún fichero.
+<span class="et et-ent">Para practicar</span>
+
+- **Guarda** en `operacion` el commit con el acta al día, `ev/14` a `ev/20` e `informe-photorec.md`, que son evidencias de la práctica evaluable.
+- **Piensa:** si las copias de pre hubieran tenido su propio repositorio cifrado, ¿qué habría bastado para destruirlas?
+
+<span class="et et-ext">Si te sobra tiempo</span> Para que el registry libere de verdad el espacio de las imágenes borradas: en gitea01, lanza el recolector de basura del apartado del registry, con el registry parado, guarda su salida en `ev/17b-gc.txt` y quita del acta ese pendiente. Después, prueba un cuarto escenario: una imagen cifrada con LUKS, `cryptsetup luksErase` (destruye la clave) y photorec sobre la imagen en bruto, que no encuentra ningún fichero.
 
 ## Sesión 39 · Datos y monitorización
 
@@ -908,19 +1031,23 @@ Si no se hace, el acta lleva un pendiente con la fecha en que vence la retenció
 
 ### A8.5 Datos y monitorización (sesión 39)
 
-<span class="et et-obj">Objetivo</span> En una base de prueba del PostgreSQL de dev, los datos del tenant `pre` anonimizados y sus tablas borradas sin tuplas muertas; en la monitorización, ninguna referencia a pre, con el silencio expirado y sin alertas; y el acta de baja completa, que es la práctica evaluable. Es lo que se pide en una empresa cuando un cliente deja de serlo: sus datos fuera y nadie vigilando lo que ya no existe.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** en una base de prueba, los datos de un cliente (`pre`) anonimizados o borrados sin que queden restos en disco; en la monitorización, ninguna referencia a pre y ninguna alarma suya; y el acta de baja terminada.
+
+**Para qué sirve en un trabajo:** es lo que se pide cuando un cliente deja de serlo: sus datos fuera, aunque la base la sigan usando otros, y nadie vigilando ni avisando de lo que ya no existe.
 
 <span class="et et-pre">Antes de empezar</span>
 
 - Entra en el puesto de administración con `ssh -A`, carga `. ~/baja-pre.env` y abre el túnel con `tunel`.
-- Acceso por SSH con `sudo` a db01 de dev (10.10.3.10) y a mon01. db01 es la base de datos de dev, en uso: el trabajo de datos va entero en una base de prueba, `bajapre`, nunca en `servicio`.
-- Lo explicado hoy: [DELETE y VACUUM FULL](#datos-confidenciales-en-la-base-de-datos-interna), [la anonimización](#anonimizar-cuando-hay-que-conservar-estadisticas) y [la desconfiguración de la monitorización](#desconfigurar-la-monitorizacion-y-las-alarmas).
+- Necesitas acceso por SSH con `sudo` a db01 de dev (10.10.3.10) y a mon01. db01 es la base de datos de dev y está en uso: todo el trabajo de datos va en una base de prueba, `bajapre`, nunca en `servicio`.
+- La teoría de hoy: [DELETE y VACUUM FULL](#datos-confidenciales-en-la-base-de-datos-interna), [la anonimización](#anonimizar-cuando-hay-que-conservar-estadisticas) y [la desconfiguración de la monitorización](#desconfigurar-la-monitorizacion-y-las-alarmas).
 
 <span class="et et-pas">Pasos</span>
 
-Primero los datos: en la base de prueba mides, anonimizas y borras, vuelves a medir y buscas copias que hayan escapado. Después la monitorización: retiras los targets, compruebas que no queda nada de pre y solo entonces expiras el silencio. El último paso cierra el acta.
+Trabajas desde el **puesto**, con un rato en mon01. Primero los datos: en la base de prueba mides (paso 1), anonimizas y borras (paso 2) y buscas copias que se hayan escapado (paso 3). Después la monitorización: retiras los targets de pre (paso 4) y, cuando no queda nada, expiras el silencio (paso 5). El paso 6 cierra el acta.
 
-1. **Prepara la base de prueba y mídela.** Guarda el bloque `CREATE TABLE` de [Anonimizar cuando hay que conservar estadísticas](#anonimizar-cuando-hay-que-conservar-estadisticas) en `~/tablas.sql`. La función `sql` manda a `bajapre` lo que le llega por la entrada estándar, así que nada cae en `servicio` por error:
+1. **Crea la base de prueba y mídela.** *En el puesto, contra db01 de dev.*
+
+    Guarda el bloque `CREATE TABLE` de [Anonimizar cuando hay que conservar estadísticas](#anonimizar-cuando-hay-que-conservar-estadisticas) en `~/tablas.sql`: son tres tablas con datos inventados de dos clientes (tenants), `pre` y `dev`. La función `sql` manda a `bajapre` lo que le llega por la entrada estándar, así que nada cae en `servicio` por error:
 
     ```bash
     sql() { ssh ops@10.10.3.10 sudo -u postgres psql -X -d bajapre; }
@@ -929,18 +1056,24 @@ Primero los datos: en la base de prueba mides, anonimizas y borras, vuelves a me
     sql <<< "SELECT count(*) FROM usuarios WHERE tenant = 'pre'; SELECT relname, n_live_tup, n_dead_tup FROM pg_stat_user_tables ORDER BY relname;" > $EV/21-db-antes.txt
     ```
 
-    Comprueba: `ev/21` tiene el número de usuarios de pre y las tres tablas con sus tuplas. Sin esa foto inicial, el 0 del final no demuestra nada.
+    `n_live_tup` y `n_dead_tup` cuentan las filas vivas y las tuplas muertas (filas borradas que PostgreSQL aún guarda en disco).
 
-2. **Anonimiza y borra con el guion.** Guarda el guion del mismo apartado en `~/operacion/baja/pre/anonimiza.sql`, que es la evidencia del método, y ejecútalo:
+    **Sale bien si:** `ev/21` tiene el número de usuarios de pre y las tres tablas con sus tuplas. Sin esa foto inicial, el 0 del final no demuestra nada.
+
+2. **Anonimiza y borra con el guion.** *En el puesto, contra db01 de dev.*
+
+    El guion del mismo apartado cambia los datos personales de pre por otros que no identifican a nadie, borra lo que no se puede anonimizar y limpia las tuplas muertas con `VACUUM FULL`. Guárdalo en `~/operacion/baja/pre/anonimiza.sql`, que es la evidencia del método, y ejecútalo:
 
     ```bash
     nano ~/operacion/baja/pre/anonimiza.sql
     sql < ~/operacion/baja/pre/anonimiza.sql > $EV/22-db-control.txt 2>&1
     ```
 
-    Comprueba: en `ev/22`, `restos` a 0, sin `pre_sesiones` y sin tuplas muertas en `usuarios` ni en `comentarios`.
+    **Sale bien si:** en `ev/22`, `restos` sale a 0, no está `pre_sesiones` y no hay tuplas muertas en `usuarios` ni en `comentarios`.
 
-3. **Busca los datos que escaparon al borrado.** Una réplica o un volcado suelto guardan los datos como estaban antes del guion:
+3. **Busca los datos que escaparon al borrado.** *En el puesto, contra db01 de dev.*
+
+    Una réplica o un volcado suelto guardan los datos como estaban antes del guion. Búscalos, borra con `shred` los que sean de pre y elimina la base de prueba:
 
     ```bash
     { sql <<< "SELECT * FROM pg_stat_replication;"
@@ -951,9 +1084,11 @@ Primero los datos: en la base de prueba mides, anonimizas y borras, vuelves a me
 
     Un volcado de dev es de dev y se queda.
 
-    Comprueba: `ev/23` está revisado y `bajapre` ya no sale en `ssh ops@10.10.3.10 sudo -u postgres psql -l`.
+    **Sale bien si:** has revisado `ev/23` y `bajapre` ya no sale en `ssh ops@10.10.3.10 sudo -u postgres psql -l`.
 
-4. **Retira los targets de pre.** En mon01, quita del job `node` el grupo de las tres `10.20.x.10:29100` con `env: pre`, valida, haz commit solo de ese fichero (Despliegue trabaja en el mismo repositorio) y ponle la etiqueta que se corrige en la evaluable:
+4. **Retira los targets de pre de Prometheus.** *En mon01 y en el puesto.*
+
+    Un target es cada máquina que Prometheus consulta. En `prometheus.yml`, quita del job `node` el grupo de las tres `10.20.x.10:29100` con `env: pre`. Valida, haz commit solo de ese fichero (Despliegue trabaja en el mismo repositorio) y ponle la etiqueta que se corrige en la evaluable:
 
     ```bash
     ssh ops@10.10.0.20
@@ -963,16 +1098,18 @@ Primero los datos: en la base de prueba mides, anonimizas y borras, vuelves a me
     git push && git push origin entrega-5169-ut8 && exit
     ```
 
-    De vuelta en el puesto, recarga y guarda la prueba:
+    De vuelta en el puesto, recarga Prometheus y guarda la prueba:
 
     ```bash
     curl -s -X POST $P/-/reload
     curl -sG $P/api/v1/query --data-urlencode 'query=count(up{env="pre"})' > $EV/24-prometheus.txt
     ```
 
-    Comprueba: `ev/24` devuelve un resultado vacío y el resto del job `node` sigue como estaba.
+    **Sale bien si:** `ev/24` devuelve un resultado vacío y el resto del job `node` sigue como estaba.
 
-5. **Comprueba que no queda nada y solo entonces retira el silencio.** Busca referencias a pre en `alerting`, en las reglas cargadas y en Grafana:
+5. **Comprueba que no queda nada y solo entonces retira el silencio.** *En el puesto.*
+
+    Busca referencias a pre en el repositorio `alerting`, en las reglas cargadas y en Grafana:
 
     ```bash
     { ssh ops@10.10.0.20 "git -C /opt/alerting grep -nE 'pre\.lab|10\.20\.|env=.?pre'"
@@ -980,7 +1117,7 @@ Primero los datos: en la base de prueba mides, anonimizas y borras, vuelves a me
       curl -s -H "Authorization: Bearer $GRAFANA_TOKEN" "$G/api/search?tag=pre" | jq -r '.[].title'; } > $EV/25-reglas-dashboards.txt
     ```
 
-    Si sale algo, retíralo y repite. Después, sin alertas de pre activas ni silenciadas, expira el silencio y espera dos minutos:
+    Si sale algo, retíralo y repite. Cuando no haya alertas de pre activas ni silenciadas, expira el silencio de la A8.2 y espera dos minutos:
 
     ```bash
     amt alert query -s env=pre                          # vacío antes de seguir
@@ -988,9 +1125,15 @@ Primero los datos: en la base de prueba mides, anonimizas y borras, vuelves a me
     sleep 120; amt alert query env=pre > $EV/26-alertas.txt
     ```
 
-    Comprueba: `ev/25` y `ev/26` vacíos. Si expiras antes de tiempo, cualquier resto de pre se convierte en una alarma real para la guardia.
+    Si expiras antes de tiempo, cualquier resto de pre se convierte en una alarma real para la guardia.
 
-6. **Cierra el acta.** Apunta el resultado y la evidencia de las filas de hoy (`ev/21` a `ev/26`), completa "Qué se destruye y cómo" y los "Pendientes con fecha" (la retención de 45 días de Prometheus, el recolector del registry si no se lanzó, la destrucción del volcado de bloqueo), y revisa que ninguna fila quede sin evidencia o sin fecha. Retira también las credenciales que creaste para la baja y apúntalo como una fila más: la cuenta de servicio `baja-pre` en Grafana (Administration → Users and access → Service accounts → Delete) y tu token de Jenkins (tu usuario → Security → Revoke). Sube y entrega:
+    **Sale bien si:** `ev/25` y `ev/26` están vacíos.
+
+6. **Cierra el acta y entrégala.** *En el puesto, Grafana y Jenkins.*
+
+    Rellena el resultado y la evidencia de las filas de hoy (`ev/21` a `ev/26`), completa "Qué se destruye y cómo" y los "Pendientes con fecha" (la retención de 45 días de Prometheus, el recolector del registry si no se lanzó, la destrucción del volcado de bloqueo), y revisa que ninguna fila quede sin evidencia o sin fecha.
+
+    Retira también las credenciales que creaste para la baja: la cuenta de servicio `baja-pre` en Grafana (Administration → Users and access → Service accounts → Delete) y tu token de Jenkins (tu usuario → Security → Revoke), y apúntalo en su fila de la lista. Sube el acta:
 
     ```bash
     cd ~/operacion && git add baja/pre && git commit -m "Baja de pre: datos, monitorización y cierre del acta (A8.5)" && git push
@@ -998,13 +1141,22 @@ Primero los datos: en la base de prueba mides, anonimizas y borras, vuelves a me
 
     Pega el enlace del commit en la tarea de la práctica evaluable.
 
-    Comprueba: la cuenta `baja-pre` ya no aparece en Grafana y ninguna fila del acta está sin evidencia o sin fecha.
+    **Sale bien si:** la cuenta `baja-pre` ya no aparece en Grafana y ninguna fila del acta está sin evidencia o sin fecha.
 
-<span class="et et-com">Comprobación</span> `restos` a 0, sin `pre_sesiones` y `n_dead_tup` a 0 en `usuarios` y `comentarios`; `count(up{env="pre"})` devuelve `[]`; `ev/25` vacío; `amt alert query env=pre` vacío dos minutos después de expirar el silencio; la etiqueta `entrega-5169-ut8` en Gitea; la cuenta de servicio `baja-pre` ya no aparece en Grafana; ninguna fila del acta sin evidencia o sin fecha.
+<span class="et et-com">Comprobación</span>
 
-<span class="et et-ent">Para practicar</span> Haz commit en `operacion` del acta completa, `anonimiza.sql` y `ev/21` a `ev/26`, y deja en `monitoring` el commit con la etiqueta `entrega-5169-ut8`.
+- [ ] En `ev/22`, `restos` a 0, sin `pre_sesiones` y `n_dead_tup` a 0 en `usuarios` y `comentarios`.
+- [ ] `count(up{env="pre"})` devuelve `[]` y la etiqueta `entrega-5169-ut8` está en Gitea.
+- [ ] `ev/25` está vacío, y `amt alert query env=pre` sale vacío dos minutos después de expirar el silencio.
+- [ ] La cuenta de servicio `baja-pre` ya no aparece en Grafana.
+- [ ] Ninguna fila del acta está sin evidencia o sin fecha.
 
-<span class="et et-ext">Si te sobra tiempo</span> Si Prometheus arrancó con `--web.enable-admin-api`, borra ya las series de pre con el bloque del apartado de monitorización, comprueba que `count_over_time(up{env="pre"}[30d])` sale vacío y quita ese pendiente del acta.
+<span class="et et-ent">Para practicar</span>
+
+- **Guarda** en `operacion` el commit con el acta completa, `anonimiza.sql` y `ev/21` a `ev/26`, y en `monitoring` el commit con la etiqueta `entrega-5169-ut8`. Con esto la práctica evaluable queda entregada.
+- **Piensa:** ¿por qué un `md5` del correo, sin nada más, no cuenta como anonimizar?
+
+<span class="et et-ext">Si te sobra tiempo</span> Para no dejar como pendiente las series de pre que Prometheus guarda en disco: si arrancó con `--web.enable-admin-api`, bórralas ya con el bloque del apartado de monitorización, comprueba que `count_over_time(up{env="pre"}[30d])` sale vacío y quita ese pendiente del acta.
 
 ## Práctica evaluable
 
@@ -1012,7 +1164,7 @@ La práctica evaluable no tiene sesión propia ni pide trabajo nuevo: es el acta
 
 ### Acta de baja
 
-El acta es el documento que cierra la vida del servicio. Se guarda con las incidencias del servicio y es lo que se enseña cuando dentro de dos años alguien pregunta "¿qué pasó con los datos de pre?". La plantilla lleva ya los números de evidencia que producen las hojas.
+El acta es el documento que cierra la vida del servicio. Se guarda con las incidencias del servicio y es lo que se enseña cuando dentro de dos años alguien pregunta "¿qué pasó con los datos de pre?". La plantilla lleva ya una fila por punto de la [lista completa](#lista-de-comprobacion-completa) y los ficheros de evidencia que producen las hojas; la columna de resultado se rellena en cada hoja ("OK" y la fecha, o lo que salió de verdad).
 
 ```markdown
 # Acta de baja · entorno pre del servicio del curso
@@ -1044,9 +1196,33 @@ El acta es el documento que cierra la vida del servicio. Se guarda con las incid
 ## Lista de comprobación
 | # | Punto | Verificación | Hoja | Resultado | Evidencia |
 |---|---|---|---|---|---|
-| 1 | Aprobación escrita | respuesta del profesor en Aules | A8.1 | OK, <fecha> | ev/01-aprobacion.txt |
-| 2 | Silencio activo | amt silence query env=pre | A8.2 | OK, id 7c1e… | ev/02-silencio.txt |
-| ... |
+| 1 | Aprobación escrita | respuesta del profesor en Aules | A8.1 | | ev/01-aprobacion.txt |
+| 2 | Inventario al día tras la A6.8 | diff con ev/00-inventario.txt | A8.2 | | ev/00b-inventario.txt |
+| 3 | Silencio activo, más largo que la ventana | amt silence query env=pre | A8.2 | | ev/02-silencio.txt |
+| 4 | Volcado de bloqueo cifrado y comprobado, fuera de los repositorios | pg_restore -l y sha256sum | A8.2 | | ev/03-dump-bloqueo.txt |
+| 5 | Dashboards de pre exportados a Git, si los hay | git log -1 -- dashboards/pre/ | A8.2 | | commit de dashboards/pre, o "no había" |
+| 6 | Job de despliegue a pre deshabilitado | API de Jenkins: color disabled | A8.2 | | ev/04-jenkins.txt |
+| 7 | app01-pre sin contenedores, volúmenes, imágenes ni redes propias | docker ps -a, volume ls, images, network ls | A8.2 | | ev/05-docker.txt |
+| 8 | prevent_destroy retirado en la rama baja-pre, citando la aprobación | git log -1 de baja-pre | A8.3 | | ev/06-rama-baja.txt |
+| 9 | VM de pre destruidas con OpenTofu | tofu plan -destroy; tofu state list vacío | A8.3 | | ev/07-tofu-plan.txt, ev/08-tofu-state.txt |
+| 10 | router-pre y VNets de pre destruidos (creados a mano) | API de Proxmox sin franja 200 ni VNets pre*; ping | A8.3 | | ev/09-proxmox.txt |
+| 11 | Rutas a pre retiradas en el puesto, agent01 y mon01; DNS sin nombres de pre | ip route show 10.20.0.0/16 vacío; dig vacío | A8.3 | | ev/10-rutas-dns.txt |
+| 12 | Carpeta servicio/pre y credencial ssh-pre borradas, historial guardado | la carpeta responde 404 | A8.3 | | ev/11-despliegues-pre.json, ev/12-jenkins.txt |
+| 13 | Ningún certificado de pre en la CA | grep pre.lab en index.txt | A8.3 | | ev/13-certificados.txt |
+| 14 | Copias de pre fuera de restic | restic snapshots --tag pre vacío; restic check | A8.4 | | ev/14-restic.txt |
+| 15 | Bucket sin versiones antiguas ni réplicas | mc version info; mc replicate ls | A8.4 | | ev/15-minio.txt |
+| 16 | Etiquetas de pre fuera del registry | tags/list sin ellas; recolector ejecutado o pendiente | A8.4 | | ev/16-registry-antes.txt, ev/17-registry.txt |
+| 17 | Correo de alertas de pre fuera de Mailpit | búsqueda de 10.20. da 0 | A8.4 | | ev/18-mailpit.txt |
+| 18 | Loki sin streams de pre | logcli series vacío | A8.4 | | ev/19-loki.txt |
+| 19 | Método de borrado irrecuperable comprobado | photorec en tres escenarios | A8.4 | | ev/20-photorec.txt, informe-photorec.md |
+| 20 | Datos del tenant pre anonimizados y tablas borradas con VACUUM FULL | consulta de control a 0 | A8.5 | | ev/21-db-antes.txt, ev/22-db-control.txt |
+| 21 | Réplicas y volcados sueltos revisados | pg_stat_replication; find | A8.5 | | ev/23-db-restos.txt |
+| 22 | Targets de pre retirados | count(up{env="pre"}) vacío | A8.5 | | ev/24-prometheus.txt |
+| 23 | Reglas, rutas y dashboards sin referencias a pre | git grep y búsquedas por API vacías | A8.5 | | ev/25-reglas-dashboards.txt |
+| 24 | Silencio expirado y sin alertas | amt alert query env=pre vacío | A8.5 | | ev/26-alertas.txt |
+| 25 | Series de pre fuera del almacén de Prometheus | retención (pendiente con fecha) o delete_series | A8.5 | | "Pendientes con fecha" |
+| 26 | Credenciales de la baja retiradas | cuenta baja-pre y token de Jenkins ya no aparecen | A8.5 | | captura o salida de la API |
+| 27 | Acta completa | ninguna fila sin evidencia ni pendiente sin fecha | A8.5 | | este acta |
 
 ## Incidencias durante la baja
 - 2027-02-25: el inventario encontró router-pre y las cuatro VNets de pre fuera del estado de OpenTofu; se destruyen a mano (A8.3).

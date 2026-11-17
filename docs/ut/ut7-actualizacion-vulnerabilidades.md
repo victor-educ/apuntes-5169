@@ -180,40 +180,43 @@ docker run --rm --network host \
 
 ### A7.1 Inventario de versiones y seguimiento automático (sesión 28)
 
-<span class="et et-obj">Objetivo</span> Saber con exactitud qué corre en app01 y dejar de depender de etiquetas que otro puede mover: inventario en `docs/inventario.md`, la base del Dockerfile fijada con versión y digest, Renovate con al menos un PR abierto en Gitea y la política en `docs/politica-actualizacion.md`. Al terminar, cada versión nueva te llega como una propuesta revisable, y el inventario es lo que escanea la A7.2.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** saber exactamente qué versión de cada imagen corre en app01 y dejar la base fijada para que no cambie sola. Al terminar, un robot (Renovate) te avisa con una propuesta en Gitea cada vez que sale una versión nueva.
+
+**Para qué sirve en un trabajo:** cuando se publica un fallo de seguridad, la primera pregunta es «¿nos afecta?», y solo se responde si se sabe qué hay desplegado. Y nadie mira a mano cada semana si hay versión nueva de cada imagen: avisa un robot y decide una persona.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- app01 con el servicio arrancado y la copia de trabajo de `servicio` en `/opt/servicio`. No sale a Internet, ni le hace falta hoy.
+- app01 con el servicio arrancado y la copia de trabajo de `servicio` en `/opt/servicio`. app01 no sale a Internet, y hoy no le hace falta.
 - El repositorio `ops/servicio` en `gitea.lab` (hoy, el contenedor de mon01 en el 23001). Usa siempre el nombre, nunca la IP: el 12 de febrero Gitea se muda a `gitea01`.
-- Se puede traer hecho: en Gitea, el usuario técnico `renovate-bot` con permiso de escritura en `ops/servicio` y su token en el gestor de contraseñas; en mon01, la imagen `renovate/renovate:41` descargada.
-- Explicado hoy: [Versiones, etiquetas y digests](#versiones-etiquetas-y-digests), [Políticas de etiquetas de las imágenes oficiales](#politicas-de-etiquetas-de-las-imagenes-oficiales), [Renovate](#renovate) y [La política escrita](#la-politica-escrita).
+- El usuario técnico de Renovate en Gitea (puedes traerlo hecho, son cinco minutos). Como administrador, en *Administración del sitio → Cuentas de usuario → Crear cuenta de usuario*, crea `renovate-bot`. En `ops/servicio`, *Configuración → Colaboradores*, añádelo con permiso de escritura. Entra como `renovate-bot` y en *Configuración → Aplicaciones* genera un token con lectura y escritura en *repository* e *issue*, y lectura en *user*; guárdalo en el gestor de contraseñas.
+- En mon01, la imagen `renovate/renovate:41` descargada (`docker pull renovate/renovate:41`, tarda: mejor traerla hecha).
+- La teoría de hoy: [Versiones, etiquetas y digests](#versiones-etiquetas-y-digests), [Políticas de etiquetas de las imágenes oficiales](#politicas-de-etiquetas-de-las-imagenes-oficiales), [Renovate](#renovate) y [La política escrita](#la-politica-escrita).
 
 <span class="et et-pas">Pasos</span>
 
-Primero averiguas qué corre de verdad en app01 y fijas la base del Dockerfile. Después pones a Renovate a vigilar esa base ya fijada y escribes la política. El orden importa: con la base fijada al digest de otoño, lo que proponga Renovate será ya una actualización de verdad.
+Trabajas en app01 y, para lanzar Renovate, en mon01. El recorrido: averiguas qué corre (paso 1), fijas la base del Dockerfile (paso 2), pones a Renovate a vigilarla (paso 3) y escribes qué se hace con lo que proponga (paso 4). Fijar antes de lanzar Renovate importa: así lo que proponga ya es una actualización de verdad.
 
-1. **Averigua qué corre de verdad.** En app01, saca cada imagen que corre (servicio y agentes) y la base del `FROM`, con su etiqueta, digest o ID y fecha:
+1. **Averigua qué corre de verdad.** *En app01.*
+
+    Saca cada imagen que corre (las del servicio y las de `/opt/agentes`) con su etiqueta, su digest o su ID (el hash que identifica el contenido exacto) y su fecha. El bucle escribe ya las filas de la tabla en `docs/inventario.md`; las librerías de Python van aparte, a `inventario-app.txt`:
 
     ```bash
-    cd /opt/servicio
-    docker ps --format '{{.Image}}' | sort -u
-    docker image inspect --format '{{.RepoTags}} {{.RepoDigests}} {{.Id}} {{.Created}}' <imagen>
+    cd /opt/servicio && mkdir -p docs
+    printf '| Componente | Digest o ID | Creada | ¿Flotante? |\n|---|---|---|---|\n' > docs/inventario.md
+    for i in $(docker ps --format '{{.Image}}' | sort -u); do
+      docker image inspect --format "| $i | {{if .RepoDigests}}{{index .RepoDigests 0}}{{else}}{{.Id}}{{end}} | {{.Created}} | |" "$i"
+    done >> docs/inventario.md
     grep FROM api/Dockerfile
     docker compose -f /opt/servicio/compose.yml exec app pip freeze > inventario-app.txt
     ```
 
-    Con eso escribe `docs/inventario.md`, una fila por imagen más la del `FROM`:
+    Añade a mano la fila de la base del `FROM` y rellena la última columna de todas. Una etiqueta es **flotante** si mañana puede apuntar a otra imagen: `latest`, solo la mayor (`python:3`) o sin sufijo de Debian. `app:1.4.2` sale con su ID y no con digest porque se construyó en app01 y nunca ha pasado por un registry.
 
-    ```markdown
-    | Componente | Etiqueta | Digest o ID | Creada | ¿Flotante? |
-    |---|---|---|---|---|
-    ```
+    **Sale bien si:** hay una fila por cada imagen que da `docker ps`, más la del `FROM`, y ninguna con la última columna vacía.
 
-    Flotante es `latest`, solo la mayor (`python:3`) o sin sufijo de Debian. `app:1.4.2` no tiene digest: va con su ID.
-    Comprueba que hay una fila por cada imagen que da `docker ps`, más la del `FROM`.
+2. **Fija la base y llévala a `main` con un PR.** *En app01 y en Gitea.*
 
-2. **Fija la base y llévala a `main` por un PR.** Saca el digest de la base y la versión de Debian del contenedor:
+    Fijar es escribir en el `FROM` la versión y el digest, para que la base no cambie por debajo. Saca el digest de la base y la versión de Debian del contenedor:
 
     ```bash
     docker image inspect --format '{{index .RepoDigests 0}}' <imagen del FROM>
@@ -229,10 +232,13 @@ Primero averiguas qué corre de verdad en app01 y fijas la base del Dockerfile. 
     git push -u origin inventario
     ```
 
-    En Gitea abre el PR de `inventario` y fusiónalo tú: Renovate lee `main`.
-    Comprueba que `docker image inspect python:3.13-<debian>@sha256:<digest>` encuentra la imagen en app01.
+    En Gitea, abre el PR de `inventario` (pull request: la propuesta de cambio que se revisa antes de unirla a `main`) y fusiónalo tú. Hace falta ahora porque Renovate lee `main`.
 
-3. **Pon a Renovate a vigilar.** En app01, trae `main`, crea `renovate.json` en la raíz con el de [Renovate](#renovate) cambiando `schedule` por `["at any time"]` (fuera de su franja no abre nada) y súbelo:
+    **Sale bien si:** `docker image inspect python:3.13-<debian>@sha256:<digest>` encuentra la imagen en app01.
+
+3. **Pon a Renovate a vigilar.** *En app01 y en mon01.*
+
+    Renovate lee el repositorio y abre un PR por cada versión nueva que encuentra. En app01, trae `main`, crea `renovate.json` en la raíz con el de [Renovate](#renovate) cambiando `schedule` por `["at any time"]` (fuera de su franja horaria no abre nada) y súbelo:
 
     ```bash
     git switch main && git pull
@@ -240,7 +246,7 @@ Primero averiguas qué corre de verdad en app01 y fijas la base del Dockerfile. 
     git add renovate.json && git commit -m "Renovate" && git push
     ```
 
-    En mon01, lanza una pasada con la orden de [Renovate](#renovate), con `LOG_LEVEL=debug` y la salida guardada:
+    En mon01, lanza una pasada con la orden de [Renovate](#renovate), con `LOG_LEVEL=debug` (el log con todo el detalle) y la salida guardada:
 
     ```bash
     read -rs TOKEN_BOT        # pega el token de renovate-bot; no queda en el historial
@@ -253,9 +259,11 @@ Primero averiguas qué corre de verdad en app01 y fijas la base del Dockerfile. 
       renovate/renovate:41 2>&1 | tee renovate.log
     ```
 
-    Comprueba en Gitea que hay un PR de `renovate-bot` con la etiqueta `actualizacion`; entre ellos, el que actualiza el digest de la base. Haz una captura.
+    **Sale bien si:** en Gitea hay un PR de `renovate-bot` con la etiqueta `actualizacion`; entre ellos, el que actualiza el digest de la base. Haz una captura.
 
-4. **Escribe qué se hace con lo que proponga.** Crea en `main` `docs/politica-actualizacion.md` con los seis puntos de [La política escrita](#la-politica-escrita) como encabezados y una o dos líneas decididas para tu servicio en cada uno:
+4. **Escribe qué se hace con lo que proponga.** *En app01.*
+
+    Renovate avisa, pero no decide quién revisa ni con qué prisa. Crea en `main` `docs/politica-actualizacion.md` con los seis puntos de [La política escrita](#la-politica-escrita) como encabezados. Debajo de cada uno, una o dos líneas: parte de las respuestas de la teoría y cámbialas donde tu servicio sea distinto (por ejemplo, la ventana o quién aprueba). Deja los 40 minutos de pre: la A7.5, el 16 de febrero, los usa como plazo para decidir.
 
     ```markdown
     # Política de actualización
@@ -267,13 +275,25 @@ Primero averiguas qué corre de verdad en app01 y fijas la base del Dockerfile. 
     ## Tiempo antes de volver atrás
     ```
 
-    La terminas en la práctica evaluable.
+    ```bash
+    git add docs/politica-actualizacion.md && git commit -m "Política de actualización" && git push
+    ```
 
-<span class="et et-com">Comprobación</span> Ni `compose.yml` ni `api/Dockerfile` llevan etiquetas flotantes; el digest del `FROM` existe en app01; en Gitea hay un PR de `renovate-bot` con la etiqueta `actualizacion`; en `renovate.log` aparece la base del Dockerfile entre las dependencias y `app` no da error de búsqueda.
+    **Sale bien si:** cada encabezado tiene debajo al menos una línea y el fichero está en `main` en Gitea. La terminas en la práctica evaluable.
 
-<span class="et et-ent">Para practicar</span> Deja en `main` el PR fusionado con `docs/inventario.md` y el Dockerfile fijado, `renovate.json` y `docs/politica-actualizacion.md`, y guarda la captura del PR de Renovate y `renovate.log` en la carpeta de la práctica: la evaluable parte de ahí.
+<span class="et et-com">Comprobación</span>
 
-<span class="et et-ext">Si te sobra tiempo</span> Fija también con digest las imágenes de `/opt/agentes/compose.yml` que el paso 1 marcó como flotantes, y añade un `packageRule` con `versioning` explícito para alguna imagen que no siga semver.
+- [ ] Ni `compose.yml` ni `api/Dockerfile` llevan etiquetas flotantes.
+- [ ] El digest del `FROM` existe en app01.
+- [ ] En Gitea hay un PR de `renovate-bot` con la etiqueta `actualizacion`.
+- [ ] En `renovate.log` aparece la base del Dockerfile entre las dependencias, y `app` no da error de búsqueda.
+
+<span class="et et-ent">Para practicar</span>
+
+- **Guarda** en `main` el PR fusionado con `docs/inventario.md` y el Dockerfile fijado, `renovate.json` y `docs/politica-actualizacion.md`; en la carpeta de la práctica, la captura del PR de Renovate y `renovate.log`. La práctica evaluable parte de ahí, y el inventario es lo que escanea la A7.2.
+- **Piensa:** si no hubieras fijado el digest, ¿qué imagen traería un `pull` dentro de un mes, y quién lo habría decidido?
+
+<span class="et et-ext">Si te sobra tiempo</span> Para que tampoco cambien solos los agentes, fija con digest las imágenes de `/opt/agentes/compose.yml` que el paso 1 marcó como flotantes. Y para alguna imagen que no siga el versionado semántico, añade un `packageRule` con `versioning` explícito, que le dice a Renovate cómo leer sus números.
 
 ## Sesión 29 · Escaneo
 
@@ -361,19 +381,23 @@ pip-audit -r api/requirements.txt
 
 ### A7.2 Escaneo (sesión 29)
 
-<span class="et et-obj">Objetivo</span> Saber qué fallos publicados lleva lo que corre en app01 y cuáles importan de verdad: SBOM e informes de Trivy y Grype de la imagen del servicio y de la de cAdvisor, escaneo del código con pip-audit y `trivy fs`, y una tabla de hallazgos HIGH y CRITICAL con las columnas de exploit conocido y alcanzable rellenas, todo en `seguridad/` del repositorio. Es la materia prima de la A7.3.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** saber qué fallos de seguridad publicados lleva lo que corre en app01 y cuáles importan de verdad. Al terminar tienes los informes de los escáneres guardados y una tabla corta con los hallazgos graves.
+
+**Para qué sirve en un trabajo:** un escáner devuelve cientos de líneas y nadie puede arreglarlas todas. El trabajo real es pasarlo, guardar el informe y quedarse con las pocas filas que corren prisa.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Trabajas en el puesto de administración, que tiene Trivy desde la A4.6, sale a Internet y tiene tu clon de `servicio`. Todas las órdenes se lanzan desde la raíz de ese clon.
-- Se puede traer hecho: Syft y Grype instalados con los instaladores oficiales de Anchore, pip-audit con `pipx`, y las bases al día (`trivy image --download-db-only` y `grype db update`).
-- Explicado hoy: [CVE, CVSS, EPSS y KEV](#cve-cvss-epss-y-kev), [SBOM: el inventario](#sbom-el-inventario), [Cómo trabaja un escáner](#como-trabaja-un-escaner), [Escanear con Trivy](#escanear-con-trivy) y [Grype y pip-audit](#grype-y-pip-audit).
+- Trabajas en el puesto de administración: tiene Trivy desde la A4.6, sale a Internet y tiene tu clon de `servicio`. Todas las órdenes se lanzan desde la raíz de ese clon.
+- Puedes traerlo hecho: Syft y Grype instalados con los instaladores oficiales de Anchore, pip-audit con `pipx`, y las bases de fallos al día (`trivy image --download-db-only` y `grype db update`).
+- La teoría de hoy: [CVE, CVSS, EPSS y KEV](#cve-cvss-epss-y-kev), [SBOM: el inventario](#sbom-el-inventario), [Cómo trabaja un escáner](#como-trabaja-un-escaner), [Escanear con Trivy](#escanear-con-trivy) y [Grype y pip-audit](#grype-y-pip-audit).
 
 <span class="et et-pas">Pasos</span>
 
-Sacas las dos imágenes y haces su SBOM, pasas dos escáneres a las imágenes y dos al código, reúnes lo grave en una tabla, le añades lo que ningún escáner sabe y contrastas los dos escáneres.
+Todo se hace en el puesto. El recorrido: sacas las dos imágenes y haces su inventario (paso 1), pasas dos escáneres a las imágenes (paso 2) y dos al código (paso 3), reúnes lo grave en una tabla (paso 4), le añades lo que ningún escáner sabe (paso 5) y comparas los dos escáneres (paso 6).
 
-1. **Saca las dos imágenes y haz su inventario.** cAdvisor es el agente con más privilegios de app01 (corre `privileged` y con el socket de Docker), por eso se escanea con el servicio. Las imágenes van a `~/imagenes/`, fuera del repositorio, porque pesan cientos de MB:
+1. **Saca las dos imágenes y haz su inventario.** *En el puesto.*
+
+    Escaneas la imagen del servicio y la de cAdvisor, el agente con más privilegios de app01 (corre `privileged` y con el socket de Docker). El inventario de cada una es su SBOM (la lista de todo lo que lleva dentro, con versiones). Las imágenes van a `~/imagenes/`, fuera del repositorio, porque pesan cientos de MB:
 
     ```bash
     mkdir -p ~/imagenes seguridad
@@ -386,7 +410,11 @@ Sacas las dos imágenes y haces su SBOM, pasas dos escáneres a las imágenes y 
 
     Anota en `seguridad/hallazgos.md` el número de componentes de cada una.
 
-2. **Escanea las imágenes con dos escáneres.** Guarda el informe completo de cada uno, sin filtros, que es el que se archiva, y mira la tabla de HIGH y CRITICAL, que es con la que se trabaja:
+    **Sale bien si:** el `jq` da un número para cada uno de los dos SBOM.
+
+2. **Escanea las imágenes con dos escáneres.** *En el puesto.*
+
+    Guarda el informe completo de cada uno, sin filtros, que es el que se archiva. Después mira solo la tabla de HIGH y CRITICAL (los dos niveles más graves), que es con la que se trabaja:
 
     ```bash
     trivy image --input ~/imagenes/app-1.4.2.tar --format json -o seguridad/trivy-app.json
@@ -396,9 +424,11 @@ Sacas las dos imágenes y haces su SBOM, pasas dos escáneres a las imágenes y 
     trivy image --input ~/imagenes/app-1.4.2.tar --severity HIGH,CRITICAL
     ```
 
-    La cabecera de la tabla de Trivy tiene que reconocer el sistema base (`debian 12.x` o `debian 13.x`).
+    **Sale bien si:** la cabecera de la tabla de Trivy reconoce el sistema base (`debian 12.x` o `debian 13.x`). Si no, mira [Errores frecuentes](#errores-frecuentes-en-el-laboratorio).
 
-3. **Escanea también el código.** Con esto cubres la parte de código del CE:
+3. **Escanea también el código.** *En el puesto.*
+
+    Las imágenes no son lo único: pip-audit revisa las librerías de Python que pide `requirements.txt`, y `trivy fs` revisa el repositorio en busca de dependencias vulnerables y de secretos olvidados (contraseñas, tokens):
 
     ```bash
     pip-audit -r api/requirements.txt > seguridad/pip-audit.txt
@@ -407,7 +437,11 @@ Sacas las dos imágenes y haces su SBOM, pasas dos escáneres a las imágenes y 
 
     Anota en `hallazgos.md` cuántos hallazgos da cada uno y si pip-audit ve alguno que Trivy no.
 
-4. **Reúne lo grave en una tabla de trabajo.** Saca a `hallazgos.tsv` las filas HIGH y CRITICAL de los tres JSON de Trivy, y cuenta cuántas hay de cada severidad:
+    **Sale bien si:** existen `seguridad/pip-audit.txt` y `seguridad/trivy-fs.json`.
+
+4. **Reúne lo grave en una tabla de trabajo.** *En el puesto.*
+
+    Saca a `hallazgos.tsv` las filas HIGH y CRITICAL de los tres JSON de Trivy, una por línea, y cuenta cuántas hay de cada severidad:
 
     ```bash
     cd seguridad
@@ -417,17 +451,34 @@ Sacas las dos imágenes y haces su SBOM, pasas dos escáneres a las imágenes y 
     cut -f6 hallazgos.tsv | sort | uniq -c
     ```
 
-    Pon el recuento en `hallazgos.md` y, debajo, una tabla con **las ocho filas más graves**: las CRITICAL y, si no llegas a ocho, las HIGH con parche. Columnas: CVE, objetivo, paquete, instalada, corregida, severidad, exploit conocido, alcanzable.
+    Pon el recuento en `hallazgos.md` y, debajo, una tabla con **las ocho filas más graves**: las CRITICAL y, si no llegas a ocho, las HIGH con parche. Estas órdenes la escriben por ti, con las dos últimas columnas vacías para el paso 5:
 
-5. **Añade lo que ningún escáner sabe.** Rellena en esas ocho filas *exploit conocido* (KEV y EPSS) y *alcanzable desde fuera* (sí, no, no sé), como en [CVE, CVSS, EPSS y KEV](#cve-cvss-epss-y-kev). La segunda la decides tú: un "no sé" honrado vale más que un "no" sin mirar.
+    ```bash
+    printf '\n| CVE | Objetivo | Paquete | Instalada | Corregida | Severidad | Exploit conocido | Alcanzable |\n|---|---|---|---|---|---|---|---|\n' >> hallazgos.md
+    { grep CRITICAL hallazgos.tsv; grep HIGH hallazgos.tsv | grep -v "sin parche"; } | head -8 \
+      | sed 's/\t/ | /g; s/^/| /; s/$/ |  |  |/' >> hallazgos.md
+    ```
+
+    **Sale bien si:** `hallazgos.tsv` no está vacío y la tabla de `hallazgos.md` tiene sus ocho filas (o todas las que haya, si salen menos).
+
+5. **Añade lo que ningún escáner sabe.** *En el puesto.*
+
+    Rellena en esas ocho filas las dos columnas vacías. *Exploit conocido*: si el CVE está en KEV (la lista de fallos que ya se están aprovechando) y su EPSS (la probabilidad de que se aproveche pronto). *Alcanzable desde fuera*: sí, no o no sé, según [CVE, CVSS, EPSS y KEV](#cve-cvss-epss-y-kev). La primera la consultan estas órdenes para las ocho de una vez; la segunda la decides tú: un "no sé" honrado vale más que un "no" sin mirar.
 
     ```bash
     curl -s -o ~/kev.json https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
-    jq -r '.vulnerabilities[].cveID' ~/kev.json | grep -x <CVE>        # sale el CVE: está en KEV
-    curl -s "https://api.first.org/data/v1/epss?cve=<CVE>" | jq -r '.data[0].epss'
+    for c in <los ocho CVE de tu tabla, separados por espacios>; do
+      kev=$(jq -r --arg c "$c" '.vulnerabilities[] | select(.cveID==$c) | "sí"' ~/kev.json)
+      epss=$(curl -s "https://api.first.org/data/v1/epss?cve=$c" | jq -r '.data[0].epss // "sin dato"')
+      echo "$c  KEV: ${kev:-no}  EPSS: $epss"
+    done
     ```
 
-6. **Contrasta los dos escáneres.** Compara los identificadores de Trivy y de Grype sobre la imagen del servicio y anota en `hallazgos.md` los que solo ve uno. En la A7.3, la ficha del CVE dirá quién tiene razón:
+    **Sale bien si:** ninguna de las ocho filas tiene esas dos columnas en blanco.
+
+6. **Compara los dos escáneres.** *En el puesto.*
+
+    Trivy y Grype no dan la misma lista. Compara sus identificadores sobre la imagen del servicio y anota en `hallazgos.md` los que solo ve uno; en la A7.3, la ficha del CVE dirá quién tiene razón:
 
     ```bash
     jq -r '.Results[].Vulnerabilities[]?.VulnerabilityID' trivy-app.json | sort -u > /tmp/trivy.ids
@@ -435,15 +486,26 @@ Sacas las dos imágenes y haces su SBOM, pasas dos escáneres a las imágenes y 
     comm -3 /tmp/trivy.ids /tmp/grype.ids
     ```
 
-<span class="et et-com">Comprobación</span> Cada informe de imagen de Trivy reconoce el sistema base; `hallazgos.tsv` no está vacío; la tabla tiene ocho filas (o todas las CRITICAL y las HIGH con parche, si salen menos) con las dos columnas manuales rellenas y el recuento encima; `pip-audit.txt` y `trivy-fs.json` existen y están resumidos en `hallazgos.md`; hay al menos un CVE anotado que solo aparece en uno de los escáneres.
+    **Sale bien si:** `comm -3` lista identificadores en dos columnas (los que solo ve cada escáner) y tienes al menos uno anotado.
 
-<span class="et et-ent">Para practicar</span> Haz commit de `seguridad/` (los dos SBOM, los JSON de los escáneres, `pip-audit.txt` y `hallazgos.md`), sin los `.tar`: es la base de la A7.3 y de la práctica evaluable.
+<span class="et et-com">Comprobación</span>
+
+- [ ] Cada informe de imagen de Trivy reconoce el sistema base.
+- [ ] `hallazgos.tsv` no está vacío.
+- [ ] La tabla tiene ocho filas (o todas las CRITICAL y las HIGH con parche, si salen menos), con las dos columnas manuales rellenas y el recuento encima.
+- [ ] `pip-audit.txt` y `trivy-fs.json` existen y están resumidos en `hallazgos.md`.
+- [ ] Hay al menos un CVE anotado que solo aparece en uno de los escáneres.
+
+<span class="et et-ent">Para practicar</span>
+
+- **Guarda** con un commit `seguridad/`: los dos SBOM, los JSON de los escáneres, `pip-audit.txt` y `hallazgos.md`, sin los `.tar`. Es la base de la A7.3 y de la práctica evaluable.
+- **Piensa:** de tus ocho filas, ¿cuántas siguen siendo urgentes cuando miras si son alcanzables desde fuera?
 
 ## Sesión 30 · Investigar y decidir
 
 <p class="ut-meta" markdown>9 de febrero · Teoría y práctica · <span class="dur" tabindex="0" aria-label="Leer un informe · 5 min&#10;Las cuatro soluciones y el registro de excepciones · 5 min&#10;A7.3 Investigar y decidir · 100 min" data-dur="Leer un informe · 5 min&#10;Las cuatro soluciones y el registro de excepciones · 5 min&#10;A7.3 Investigar y decidir · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
 
-La A7.2 dejó una tabla de ocho hallazgos graves. Una tabla todavía no es una decisión: hay que decir, para cada fila, qué se hace y por qué, y dejarlo escrito para que el siguiente escaneo no vuelva a plantearlo. La teoría explica cómo se lee una fila y las cuatro salidas posibles. La hoja decide cuatro hallazgos y aplica la salida que más quita de una vez: reconstruir la imagen sobre la base slim, que queda en dev como 1.4.3.
+La A7.2 dejó una tabla de ocho hallazgos graves. Una tabla todavía no es una decisión: hay que decir, para cada fila, qué se hace y por qué, y dejarlo escrito para que el siguiente escaneo no vuelva a plantearlo. La teoría explica cómo se lee una fila y las cuatro salidas posibles. La hoja decide tres hallazgos y aplica la salida que más quita de una vez: reconstruir la imagen sobre la base slim, que queda en dev como 1.4.3.
 
 ### Leer un informe
 
@@ -540,28 +602,36 @@ El escáner da un resumen de una línea. Para decidir hay que ir a la fuente, en
 
 ### A7.3 Investigar y decidir (sesión 30)
 
-<span class="et et-obj">Objetivo</span> Pasar de la tabla de hallazgos a decisiones que se puedan defender: cuatro hallazgos investigados y justificados con su fuente, un `.trivyignore` documentado y la imagen del servicio reconstruida con base `-slim` como `app:1.4.3`, medida frente a la 1.4.2 y funcionando en dev. Es la parte del trabajo que no hace ninguna herramienta: el criterio.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** decidir qué se hace con tres hallazgos de la tabla, dejarlo escrito con su fuente, y reconstruir la imagen del servicio sobre una base más pequeña (`-slim`) como `app:1.4.3`, funcionando en dev.
+
+**Para qué sirve en un trabajo:** ninguna herramienta decide por ti si un fallo importa. Lo que se le pide a quien mantiene un servicio es una decisión que otra persona pueda revisar, y aplicar la solución que más quita de una vez.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- `seguridad/hallazgos.md` de la A7.2 y `~/imagenes/app-1.4.2.tar` en el puesto de administración.
+- De la A7.2, `seguridad/hallazgos.md`, y `~/imagenes/app-1.4.2.tar` en el puesto de administración.
 - app01 con la copia de trabajo de `servicio` en `main` y al día.
 - La consola de OPNsense: app01 no sale a Internet y el build descarga la base y las librerías. El paso 4 abre una fila temporal y la cierra.
-- Explicado hoy: [Leer un informe](#leer-un-informe) y [Las cuatro soluciones y el registro de excepciones](#las-cuatro-soluciones-y-el-registro-de-excepciones). Dónde se consulta cada CVE está en [Fuentes y cómo se leen](#fuentes-y-como-se-leen).
+- La teoría de hoy: [Leer un informe](#leer-un-informe) y [Las cuatro soluciones y el registro de excepciones](#las-cuatro-soluciones-y-el-registro-de-excepciones). Dónde se consulta cada CVE está en [Fuentes y cómo se leen](#fuentes-y-como-se-leen).
 
 <span class="et et-pas">Pasos</span>
 
-Primero investigas y decides, y solo después tocas la imagen, porque reconstruirla es una de las decisiones. Todo va en una rama, `base-slim`, que acaba en un PR.
+Primero investigas y decides en el puesto (pasos 1 a 3), y solo después tocas la imagen en app01 (pasos 4 y 5), porque reconstruirla es una de las decisiones. Al final mides el resultado y abres el PR (paso 6). Todo va en la rama `base-slim`.
 
-1. **Elige cuatro hallazgos e investígalos.** En tu clon del puesto, crea la rama:
+1. **Elige tres hallazgos e investígalos.** *En el puesto.*
+
+    En tu clon, crea la rama:
 
     ```bash
     git switch -c base-slim
     ```
 
-    Elige cuatro filas de la tabla, al menos una CRITICAL y una sin parche (si tu tabla no tiene ninguna, búscala con `grep -E "sin parche|will_not_fix" seguridad/hallazgos.tsv`). Investígalas en el orden de [Fuentes y cómo se leen](#fuentes-y-como-se-leen).
+    Elige tres filas de la tabla, al menos una CRITICAL y una sin parche (si tu tabla no tiene ninguna, búscala con `grep "sin parche" seguridad/hallazgos.tsv`). La sin parche será casi seguro la excepción del paso 3. Investígalas en el orden de [Fuentes y cómo se leen](#fuentes-y-como-se-leen).
 
-2. **Decide y deja escrito por qué.** Escribe en `seguridad/decisiones.md` una entrada por hallazgo con las preguntas del diagrama de [Leer un informe](#leer-un-informe):
+    **Sale bien si:** de cada una tienes abierta al menos la ficha del CVE y el aviso de la distribución o del proyecto.
+
+2. **Decide y deja escrito por qué.** *En el puesto.*
+
+    Escribe en `seguridad/decisiones.md` una entrada por hallazgo con las preguntas del diagrama de [Leer un informe](#leer-un-informe):
 
     ```markdown
     ## <CVE> · <paquete>
@@ -572,9 +642,11 @@ Primero investigas y decides, y solo después tocas la imagen, porque reconstrui
     - Justificación (3 o 4 líneas) y fuente: <enlace>
     ```
 
-    La fuente enlazada es lo que convierte una opinión en una decisión que otra persona puede revisar.
+    **Sale bien si:** las tres entradas tienen todas las preguntas respondidas y un enlace a la fuente. Sin fuente, es una opinión.
 
-3. **Registra las excepciones.** Cada CVE que aceptes va a `.trivyignore`, en la raíz del clon, con su comentario y su `exp:`, como en el ejemplo de [Las cuatro soluciones y el registro de excepciones](#las-cuatro-soluciones-y-el-registro-de-excepciones). Comprueba que Trivy lo respeta y sube la rama:
+3. **Registra las excepciones.** *En el puesto.*
+
+    Los CVE que aceptes van a `.trivyignore`, en la raíz del clon: es la lista de excepciones que Trivy deja de mostrar. Cada uno con su comentario (motivo, quién y dónde) y su `exp:` (la fecha en que vuelve a salir), como en el ejemplo de [Las cuatro soluciones y el registro de excepciones](#las-cuatro-soluciones-y-el-registro-de-excepciones). Comprueba que Trivy lo respeta y sube la rama:
 
     ```bash
     trivy image --input ~/imagenes/app-1.4.2.tar --severity HIGH,CRITICAL --ignorefile .trivyignore
@@ -583,9 +655,11 @@ Primero investigas y decides, y solo después tocas la imagen, porque reconstrui
     git push -u origin base-slim
     ```
 
-    Las filas aceptadas tienen que desaparecer y las demás seguir ahí. Este fichero lo leerá el pipeline en la A7.6.
+    **Sale bien si:** las filas aceptadas desaparecen del informe y las demás siguen ahí. Este fichero lo leerá el pipeline en la A7.6.
 
-4. **Reconstruye la imagen sobre la base slim.** En OPNsense, abre en la pestaña DMZINT la fila temporal: Pass, origen `srv_app`, destino any, puertos `p_web`, descripción `TEMPORAL alta 09-02 baja 09-02 build en app01`. En app01, con la misma Debian de la A7.1 para que solo cambie la variante:
+4. **Reconstruye la imagen sobre la base slim.** *En OPNsense y en app01.*
+
+    app01 necesita salir a Internet solo mientras dura el build. En OPNsense, abre en la pestaña DMZINT la fila temporal: Pass, origen `srv_app`, destino any, puertos `p_web`, descripción `TEMPORAL alta 09-02 baja 09-02 build en app01`. En app01, usa la misma Debian de la A7.1 para que solo cambie la variante:
 
     ```bash
     cd /opt/servicio
@@ -597,9 +671,13 @@ Primero investigas y decides, y solo después tocas la imagen, porque reconstrui
     docker run --rm app:1.4.3 sh -c 'pip check && python -c "import flask"'
     ```
 
-    Borra la fila temporal de OPNsense en cuanto termine el build. La última orden no debe dar errores. Si el driver de PostgreSQL no carga, añade `libpq5` en el Dockerfile o usa su variante binaria.
+    Borra la fila temporal de OPNsense en cuanto termine el build.
 
-5. **Despliégala en dev con el plan B guardado.** Guarda el compose que corre (es la vuelta atrás de dev, que la A7.4 da por hecha), despliega la 1.4.3 y sube el cambio:
+    **Sale bien si:** la última orden no da errores y la fila temporal ya no está. Si falla al cargar el driver de PostgreSQL, mira [Errores frecuentes](#errores-frecuentes-en-el-laboratorio).
+
+5. **Despliégala en dev con el plan B guardado.** *En app01.*
+
+    Antes de cambiar nada, guarda el compose que corre: es la vuelta atrás de dev, y la A7.4 la da por hecha. Después despliega la 1.4.3 y sube el cambio:
 
     ```bash
     cp compose.yml compose.anterior.yml
@@ -611,9 +689,11 @@ Primero investigas y decides, y solo después tocas la imagen, porque reconstrui
     git push
     ```
 
-    `/health` tiene que responder. La 1.4.3 pasa dos días en dev antes de llegar a pre.
+    **Sale bien si:** `/health` responde. La 1.4.3 pasa dos días en dev antes de llegar a pre.
 
-6. **Mide si ha merecido la pena y abre el PR.** Desde el puesto, trae el commit de app01 y compara tamaño y hallazgos de las dos versiones:
+6. **Mide si ha merecido la pena y abre el PR.** *En el puesto y en Gitea.*
+
+    Trae el commit de app01 y compara tamaño y hallazgos de las dos versiones:
 
     ```bash
     git pull
@@ -625,11 +705,21 @@ Primero investigas y decides, y solo después tocas la imagen, porque reconstrui
 
     Añade a `seguridad/decisiones.md` una tabla de comparación (base, tamaño, hallazgos, qué hubo que tocar): son las cifras del CHANGELOG de la A7.6. Súbelo y abre en Gitea el PR de `base-slim`.
 
-<span class="et et-com">Comprobación</span> Cuatro entradas con las preguntas respondidas y la fuente enlazada; Trivy con `--ignorefile` muestra menos filas que sin él y ninguna línea del `.trivyignore` va sin comentario ni fecha; la fila temporal ya no está en OPNsense; `app:1.4.3` responde en el `/health` de app01 y tiene menos hallazgos que la 1.4.2.
+    **Sale bien si:** el PR de `base-slim` está abierto con la tabla de comparación dentro.
 
-<span class="et et-ent">Para practicar</span> Deja abierto el PR de `base-slim` con `seguridad/decisiones.md`, `.trivyignore`, el Dockerfile con la base nueva y `compose.yml` en la 1.4.3. No lo fusiones todavía: se fusiona al empezar la A7.4, después de dos días de la 1.4.3 en dev y antes de llevarla a pre.
+<span class="et et-com">Comprobación</span>
 
-<span class="et et-ext">Si te sobra tiempo</span> Repite la reconstrucción del paso 4 y la medida del paso 6 con `python:3.13-alpine` (con la fila temporal abierta solo mientras dura el build) y anota qué se rompió. O quita `setuptools` de la imagen final y comprueba si desaparece una fila del informe.
+- [ ] Hay tres entradas en `decisiones.md` con las preguntas respondidas y la fuente enlazada.
+- [ ] Trivy con `--ignorefile` muestra menos filas que sin él, y ninguna línea del `.trivyignore` va sin comentario ni fecha.
+- [ ] La fila temporal ya no está en OPNsense.
+- [ ] `app:1.4.3` responde en el `/health` de app01 y tiene menos hallazgos que la 1.4.2.
+
+<span class="et et-ent">Para practicar</span>
+
+- **Guarda** abierto el PR de `base-slim` con `seguridad/decisiones.md`, `.trivyignore`, el Dockerfile con la base nueva y `compose.yml` en la 1.4.3. No lo fusiones todavía: se fusiona al empezar la A7.4, después de dos días de la 1.4.3 en dev y antes de llevarla a pre. La práctica evaluable pide las decisiones, el `.trivyignore` y la comparación.
+- **Piensa:** de tus tres hallazgos, ¿cuántos ha resuelto el cambio de base sin que tuvieras que decidir nada sobre ellos?
+
+<span class="et et-ext">Si te sobra tiempo</span> Para ver qué cuesta ir aún más pequeño, repite la reconstrucción del paso 4 y la medida del paso 6 con `python:3.13-alpine` (con la fila temporal abierta solo mientras dura el build) y anota qué se rompió. O quita `setuptools` de la imagen final y comprueba si desaparece una fila del informe.
 
 ## Sesión 31 · Actualización en pre
 
@@ -753,21 +843,25 @@ ssh ops@10.20.3.10 'sudo -u postgres psql -d servicio' < scripts/integridad.sql 
 
 ### A7.4 Actualización en pre (sesión 31)
 
-<span class="et et-obj">Objetivo</span> Llevar la 1.4.3 de dev a pre recorriendo el ciclo completo y con todo lo necesario para deshacerla: pre en la monitorización, copia previa en restic, integridad idéntica antes y después, la suite funcional de la UT4 en verde contra pre y todo enlazado desde una incidencia con el plan de paso a producción. Es lo que piden los CE f y h.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** llevar la versión 1.4.3 de dev a pre con todo preparado para deshacerla: una copia de los datos antes de tocar nada, la prueba de que los datos no han cambiado y el servicio funcionando. Todo queda anotado en una incidencia de Gitea, con el plan para producción.
+
+**Para qué sirve en un trabajo:** cambiar la versión es una línea; lo que se le exige a quien mantiene un servicio es poder demostrar que todo sigue igual y, si no, volver atrás sin perder datos. Así se hace cualquier actualización en una empresa.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- pre, creado por el IaC de la 5166 UT5 (A5.3 y A5.5): web01-pre 10.20.1.10, app01-pre 10.20.2.10 con el servicio y db01-pre 10.20.3.10 con PostgreSQL. El puesto llega a pre por su `ruta-lab.service`; mon01 todavía no.
+- pre, creado por el IaC (la infraestructura como código) de la 5166 UT5 (A5.3 y A5.5): web01-pre 10.20.1.10, app01-pre 10.20.2.10 con el servicio y db01-pre 10.20.3.10 con PostgreSQL. El puesto llega a pre por su `ruta-lab.service`; mon01 todavía no.
 - El PR `base-slim` de la A7.3: fusiónalo en Gitea antes del paso 1 y devuelve a `main` la copia de trabajo de app01 (`git switch main && git pull`).
 - En el puesto: `~/iac-lab` con el playbook de la A5.5, la suite funcional de la A4.4 en tu clon de `servicio` y, en el gestor de contraseñas, el secreto de la credencial `restic` de MinIO, que nació en el paso 1 de la [A5.2 de Despliegue](https://victor-educ.github.io/apuntes-5166/ut/ut5-iac/).
-- restic 0.18 o superior instalado en el puesto (se puede traer hecho).
-- Explicado hoy: [El ciclo](#el-ciclo), [Paso a paso](#paso-a-paso), [Verificación de integridad de datos](#verificacion-de-integridad-de-datos) y [Ventanas de mantenimiento](#ventanas-de-mantenimiento). Para restic, el material de consulta [La copia previa con restic](#la-copia-previa-con-restic).
+- restic 0.18 o superior instalado en el puesto (puedes traerlo hecho).
+- La teoría de hoy: [El ciclo](#el-ciclo), [Paso a paso](#paso-a-paso), [Verificación de integridad de datos](#verificacion-de-integridad-de-datos) y [Ventanas de mantenimiento](#ventanas-de-mantenimiento). Para restic, el material de consulta [La copia previa con restic](#la-copia-previa-con-restic).
 
 <span class="et et-pas">Pasos</span>
 
-Sigues el ciclo en su orden: abres el registro antes de tocar nada, haces que mon01 vea pre, preparas el plan B de los datos, cambias la versión por el repositorio, compruebas datos y servicio y cierras el registro.
+Trabajas sobre todo desde el puesto, con un momento en mon01. Sigues el ciclo en su orden: abres el registro (paso 1), haces que mon01 vea pre (paso 2), preparas el plan B de los datos (paso 3), cambias la versión por el repositorio (paso 4), compruebas datos y servicio (paso 5) y cierras el registro (paso 6).
 
-1. **Abre el registro antes de tocar nada.** Crea la incidencia en Gitea, título `Actualizar app 1.4.2 → 1.4.3 (pre)`, etiquetas `actualizacion` y `seguridad`. Saca los ID de imagen con `ssh ops@10.10.2.10 docker image ls --no-trunc app` y rellena el cuerpo:
+1. **Abre el registro antes de tocar nada.** *En Gitea y en el puesto.*
+
+    Si algo sale mal a mitad, tiene que haber un sitio donde esté escrito qué se iba a hacer y cómo se deshace. Crea la incidencia en Gitea, título `Actualizar app 1.4.2 → 1.4.3 (pre)`, etiquetas `actualizacion` y `seguridad` (la que no exista se crea en *Incidencias → Etiquetas*). Saca los ID de imagen con `ssh ops@10.10.2.10 docker image ls --no-trunc app` y rellena el cuerpo:
 
     ```markdown
     **Origen:** app:1.4.2 (ID sha256:…)  **Destino:** app:1.4.3 (ID sha256:…)
@@ -776,11 +870,14 @@ Sigues el ciclo en su orden: abres el registro antes de tocar nada, haces que mo
     **Vuelta atrás:** imagen con .env.anterior; datos con el snapshot de restic
     ```
 
-    Si algo sale mal a mitad, ya hay un sitio donde está escrito qué se iba a hacer y cómo se deshace.
+    **Sale bien si:** la incidencia existe con sus dos etiquetas y los dos ID completos.
 
-2. **Haz que mon01 vea pre.** En mon01, crea `/etc/systemd/system/ruta-pre.service` con la ruta a pre por `router-pre`, para que sobreviva a un reinicio:
+2. **Haz que mon01 vea pre.** *En mon01.*
 
-    ```ini
+    Si pre no está en la monitorización, no ves si la actualización lo estropea. mon01 todavía no sabe llegar a pre: le das la ruta por `router-pre`, como servicio para que sobreviva a un reinicio. Cópialo tal cual:
+
+    ```bash
+    sudo tee /etc/systemd/system/ruta-pre.service > /dev/null <<'EOF'
     [Unit]
     Description=Ruta a pre por router-pre
     After=network-online.target
@@ -793,13 +890,12 @@ Sigues el ciclo en su orden: abres el registro antes de tocar nada, haces que mo
 
     [Install]
     WantedBy=multi-user.target
-    ```
-
-    ```bash
+    EOF
     sudo systemctl daemon-reload && sudo systemctl enable --now ruta-pre.service
+    curl -s http://10.20.2.10:29100/metrics | head -3     # node_exporter de app01-pre
     ```
 
-    Añade al job `node` de `/opt/monitoring/prometheus.yml` las tres VM de pre, con la etiqueta `env: pre` escrita exactamente así (la UT8 las retira buscándola), recarga y sube el cambio a `monitoring`:
+    Con la ruta puesta, Prometheus ya puede leer las VM de pre. Añade al job `node` de `/opt/monitoring/prometheus.yml`, debajo de los grupos que ya tiene, estos tres, con la etiqueta `env: pre` escrita exactamente así (la UT8 las retira buscándola). Recarga y sube el cambio al repositorio `monitoring`:
 
     ```yaml
           - targets: ["10.20.1.10:29100"]
@@ -812,28 +908,28 @@ Sigues el ciclo en su orden: abres el registro antes de tocar nada, haces que mo
 
     ```bash
     curl -s -X POST http://localhost:29090/-/reload
+    cd /opt/monitoring && git commit -am "Prometheus: VM de pre" && git push
     ```
 
-    Comprueba en Prometheus que `up{env="pre"}` da las tres VM a 1.
+    **Sale bien si:** en Prometheus, `up{env="pre"}` da las tres VM a 1.
 
-3. **Prepara el plan B de los datos.** En el puesto, crea la configuración de restic, de `ops` y solo legible por él:
+3. **Prepara el plan B de los datos.** *En el puesto.*
+
+    Volver a la imagen anterior no devuelve los datos: para eso hace falta una copia tomada justo antes. Se hace con restic, que guarda las copias cifradas en MinIO. Crea su configuración, de `ops` y solo legible por él; en la última línea cambia el secreto por el de la credencial `restic`:
 
     ```bash
     sudo install -d -o ops -g ops -m 700 /etc/restic
     openssl rand -base64 32 > /etc/restic/pass     # cópiala al gestor de contraseñas ya
-    nano /etc/restic/env
-    chmod 600 /etc/restic/pass /etc/restic/env
-    ```
-
-    ```bash
-    # /etc/restic/env
+    cat > /etc/restic/env <<'EOF'
     RESTIC_REPOSITORY=s3:http://10.10.0.30:29000/backups
     RESTIC_PASSWORD_FILE=/etc/restic/pass
     AWS_ACCESS_KEY_ID=restic
     AWS_SECRET_ACCESS_KEY=<secreto de la credencial restic>
+    EOF
+    chmod 600 /etc/restic/pass /etc/restic/env
     ```
 
-    Crea el repositorio, **una sola vez en todo el curso** (si dice que ya existe, mira [Errores frecuentes](#errores-frecuentes-en-el-laboratorio)), haz la copia previa y, desde la raíz de tu clon, guarda las consultas de [Verificación de integridad de datos](#verificacion-de-integridad-de-datos) en `scripts/integridad.sql` y toma la foto de antes:
+    Crea el repositorio, **una sola vez en todo el curso** (si dice que ya existe, mira [Errores frecuentes](#errores-frecuentes-en-el-laboratorio)), y haz la copia previa. Después, desde la raíz de tu clon, copia en `scripts/integridad.sql` las cinco consultas de [Verificación de integridad de datos](#verificacion-de-integridad-de-datos), tal cual, y toma la foto de antes:
 
     ```bash
     set -a; . /etc/restic/env; set +a
@@ -844,9 +940,13 @@ Sigues el ciclo en su orden: abres el registro antes de tocar nada, haces que mo
     ssh ops@10.20.3.10 'sudo -u postgres psql -d servicio' < scripts/integridad.sql > integridad-antes.txt
     ```
 
-    Apunta en la incidencia el id del snapshot.
+    Apunta en la incidencia el id del snapshot (la copia).
 
-4. **Lleva la 1.4.3 a pre por el repositorio.** pre no llega a gestión, así que la imagen se le empuja desde el puesto. Guarda antes el `.env` de app01-pre, que es el plan B de la imagen:
+    **Sale bien si:** `restic snapshots --tag pre` lista la copia e `integridad-antes.txt` tiene las cinco consultas con resultado.
+
+4. **Lleva la 1.4.3 a pre por el repositorio.** *En el puesto.*
+
+    pre no llega a gestión, así que la imagen se le empuja desde el puesto. Guarda antes el `.env` de app01-pre, que es el plan B de la imagen:
 
     ```bash
     ssh ops@10.20.2.10 sudo cp /opt/servicio/.env /opt/servicio/.env.anterior
@@ -854,7 +954,7 @@ Sigues el ciclo en su orden: abres el registro antes de tocar nada, haces que mo
     ssh ops@10.20.2.10 sudo docker image inspect --format '{{.Id}}' app:1.4.3
     ```
 
-    El ID tiene que ser el mismo que en app01. Después cambia `app_image: app:1.4.3` en `ansible/group_vars/all.yml` de `iac-lab`, súbelo y pasa el playbook solo para `app`:
+    El ID tiene que ser el mismo que en app01. Después cambia `app_image: app:1.4.3` en `ansible/group_vars/all.yml` de `iac-lab`, súbelo y pasa el playbook solo para `app`. El cambio va por el repositorio, no a mano en la máquina, para que siempre conste qué hay desplegado:
 
     ```bash
     cd ~/iac-lab
@@ -864,7 +964,11 @@ Sigues el ciclo en su orden: abres el registro antes de tocar nada, haces que mo
     curl -s http://10.20.2.10:28080/health
     ```
 
-5. **Comprueba los datos y después el servicio.** Primero la integridad, porque la suite escribe en la base y estropearía la comparación. Desde la raíz de tu clon:
+    **Sale bien si:** el ID coincide con el de app01 y `/health` responde.
+
+5. **Comprueba los datos y después el servicio.** *En el puesto.*
+
+    Primero la integridad, porque la suite escribe en la base y estropearía la comparación. Desde la raíz de tu clon:
 
     ```bash
     ssh ops@10.20.3.10 'sudo -u postgres psql -d servicio' < scripts/integridad.sql > integridad-despues.txt
@@ -872,9 +976,11 @@ Sigues el ciclo en su orden: abres el registro antes de tocar nada, haces que mo
     API_URL=http://10.20.2.10:28080 python3 -m pytest tests/functional -v --junitxml=reports/pytest.xml
     ```
 
-    El `diff` tiene que salir vacío y la suite, en verde.
+    **Sale bien si:** el `diff` sale vacío y la suite, en verde.
 
-6. **Cierra el expediente con el plan B y el paso a producción.** Completa la incidencia, que se revisa en la A7.6 y en la evaluable:
+6. **Cierra el expediente con el plan B y el paso a producción.** *En Gitea.*
+
+    Completa la incidencia, que se revisa en la A7.6 y en la evaluable:
 
     - Enlaces: el PR de la A7.3, el commit de `iac-lab`, el snapshot, las dos salidas de integridad y el resultado de la suite.
     - Vuelta atrás con las órdenes exactas: la de la imagen ([Paso a paso](#paso-a-paso), con `.env.anterior` en app01-pre y `compose.anterior.yml` en app01) y la de los datos (`restic dump <snapshot> /servicio-pre.dump` hacia `pg_restore --clean` en db01-pre).
@@ -882,11 +988,22 @@ Sigues el ciclo en su orden: abres el registro antes de tocar nada, haces que mo
 
     Déjala abierta hasta la A7.6.
 
-<span class="et et-com">Comprobación</span> `up{env="pre"}` da las tres VM a 1; `restic snapshots --tag pre` lista la copia previa; app01-pre corre `app:1.4.3` con el mismo ID que app01 y responde en `http://10.20.2.10:28080/health`; el `diff` de integridad sale vacío; la suite pasa contra pre; la incidencia lleva los enlaces, la vuelta atrás y el plan de paso a producción.
+    **Sale bien si:** la incidencia tiene los enlaces, las dos vueltas atrás y el plan de producción.
 
-<span class="et et-ent">Para practicar</span> Deja la incidencia abierta con los enlaces, la vuelta atrás y el plan de paso a producción; `scripts/integridad.sql` en `servicio`; los commits de `iac-lab` y de `monitoring`; y `integridad-antes.txt`, `integridad-despues.txt` y el informe de la suite en la carpeta de la práctica.
+<span class="et et-com">Comprobación</span>
 
-<span class="et et-ext">Si te sobra tiempo</span> Pasa `carga.js` de la A4.5 contra pre (`API_URL=http://10.20.2.10:28080`) y compara p95 y tasa de errores con la línea base. Después actualiza PostgreSQL de db01-pre a la versión menor siguiente con la misma disciplina, copia previa y foto de integridad antes y después: `ssh ops@10.20.3.10 'sudo apt-get update && sudo apt-get install -y --only-upgrade postgresql-17 && sudo systemctl restart postgresql@17-main'`, y `show server_version` al terminar.
+- [ ] `up{env="pre"}` da las tres VM a 1.
+- [ ] `restic snapshots --tag pre` lista la copia previa.
+- [ ] app01-pre corre `app:1.4.3` con el mismo ID que app01 y responde en `http://10.20.2.10:28080/health`.
+- [ ] El `diff` de integridad sale vacío y la suite pasa contra pre.
+- [ ] La incidencia lleva los enlaces, la vuelta atrás y el plan de paso a producción.
+
+<span class="et et-ent">Para practicar</span>
+
+- **Guarda** la incidencia abierta con los enlaces, la vuelta atrás y el plan de paso a producción; `scripts/integridad.sql` en `servicio`; los commits de `iac-lab` y de `monitoring`; y `integridad-antes.txt`, `integridad-despues.txt` y el informe de la suite en la carpeta de la práctica. Son la evidencia de los CE f y h en la práctica evaluable.
+- **Piensa:** si la suite hubiera fallado pero el `diff` hubiera salido vacío, ¿habrías necesitado la copia de restic para volver atrás?
+
+<span class="et et-ext">Si te sobra tiempo</span> Para comprobar que la versión nueva no es más lenta, pasa `carga.js` de la A4.5 contra pre (`API_URL=http://10.20.2.10:28080`) y compara p95 y tasa de errores con la línea base. Después actualiza PostgreSQL de db01-pre a la versión menor siguiente con la misma disciplina, copia previa y foto de integridad antes y después: `ssh ops@10.20.3.10 'sudo apt-get update && sudo apt-get install -y --only-upgrade postgresql-17 && sudo systemctl restart postgresql@17-main'`, y `show server_version` al terminar.
 
 ## Sesión 32 · Fallo provocado
 
@@ -950,7 +1067,9 @@ Incidencia #147 · commit 4e1f2a9 de iac-lab · Copia previa restic snapshot 3fa
 
 ### A7.5 Fallo provocado (sesión 32)
 
-<span class="et et-obj">Objetivo</span> Comprobar que el plan B funciona cuando hace falta: diagnosticar en pre una versión que falla, decidir (rollback o parche) dentro de los 40 minutos y escribir un reporte que el equipo de desarrollo pueda reproducir sin preguntarte nada.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** actualizar pre a una versión que falla a propósito, averiguar por qué, decidir en menos de 40 minutos si vuelves atrás o lo arreglas, y escribir un reporte con el que el equipo de desarrollo pueda reproducir el fallo sin preguntarte nada.
+
+**Para qué sirve en un trabajo:** las actualizaciones fallan, y el plan B solo sirve si se ha probado. Saber volver atrás a tiempo y explicar bien el fallo a quien tiene que arreglarlo es lo que distingue una avería de una tarde perdida.
 
 <span class="et et-pre">Antes de empezar</span>
 
@@ -963,44 +1082,91 @@ Incidencia #147 · commit 4e1f2a9 de iac-lab · Copia previa restic snapshot 3fa
     ```
 
     El ID tiene que ser el que publica el profesor.
-- Un reloj a la vista y una incidencia abierta: `Actualizar app 1.4.3 → 1.5.0 (pre)`, con el plan de vuelta atrás.
-- Explicado hoy: [Cuando algo falla](#cuando-algo-falla).
+- Un reloj a la vista y la incidencia abierta en Gitea, como la de la A7.4: título `Actualizar app 1.4.3 → 1.5.0 (pre)`, etiqueta `actualizacion` y en el cuerpo origen, destino y la vuelta atrás (imagen con `.env.anterior`, datos con el snapshot que harás en el paso 1).
+- La teoría de hoy: [Cuando algo falla](#cuando-algo-falla).
 
 <span class="et et-pas">Pasos</span>
 
-Repites la actualización de la A7.4 para que el plan B exista antes del fallo. En cuanto falla, guardas las pruebas, diagnosticas, clasificas y decides antes del minuto 40. Al final verificas lo que ha quedado y lo cuentas en el reporte.
+Trabajas desde el puesto. Repites la actualización de la A7.4 para que el plan B exista antes del fallo (paso 1). En cuanto falla, guardas las pruebas (paso 2), diagnosticas (paso 3) y decides antes del minuto 40 (paso 4). Al final compruebas lo que ha quedado (paso 5) y lo cuentas en el reporte (paso 6).
 
-1. **Actualiza a la 1.5.0 con la misma disciplina.** Apunta la hora de inicio en la incidencia: desde ella corren los 40 minutos. Repite la preparación de la A7.4: copia previa e `integridad-antes.txt` como en el paso 3 de la A7.4, el `.env` de app01-pre (que ahora apunta a la 1.4.3) guardado como `.env.anterior`, y el cambio de `app_image` a `app:1.5.0` con su pasada del playbook como en el paso 4 de la A7.4.
+1. **Actualiza a la 1.5.0 con la misma disciplina.** *En el puesto.*
 
-2. **Guarda las pruebas del fallo antes de tocar nada.** Al volver atrás el contenedor se recrea y sus logs desaparecen. Desde el puesto:
+    Apunta la hora de inicio en la incidencia: desde ella corren los 40 minutos. Repites la preparación de la A7.4, sin `restic init` (el repositorio ya existe): copia previa y foto de integridad desde la raíz de tu clon (las de la A7.4 ya están en la carpeta de la práctica), el `.env` de app01-pre, que ahora apunta a la 1.4.3, guardado como `.env.anterior`, y el cambio de `app_image` a `app:1.5.0` en `ansible/group_vars/all.yml` con su pasada del playbook:
+
+    ```bash
+    set -a; . /etc/restic/env; set +a
+    ssh ops@10.20.3.10 'sudo -u postgres pg_dump -Fc servicio' \
+      | restic backup --stdin --stdin-filename servicio-pre.dump --tag pre
+    ssh ops@10.20.3.10 'sudo -u postgres psql -d servicio' < scripts/integridad.sql > integridad-antes.txt
+    ssh ops@10.20.2.10 sudo cp /opt/servicio/.env /opt/servicio/.env.anterior
+    cd ~/iac-lab
+    nano ansible/group_vars/all.yml          # app_image: app:1.5.0
+    git commit -am "pre: app 1.5.0" && git push
+    ansible-playbook -i ansible/inventory.ini ansible/site.yml --limit app
+    ```
+
+    **Sale bien si:** tienes el snapshot nuevo, `.env.anterior` en app01-pre y el commit de `iac-lab`. Que `/health` falle aquí es lo esperado.
+
+2. **Guarda las pruebas del fallo antes de tocar nada.** *En el puesto.*
+
+    Al volver atrás el contenedor se recrea y sus logs desaparecen, así que se guardan primero:
 
     ```bash
     ssh ops@10.20.2.10 sudo docker compose -f /opt/servicio/compose.yml logs --tail 200 app > fallo-logs.txt
     curl -si http://10.20.2.10:28080/health >> fallo-logs.txt
     ```
 
-3. **Diagnostica y clasifica.** Recorre las causas de [Cuando algo falla](#cuando-algo-falla) en su orden y anota en la incidencia la causa probable con la línea de log que la delata. Clasifica el fallo con la tabla: la clase decide el paso siguiente.
+    **Sale bien si:** `fallo-logs.txt` tiene las líneas del arranque y la respuesta de `/health`.
 
-4. **Decide y ejecuta antes del minuto 40.** Apunta la hora de la decisión. Si haces rollback, primero el servicio, para que vuelva a funcionar cuanto antes, y después `iac-lab`, porque si sigue diciendo 1.5.0 la siguiente pasada del playbook la volverá a poner:
+3. **Diagnostica y clasifica.** *En el puesto y en la incidencia.*
+
+    Recorre las causas de [Cuando algo falla](#cuando-algo-falla) en su orden y anota en la incidencia la causa probable con la línea de log que la delata. Clasifica el fallo con la tabla (bloqueante, degradación o cosmético): la clase decide el paso siguiente.
+
+    **Sale bien si:** la incidencia tiene la causa, la línea de log y la clase.
+
+4. **Decide y ejecuta antes del minuto 40.** *En el puesto.*
+
+    Apunta la hora de la decisión. Si haces rollback (volver a la versión anterior), primero el servicio, para que vuelva a funcionar cuanto antes, y después `iac-lab`, porque si sigue diciendo 1.5.0 la siguiente pasada del playbook la volverá a poner:
 
     ```bash
     ssh ops@10.20.2.10 'sudo docker compose --env-file /opt/servicio/.env.anterior -f /opt/servicio/compose.yml up -d app'
     cd ~/iac-lab
     git revert --no-edit <commit que puso la 1.5.0>
     git push
+    ansible-playbook -i ansible/inventory.ini ansible/site.yml --limit app
     ```
+
+    La última pasada del playbook reescribe el `.env` de app01-pre con la 1.4.3, para que lo que dice el repositorio y lo que corre vuelvan a coincidir.
 
     Si el arreglo es evidente y cabe en plazo, parchea: si la causa es una variable de entorno, el parche va en la tarea del playbook que escribe el `.env` de pre.
 
-5. **Verifica lo que ha quedado.** Una vuelta atrás también es un cambio y se comprueba igual que una actualización, con las órdenes del paso 5 de la A7.4: `/health`, `integridad-despues.txt` con su `diff` y la suite funcional.
+    **Sale bien si:** la hora de la decisión está apuntada y cae dentro de los 40 minutos.
 
-6. **Reporta y cierra.** Redacta el reporte en `docs/reportes/2027-02-16-app-1.5.0.md` del repositorio `servicio` con todos los bloques de la [plantilla](#cuando-algo-falla) y los minutos de la decisión. Cierra la incidencia con la etiqueta `revertida` (sin ella si parcheaste) y el enlace al reporte: es lo que buscará la auditoría de la A7.6.
+5. **Verifica lo que ha quedado.** *En el puesto.*
 
-<span class="et et-com">Comprobación</span> `curl http://10.20.2.10:28080/health` responde con la versión que hayas dejado; alguien que no estuvo en clase puede reproducir el fallo con el reporte; la decisión consta con hora y dentro del plazo; `app_image` en `ansible/group_vars/all.yml` de `iac-lab` dice la misma versión que corre en app01-pre.
+    Una vuelta atrás también es un cambio, y se comprueba igual que una actualización, con las órdenes del paso 5 de la A7.4: `/health`, `integridad-despues.txt` con su `diff` y la suite funcional.
 
-<span class="et et-ent">Para practicar</span> Deja el reporte en el repositorio, la incidencia cerrada con su estado y sus enlaces, y `fallo-logs.txt` en la carpeta de la práctica.
+    **Sale bien si:** `/health` responde, el `diff` sale vacío y la suite pasa.
 
-<span class="et et-ext">Si te sobra tiempo</span> Si hiciste rollback, prueba ahora el parche sin reloj y anota en el reporte si confirma la causa.
+6. **Reporta y cierra.** *En el puesto y en Gitea.*
+
+    Redacta el reporte en `docs/reportes/2027-02-16-app-1.5.0.md` del repositorio `servicio` con todos los bloques de la [plantilla](#cuando-algo-falla) y los minutos de la decisión. Cierra la incidencia con la etiqueta `revertida` (créala si no existe; sin ella si parcheaste) y el enlace al reporte: es lo que buscará la auditoría de la A7.6.
+
+    **Sale bien si:** el reporte está en el repositorio y la incidencia, cerrada y enlazada a él.
+
+<span class="et et-com">Comprobación</span>
+
+- [ ] `curl http://10.20.2.10:28080/health` responde con la versión que hayas dejado.
+- [ ] Alguien que no estuvo en clase puede reproducir el fallo con el reporte.
+- [ ] La decisión consta con hora y dentro del plazo.
+- [ ] `app_image` en `ansible/group_vars/all.yml` de `iac-lab` dice la misma versión que corre en app01-pre.
+
+<span class="et et-ent">Para practicar</span>
+
+- **Guarda** el reporte en el repositorio, la incidencia cerrada con su estado y sus enlaces, y `fallo-logs.txt` en la carpeta de la práctica. Son la evidencia del CE g en la práctica evaluable.
+- **Piensa:** si no hubieras revertido el commit de `iac-lab`, ¿qué habría pasado la próxima vez que alguien lanzara el playbook?
+
+<span class="et et-ext">Si te sobra tiempo</span> Para confirmar el diagnóstico, si hiciste rollback, prueba ahora el parche sin reloj y anota en el reporte si confirma la causa.
 
 ## Sesión 33 · Trazabilidad
 
@@ -1095,24 +1261,36 @@ pipeline {
 
 ### A7.6 Trazabilidad (sesión 33)
 
-<span class="et et-obj">Objetivo</span> Que cualquiera pueda reconstruir sin preguntarte qué ha cambiado en el servicio y por qué, y que ninguna imagen vulnerable pase sin que alguien lo decida: las actualizaciones de A7.4 (verificada) y A7.5 (revertida) registradas y enlazadas en Gitea, el `CHANGELOG.md` al día y la etapa de Trivy en un job de Jenkins que bloquea una imagen vulnerable y deja pasar la corregida.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** que las dos actualizaciones de la unidad (la que salió bien y la que se deshizo) queden contadas en Gitea y en el `CHANGELOG.md`, y que Jenkins pare solo cualquier imagen con un fallo grave que tenga arreglo.
+
+**Para qué sirve en un trabajo:** dentro de unos meses alguien preguntará qué cambió, cuándo y por qué, y la respuesta no puede depender de tu memoria. Y escanear a mano depende de acordarse: una puerta en el pipeline lo hace siempre.
 
 <span class="et et-pre">Antes de empezar</span>
 
 - Las incidencias de A7.4 y A7.5, aunque estén incompletas.
 - El Jenkins de la 5166 UT6: `agent01` con la etiqueta `docker` desde la A6.3 y la credencial `git-ro` en la carpeta `servicio` desde la A6.4.
 - El `.trivyignore` de la A7.3 en la raíz del repositorio, y Trivy en el puesto de administración.
-- Explicado hoy: [Trazabilidad](#trazabilidad), [CHANGELOG del servicio](#changelog-del-servicio) y [La etapa de escaneo en el Jenkinsfile](#la-etapa-de-escaneo-en-el-jenkinsfile).
+- La teoría de hoy: [Trazabilidad](#trazabilidad), [CHANGELOG del servicio](#changelog-del-servicio) y [La etapa de escaneo en el Jenkinsfile](#la-etapa-de-escaneo-en-el-jenkinsfile).
 
 <span class="et et-pas">Pasos</span>
 
-Primero completas el rastro de lo que ya ha pasado (incidencias y CHANGELOG). Después montas la puerta y la pruebas en los dos sentidos, porque una puerta que nunca has visto cerrarse no está probada. Al final compruebas que todo responde a una auditoría.
+Trabajas en Gitea, en tu clon del puesto y en Jenkins. Primero completas el rastro de lo que ya ha pasado: incidencias (paso 1) y CHANGELOG (paso 2). Después montas la puerta (paso 3) y la pruebas en los dos sentidos (paso 4), porque una puerta que nunca has visto cerrarse no está probada. Al final compruebas que todo responde a una auditoría (paso 5).
 
-1. **Completa las dos incidencias.** Revísalas contra la lista de [Trazabilidad](#trazabilidad) y completa lo que falte: título con versiones, etiquetas (`revertida` en la de A7.5), cuerpo con IDs, motivo y vuelta atrás, y todos los enlaces. Cierra la de A7.4 como verificada en pre, con su plan de paso a producción; la de A7.5 ya está cerrada.
+1. **Completa las dos incidencias.** *En Gitea.*
 
-2. **Cuenta la versión en el CHANGELOG.** Crea `CHANGELOG.md` en la raíz de `servicio` con el formato de [CHANGELOG del servicio](#changelog-del-servicio): sección `[1.4.3]` con fecha, `Security` (base nueva y CVE corregidos, con `#incidencia`) y `Changed` (el cambio de base, con el tamaño antes y después medido en la A7.3). La 1.5.0 no lleva sección: no llegó a correr, y lo que se deshizo queda en su incidencia.
+    Revísalas contra la lista de [Trazabilidad](#trazabilidad) y completa lo que falte: título con versiones, etiquetas (`revertida` en la de A7.5), cuerpo con IDs, motivo y vuelta atrás, y todos los enlaces. Cierra la de A7.4 como verificada en pre, con su plan de paso a producción; la de A7.5 ya está cerrada.
 
-3. **Monta la puerta en un job aparte.** Instala Trivy en `agent01` (10.10.0.12), copiando el binario del puesto:
+    **Sale bien si:** las dos están cerradas y todos sus enlaces abren.
+
+2. **Cuenta la versión en el CHANGELOG.** *En el puesto.*
+
+    El `CHANGELOG.md` cuenta qué trae cada versión, para quien no va a leer las incidencias. Créalo en la raíz de `servicio` con el formato de [CHANGELOG del servicio](#changelog-del-servicio): sección `[1.4.3]` con fecha, `Security` (base nueva y CVE corregidos, con `#incidencia`) y `Changed` (el cambio de base, con el tamaño antes y después medido en la A7.3). La 1.5.0 no lleva sección: no llegó a correr, y lo que se deshizo queda en su incidencia.
+
+    **Sale bien si:** el fichero tiene versión, fecha y solo categorías de la lista fija.
+
+3. **Monta la puerta en un job aparte.** *En el puesto y en Jenkins.*
+
+    La puerta es una etapa que escanea la imagen y para el pipeline si hay algo CRITICAL con arreglo. Primero instala Trivy en `agent01` (10.10.0.12), copiando el binario del puesto:
 
     ```bash
     scp /usr/local/bin/trivy ops@10.10.0.12:/tmp/trivy
@@ -1121,24 +1299,42 @@ Primero completas el rastro de lo que ya ha pasado (incidencias y CHANGELOG). De
 
     Crea en la raíz del repositorio `Jenkinsfile.escaneo` con el job de [La etapa de escaneo en el Jenkinsfile](#la-etapa-de-escaneo-en-el-jenkinsfile) y la etapa de escaneo pegada en el sitio del comentario, y súbelo a `main`. En Jenkins, dentro de la carpeta `servicio`, crea un job de tipo Pipeline llamado `escaneo` y pega ese mismo contenido en *Pipeline script*.
 
-4. **Demuestra que la puerta cierra y abre.** Prepara una rama que tiene que quedarse en la puerta: la base completa de la 1.4.2 (el digest de otoño de tu `docs/inventario.md`) y sin excepciones:
+    **Sale bien si:** `ssh ops@10.10.0.12 trivy --version` responde y el job `escaneo` aparece en la carpeta `servicio`.
+
+4. **Demuestra que la puerta cierra y abre.** *En el puesto y en Jenkins.*
+
+    Prepara una rama que tiene que quedarse en la puerta: la base completa de la 1.4.2 (la `python:3.13-<debian>@sha256:…` que fijaste en la A7.1, paso 2) y sin excepciones:
 
     ```bash
     git switch -c escaneo-rojo main
-    nano api/Dockerfile          # FROM con el digest de otoño de la A7.1
+    nano api/Dockerfile          # FROM con la base completa y el digest de la A7.1
     : > .trivyignore
     git commit -am "Rama de prueba: base antigua sin excepciones" && git push -u origin escaneo-rojo
     ```
 
-    Lanza el job con *Build with Parameters* dos veces: `RAMA=escaneo-rojo` tiene que acabar en rojo y `RAMA=main` en verde. Guarda la captura de cada build con sus artefactos `trivy-*.json` y `trivy-*.sarif`, que tienen que estar también en el rojo, y enlaza los dos builds desde la incidencia de A7.4. Si ni con la base antigua sale un CRITICAL corregible, cambia en el job `--severity CRITICAL` por `HIGH,CRITICAL` solo para esa ejecución y anótalo.
+    Lanza el job con *Build with Parameters* dos veces: `RAMA=escaneo-rojo` tiene que acabar en rojo y `RAMA=main` en verde. Guarda la captura de cada build con sus artefactos `trivy-*.json` y `trivy-*.sarif`, y enlaza los dos builds desde la incidencia de A7.4. Si ni con la base antigua sale un CRITICAL corregible, cambia en el job `--severity CRITICAL` por `HIGH,CRITICAL` solo para esa ejecución y anótalo.
 
-5. **Prepara el repositorio para una auditoría.** En Gitea, en las etiquetas del repositorio, crea las seis de [Trazabilidad](#trazabilidad) (`actualizacion`, `seguridad`, `funcionalidad`, `ciclo`, `mayor`, `revertida`) con color y descripción, y deja cada incidencia con las suyas. Responde con un filtro en la lista de incidencias, no de memoria, a tres preguntas, con el filtro a la vista en cada captura: cuántas actualizaciones de seguridad ha habido, cuántas se han deshecho y cuál fue la última verificada.
+    **Sale bien si:** hay un build rojo con `bloqueada por CRITICAL` en el log y uno verde, y los dos tienen sus artefactos archivados, también el rojo.
 
-<span class="et et-com">Comprobación</span> En Gitea, filtrar por la etiqueta `actualizacion` lista las dos incidencias y sus enlaces abren; `CHANGELOG.md` tiene versión, fecha y solo las categorías fijas; en el job `escaneo` hay un build rojo con `bloqueada por CRITICAL` y uno verde, ambos con JSON y SARIF archivados; los tres filtros de auditoría devuelven lo que esperabas.
+5. **Prepara el repositorio para una auditoría.** *En Gitea.*
 
-<span class="et et-ent">Para practicar</span> Haz commit de `CHANGELOG.md` y `Jenkinsfile.escaneo`, deja las incidencias en su estado final y guarda en la carpeta de la práctica las capturas de los dos builds y de las tres búsquedas.
+    Una auditoría se responde con un filtro, no de memoria. En *Incidencias → Etiquetas*, completa las seis de [Trazabilidad](#trazabilidad) (`actualizacion`, `seguridad`, `funcionalidad`, `ciclo`, `mayor`, `revertida`): las A7.4 y A7.5 ya crearon algunas, así que solo faltan las demás, con una línea de descripción cada una. Responde con un filtro en la lista de incidencias a tres preguntas, con el filtro a la vista en cada captura: cuántas actualizaciones de seguridad ha habido, cuántas se han deshecho y cuál fue la última verificada.
 
-<span class="et et-ext">Si te sobra tiempo</span> Monta el índice de actualizaciones en `docs/actualizaciones/README.md`: una fila por actualización con fecha, versiones, motivo, estado y los enlaces a la incidencia, al PR, al escaneo, a las pruebas y a la copia, enlazado desde el `CHANGELOG.md`. O baja el umbral a `HIGH,CRITICAL` en una rama y cuenta las excepciones que harían falta.
+    **Sale bien si:** tienes tres capturas, cada una con su filtro visible.
+
+<span class="et et-com">Comprobación</span>
+
+- [ ] En Gitea, filtrar por la etiqueta `actualizacion` lista las dos incidencias, y sus enlaces abren.
+- [ ] `CHANGELOG.md` tiene versión, fecha y solo las categorías fijas.
+- [ ] En el job `escaneo` hay un build rojo con `bloqueada por CRITICAL` y uno verde, ambos con JSON y SARIF archivados.
+- [ ] Los tres filtros de auditoría devuelven lo que esperabas.
+
+<span class="et et-ent">Para practicar</span>
+
+- **Guarda** con un commit `CHANGELOG.md` y `Jenkinsfile.escaneo`, deja las incidencias en su estado final y guarda en la carpeta de la práctica las capturas de los dos builds y de las tres búsquedas. Son la evidencia del CE i en la práctica evaluable.
+- **Piensa:** ¿por qué la etapa para solo con CRITICAL y no con HIGH desde el primer día?
+
+<span class="et et-ext">Si te sobra tiempo</span> Para tener todo el historial en una sola página, monta el índice de actualizaciones en `docs/actualizaciones/README.md`: una fila por actualización con fecha, versiones, motivo, estado y los enlaces a la incidencia, al PR, al escaneo, a las pruebas y a la copia, enlazado desde el `CHANGELOG.md`. O baja el umbral a `HIGH,CRITICAL` en una rama y cuenta las excepciones que harían falta.
 
 ## Sesión 34 · Práctica evaluable
 
@@ -1173,6 +1369,7 @@ Las hojas A7.1 a A7.6 han recorrido el ciclo completo de una actualización: sab
 - **`md5(string_agg(...))` cambia sin que hayan cambiado los datos.** Falta el `ORDER BY` dentro del `string_agg`, o la versión nueva ha añadido una columna a la tabla.
 - **`restic init` falla con `Fatal: unable to open config file` aunque el bucket existe.** A `/etc/restic/env` le faltan `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`, o se ha cargado sin `set -a` y restic no las ve.
 - **`restic init` responde `config file already exists`.** El repositorio ya existe (lo creó otra máquina o el profesor para el aula). No se vuelve a crear con otra contraseña, porque se perderían las copias: se piden la contraseña y el secreto y se ponen en `/etc/restic/pass` y `/etc/restic/env`.
+- **La imagen sobre `-slim` construye, pero la API no arranca porque no carga el driver de PostgreSQL.** La variante slim no trae `libpq5`, que la base completa sí tenía. Se añade con `apt-get install -y --no-install-recommends libpq5` en el Dockerfile o se cambia en `requirements.txt` el driver por su variante binaria, que la lleva dentro.
 - **El contenedor nuevo no puede escribir en el volumen (`Permission denied` al arrancar).** La imagen ha cambiado el usuario con el que corre. Se ajusta el propietario del volumen o se fija `user:` en el compose, y se anota en la incidencia.
 - **La etapa de Trivy falla en Jenkins pero en local pasa.** Jenkins no lee el `.trivyignore` (otro directorio o falta `--ignorefile`), o la base del agente es más nueva y ya conoce un CVE de ayer, que es justo para lo que está la etapa. Si sale `trivy: not found`, falta el paso 3 de la A7.6.
 

@@ -166,7 +166,7 @@ El `sed` cambia identificadores y números por marcadores, para que "timeout en 
 
 **Para qué.** Sin retención el disco se llena, y un disco lleno en un host de contenedores es una caída completa. Con demasiado poca, la revisión del lunes no encuentra lo del sábado. Cuánto tiempo se guarda lo fija la política de la empresa (un log con IP es un dato personal), así que se pregunta antes de proponer ningún valor. Cada camino tiene su mecanismo.
 
-**Los logs de Docker.** Con el driver `json-file`, el de fábrica, no rotan si nadie lo configura. Se fija para todos los contenedores en `/etc/docker/daemon.json`, como se hizo en app01 y mon01 ([el driver de logs y por qué limitarlo](ut1-observabilidad.md#el-driver-de-logs-de-docker-y-por-que-limitarlo)):
+**Los logs de Docker.** Con el driver `json-file`, el de fábrica, no rotan si nadie lo configura. Se fija para todos los contenedores en `/etc/docker/daemon.json` ([el driver de logs y por qué limitarlo](ut1-observabilidad.md#el-driver-de-logs-de-docker-y-por-que-limitarlo)):
 
 ```json
 {
@@ -229,19 +229,23 @@ Gravedad propuesta: media (recurrente, sin pérdida de servicio visible)
 
 ### A5.1 Revisión de logs (CE 3a)
 
-<span class="et et-obj">Objetivo</span> Al terminar tienes un registro de cinco días laborables de revisión diaria de los logs de un servicio y una incidencia abierta con la plantilla de la unidad. Cinco revisiones a la misma hora demuestran que la revisión es periódica y no una mirada suelta, y la incidencia, que lo encontrado llega a quien lo tiene que arreglar.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** revisar los logs de un servicio de la empresa cada día durante cinco días laborables, siempre a la misma hora, y convertir algo de lo que encuentres en una incidencia que otra persona pueda atender.
+
+**Para qué sirve en un trabajo:** los errores se acumulan en los logs mucho antes de que alguien se queje. Una revisión periódica, y no una mirada suelta, es la que los descubre a tiempo, y una incidencia bien escrita es la que hace que llegue a quien lo tiene que arreglar.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Autorización del tutor: qué servicio se revisa, dónde están sus logs y con qué usuario se leen. Ese usuario tiene que poder leerlos de verdad: grupo `adm` o `systemd-journal`, grupo `docker` o `sudo`, según [el camino del log](#los-tres-caminos-de-un-log).
-- Un fichero `a5.1-logs.md` en tu carpeta de trabajo para el registro del paso 2.
-- Leídos [Los tres caminos de un log](#los-tres-caminos-de-un-log), [Qué buscar](#que-buscar), [Comandos para la revisión diaria](#comandos-para-la-revision-diaria), [Retención: logrotate y journald](#retencion-logrotate-y-journald) y [Cómo se redacta una incidencia útil](#como-se-redacta-una-incidencia-util).
+- El tutor te dice qué servicio revisas, dónde están sus logs y con qué usuario los lees. Ese usuario tiene que poder leerlos de verdad: grupo `adm` o `systemd-journal`, grupo `docker` o `sudo`, según [el camino del log](#los-tres-caminos-de-un-log).
+- Crea un fichero `a5.1-logs.md` en tu carpeta de trabajo. Ahí va el registro del paso 2.
+- Ten a mano la teoría del bloque: [Los tres caminos de un log](#los-tres-caminos-de-un-log), [Qué buscar](#que-buscar), [Comandos para la revisión diaria](#comandos-para-la-revision-diaria), [Retención: logrotate y journald](#retencion-logrotate-y-journald) y [Cómo se redacta una incidencia útil](#como-se-redacta-una-incidencia-util).
 
 <span class="et et-pas">Pasos</span>
 
-Primero preparas las consultas un solo día, mirando cómo escribe el servicio; después las repites cinco días laborables a la misma hora y, de lo que encuentres, sale la incidencia. La retención es una comprobación de una sola vez y puedes hacerla cualquier día de la semana.
+Trabajas en el servidor del servicio y solo lees. El primer día preparas las consultas (paso 1); después las repites cinco días laborables (paso 2) y de lo que encuentres sale la incidencia (paso 3). La retención (paso 4) se mira una sola vez, cualquier día de la semana.
 
-1. **Conoce el log y prepara tus consultas.** El primer día, averigua por cuál de los [tres caminos](#los-tres-caminos-de-un-log) escribe el servicio y mira cinco líneas para ver su formato y cómo marca el nivel. Usa la orden que corresponda a su camino:
+1. **Conoce el log y prepara tus consultas.** *En el servidor del servicio, el primer día.*
+
+    Averigua por cuál de los [tres caminos](#los-tres-caminos-de-un-log) escribe el servicio: salida del contenedor, journal de systemd o fichero. Mira cinco líneas para ver su formato y cómo marca el nivel (`ERROR`, `WARN`...). Usa la orden de su camino:
 
     ```bash
     docker logs --since 1h --tail 5 <contenedor>
@@ -249,29 +253,37 @@ Primero preparas las consultas un solo día, mirando cómo escribe el servicio; 
     tail -n 5 <ruta del fichero de log>
     ```
 
-    Con eso, adapta las dos consultas que vas a repetir cada día, errores de 24 h por tipo y volumen de líneas, a partir de [Comandos para la revisión diaria](#comandos-para-la-revision-diaria). Para un contenedor, cambia el patrón del `grep` al formato que has visto:
+    Con eso, adapta las dos consultas que vas a repetir cada día: errores de 24 h por tipo y volumen de líneas. Salen de [Comandos para la revisión diaria](#comandos-para-la-revision-diaria). Para un contenedor, cambia el patrón del `grep` al formato que has visto:
 
     ```bash
     docker logs --since 24h <contenedor> 2>&1 | grep -oE "(ERROR|FATAL) [A-Za-z._]+" | sort | uniq -c | sort -rn | head
     docker logs --since 24h <contenedor> 2>&1 | wc -l
     ```
 
-    Guarda las dos tal cual en `a5.1-logs.md`. Comprueba que la primera devuelve un recuento por tipo (o nada, y sabes por qué) y la segunda un número.
+    Guarda las dos tal cual en `a5.1-logs.md`.
 
-2. **Revisa cinco días laborables, siempre a la misma hora.** Cada día lanza las dos consultas y añade una fila al registro. La misma hora hace que cada fila cubra las mismas 24 h y se pueda comparar con la anterior; que el volumen se doble o se quede en silencio también es un hallazgo ([Qué buscar](#que-buscar)).
+    **Sale bien si:** la primera devuelve un recuento por tipo (o nada, y sabes por qué) y la segunda, un número.
+
+2. **Revisa cinco días laborables, siempre a la misma hora.** *En el servidor del servicio, cada día.*
+
+    Cada día lanza las dos consultas y añade una fila al registro. A la misma hora, cada fila cubre las mismas 24 h y se puede comparar con la anterior. Que el volumen se doble o se quede en silencio también es un hallazgo ([Qué buscar](#que-buscar)).
 
     ```markdown
     | Fecha | Servicio | Intervalo revisado | Comando o consulta | Errores por tipo (recuento) | Volumen | Incidencia |
     |---|---|---|---|---|---|---|
     ```
 
-    Comprueba al quinto día que tienes cinco filas con fecha y que cada una cita la consulta exacta.
+    **Sale bien si:** al quinto día tienes cinco filas con fecha y cada una cita la consulta exacta.
 
-3. **Convierte un hallazgo en incidencia.** Elige un hallazgo del registro y ábrelo con la plantilla de [Cómo se redacta una incidencia útil](#como-se-redacta-una-incidencia-util), en la herramienta de la empresa si el tutor lo autoriza o, si no, en `a5.1-logs.md`. El mensaje va literal; en la herramienta de la empresa, con los datos reales, y en tu fichero, anonimizado.
+3. **Convierte un hallazgo en incidencia.** *En la herramienta de incidencias de la empresa o en tu fichero.*
 
-    Comprueba que otra persona podría atenderla sin preguntarte nada: mensaje exacto, cuántas veces, en qué ventana y qué impacto.
+    Elige un hallazgo del registro y ábrelo con la plantilla de [Cómo se redacta una incidencia útil](#como-se-redacta-una-incidencia-util). Va en la herramienta de la empresa si el tutor lo autoriza y, si no, en `a5.1-logs.md`. El mensaje del log va copiado literal: con los datos reales en la herramienta de la empresa y anonimizado en tu fichero.
 
-4. **Comprueba que los logs se conservan lo justo.** Mira la retención de cada camino que use el servicio:
+    **Sale bien si:** otra persona podría atenderla sin preguntarte nada: mensaje exacto, cuántas veces, en qué ventana de tiempo y qué impacto.
+
+4. **Comprueba que los logs se conservan lo justo.** *En el servidor del servicio, un día cualquiera.*
+
+    La retención es cuánto tiempo o cuánto espacio se guardan los logs antes de borrarse. Mírala en cada camino que use el servicio:
 
     ```bash
     docker inspect --format '{{.Name}} {{json .HostConfig.LogConfig}}' $(docker ps -q)
@@ -280,13 +292,25 @@ Primero preparas las consultas un solo día, mirando cómo escribe el servicio; 
     ls /etc/logrotate.d/
     ```
 
-    Si falta retención en alguno, anótalo como hallazgo y propónselo al tutor con el valor que sugieres y por qué; no cambies nada sin su visto bueno. Comprueba que el registro dice, para cada camino, si tiene límite y cuál.
+    Si algún camino no tiene límite, anótalo como hallazgo y propónselo al tutor con el valor que sugieres y por qué. No cambies nada sin su visto bueno.
 
-<span class="et et-com">Comprobación</span> La tabla tiene cinco filas con fecha, cada fila cita el comando exacto que se ejecutó, y la incidencia contiene un mensaje de log copiado literal con su recuento y su ventana temporal. Ningún host, IP pública ni usuario real aparece en el fichero.
+    **Sale bien si:** el registro dice, para cada camino, si tiene límite y cuál.
 
-<span class="et et-ent">Entrega</span> `a5.1-logs.md` en la carpeta `ut5/` del repositorio de la unidad, con el registro de los cinco días y la incidencia anonimizada. Pide al tutor que firme la fila A5.1 de la ficha.
+<span class="et et-com">Comprobación</span>
 
-<span class="et et-ext">Si te sobra tiempo</span> Adapta el script `resumen-logs.sh` de [Un script diario que resuma errores](#un-script-diario-que-resuma-errores) a los contenedores de la empresa y propón al tutor programarlo en cron; adjunta la salida de una ejecución manual como evidencia extra.
+- [ ] La tabla tiene cinco filas con fecha.
+- [ ] Cada fila cita el comando exacto que se ejecutó.
+- [ ] La incidencia contiene un mensaje de log copiado literal, con su recuento y su ventana temporal.
+- [ ] El registro dice qué retención tiene cada camino del log.
+- [ ] Ningún host, IP pública ni usuario real aparece en el fichero.
+
+<span class="et et-ent">Entrega</span>
+
+- **Guarda** `a5.1-logs.md` en la carpeta `ut5/` del repositorio de la unidad, con el registro de los cinco días y la incidencia anonimizada. Es la evidencia del criterio 3a en la práctica evaluable.
+- Pide al tutor que firme la fila A5.1 de la ficha.
+- **Piensa:** si el volumen de un día cae a la mitad sin ningún error, ¿es buena o mala noticia?
+
+<span class="et et-ext">Si te sobra tiempo</span> Para no lanzar las consultas a mano cada día, adapta el script `resumen-logs.sh` de [Un script diario que resuma errores](#un-script-diario-que-resuma-errores) a los contenedores de la empresa y propón al tutor programarlo en cron. Adjunta la salida de una ejecución manual como evidencia extra.
 
 ## Bloque 2 · Accesos y fuerza bruta (CE 3b)
 
@@ -498,37 +522,55 @@ CrowdSec hace lo mismo que fail2ban, pero separa la detección (el agente) del b
 
 ### A5.2 Accesos y fuerza bruta (CE 3b)
 
-<span class="et et-obj">Objetivo</span> Clasificar con argumentos los intentos de acceso de al menos 24 h de log de un sistema, revisar o configurar el mecanismo de bloqueo y demostrar un bloqueo real de extremo a extremo. Es la diferencia entre creer que el sistema está protegido y saberlo: una jail que lleva meses a cero fallos parece igual de tranquila si no hay ataques que si no está leyendo nada.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** leer 24 h de intentos de acceso a un sistema y decir, con argumentos, si hay un ataque y de qué tipo. Después revisas el mecanismo que bloquea a los atacantes y compruebas con una prueba real que bloquea de verdad.
+
+**Para qué sirve en un trabajo:** es la diferencia entre creer que el sistema está protegido y saberlo. Una jail de fail2ban que lleva meses a cero fallos parece igual de tranquila si no hay ataques que si no está leyendo nada.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Autorización del tutor en dos niveles: lectura de los logs de acceso (general) y, aparte, permiso explícito para la prueba de bloqueo del paso 4, con la IP de pruebas, el día y la hora acordados. Si no autoriza la prueba, anótalo: la actividad termina en el paso 3.
+- Dos permisos del tutor, por separado: leer los logs de acceso y, aparte, hacer la prueba de bloqueo del paso 4, con la IP de pruebas, el día y la hora acordados. Si no autoriza la prueba, anótalo: la actividad termina en el paso 3.
 - `sudo` para el cliente del mecanismo de bloqueo (`fail2ban-client`, `cscli`) y para `nft`, que necesitan los pasos 3 y 4. Si la empresa no lo concede, acuerda con el tutor que ejecute él esos comandos mientras se los dictas, y anota en la entrega quién los ejecutó.
 - Saber qué mecanismo usa la empresa (fail2ban, CrowdSec, bloqueo en el cortafuegos u otro) y dónde está su configuración.
-- Leídos [Dónde se registran](#donde-se-registran), [Qué se busca: patrones de fuerza bruta y password spraying](#que-se-busca-patrones-de-fuerza-bruta-y-password-spraying) y [fail2ban a fondo](#fail2ban-a-fondo) o [CrowdSec como alternativa](#crowdsec-como-alternativa), según el caso.
+- Ten a mano la teoría del bloque: [Dónde se registran](#donde-se-registran), [Qué se busca: patrones de fuerza bruta y password spraying](#que-se-busca-patrones-de-fuerza-bruta-y-password-spraying) y [fail2ban a fondo](#fail2ban-a-fondo) o [CrowdSec como alternativa](#crowdsec-como-alternativa), según el caso.
 
 <span class="et et-pas">Pasos</span>
 
-Vas de lo que no toca nada a lo que sí: primero sacas los números del log, después los interpretas, luego revisas la configuración que debería reaccionar a ellos y, solo al final y con permiso, provocas un bloqueo para ver que la cadena entera funciona.
+Vas de lo que no toca nada a lo que sí: sacas los números del log (paso 1), los interpretas (paso 2), revisas la configuración que debería reaccionar a ellos (paso 3) y, solo al final y con permiso, provocas un bloqueo para ver que la cadena entera funciona (paso 4).
 
-1. **Saca los números de 24 h de accesos.** Localiza el log de accesos del sistema (SSH, proxy o aplicación) con la tabla de [Dónde se registran](#donde-se-registran) y lanza los comandos de [Qué se busca](#que-se-busca-patrones-de-fuerza-bruta-y-password-spraying): intentos fallidos por IP, usuarios distintos por IP en 24 h y logins correctos de la semana. Guarda cada salida en un fichero para no repetirla:
+1. **Saca los números de 24 h de accesos.** *En el servidor.*
+
+    Localiza el log de accesos del sistema (SSH, proxy o aplicación) con la tabla de [Dónde se registran](#donde-se-registran). Guarda las salidas en ficheros para no repetirlas:
 
     ```bash
     journalctl -u ssh --since -24h --no-pager > accesos-24h.txt
     journalctl -u ssh --since -7d --no-pager | grep "Accepted" > logins-7d.txt
     ```
 
-    Comprueba que `accesos-24h.txt` empieza hace 24 h; si sale vacío, filtra por unidad (`-u ssh`), no por proceso.
+    Sobre esos ficheros, saca los tres números de [Qué se busca](#que-se-busca-patrones-de-fuerza-bruta-y-password-spraying): intentos fallidos por IP, usuarios distintos por IP y logins correctos de la semana. Son las mismas órdenes, leyendo del fichero en vez del journal:
 
-2. **Clasifica lo que ves y justifícalo.** Con esos números decide si hay ruido de fondo, fuerza bruta, password spraying o nada, y explica por qué con el criterio de [Qué se busca](#que-se-busca-patrones-de-fuerza-bruta-y-password-spraying): el volumen por IP en un caso, la variedad de usuarios en el otro. Copia un extracto anonimizado de diez a veinte líneas que muestre el patrón y márcalo:
+    ```bash
+    grep -oE "Failed password for (invalid user )?\S+ from \S+" accesos-24h.txt | awk '{print $NF}' | sort | uniq -c | sort -rn | head
+    grep -oE "Invalid user \S+ from \S+" accesos-24h.txt | awk '{print $5, $3}' | sort -u | awk '{print $1}' | uniq -c | sort -rn | head
+    wc -l logins-7d.txt
+    ```
+
+    Si el servicio expuesto es web y no SSH, usa la orden de nginx del mismo apartado.
+
+    **Sale bien si:** `accesos-24h.txt` empieza hace 24 h. Si sale vacío, filtra por unidad (`-u ssh`), no por proceso.
+
+2. **Clasifica lo que ves y justifícalo.** *En el servidor y en tu fichero.*
+
+    Con esos números decide si hay ruido de fondo, fuerza bruta (muchos intentos desde una IP contra pocos usuarios), password spraying (pocos intentos por usuario contra muchos usuarios distintos) o nada. Justifícalo con el criterio de [Qué se busca](#que-se-busca-patrones-de-fuerza-bruta-y-password-spraying). Copia un extracto anonimizado de diez a veinte líneas que muestre el patrón y márcalo:
 
     ```bash
     grep -E "Failed password|Invalid user" accesos-24h.txt | head -20
     ```
 
-    Comprueba que alguien que solo lea el extracto llegaría a tu misma clasificación.
+    **Sale bien si:** alguien que solo lea el extracto llegaría a tu misma clasificación.
 
-3. **Revisa la configuración que debería reaccionar.** Anota las jails activas, la lista blanca, los tiempos y el backend, y compáralos con [fail2ban a fondo](#fail2ban-a-fondo):
+3. **Revisa la configuración que debería reaccionar.** *En el servidor.*
+
+    Una jail es la regla de fail2ban que vigila un log y bloquea a quien falla demasiado. Anota las jails activas, la lista blanca (`ignoreip`, las IP que nunca se bloquean), los tiempos y el backend (de dónde lee el log), y compáralos con [fail2ban a fondo](#fail2ban-a-fondo):
 
     ```bash
     sudo fail2ban-client status
@@ -537,9 +579,13 @@ Vas de lo que no toca nada a lo que sí: primero sacas los números del log, des
     grep -rE "bantime|findtime|maxretry|backend|journalmatch" /etc/fail2ban/jail.local /etc/fail2ban/jail.d/
     ```
 
-    Con CrowdSec, `sudo cscli metrics` y `sudo cscli bouncers list`. Comprueba que la lista blanca incluye la red de gestión, la oficina y la sonda de monitorización, y que si el paso 1 encontró fallos, la jail también los ha contado; si está a cero, mira las dos causas de [Errores frecuentes](#errores-frecuentes-en-el-laboratorio).
+    Con CrowdSec, `sudo cscli metrics` y `sudo cscli bouncers list`.
 
-4. **Demuestra un bloqueo de extremo a extremo.** En el momento acordado, desde la máquina de pruebas (fuera de `ignoreip`), falla el acceso SSH hasta superar `maxretry`. Un usuario que no existe también cuenta como fallo, y sirve si el servidor solo admite claves. Guarda una captura de cada momento:
+    **Sale bien si:** la lista blanca incluye la red de gestión, la oficina y la sonda de monitorización, y los fallos que encontraste en el paso 1 también los ha contado la jail. Si está a cero, mira las dos causas de [Errores frecuentes](#errores-frecuentes-en-el-laboratorio).
+
+4. **Demuestra un bloqueo de extremo a extremo.** *En la máquina de pruebas y en el servidor, en el momento acordado.*
+
+    Desde la máquina de pruebas (fuera de `ignoreip`), falla el acceso SSH hasta superar `maxretry`, el número de fallos que dispara el bloqueo. Un usuario que no existe también cuenta como fallo, y sirve si el servidor solo admite claves. Guarda una captura de cada momento:
 
     ```bash
     # En la máquina de pruebas, repetido hasta superar maxretry
@@ -554,13 +600,24 @@ Vas de lo que no toca nada a lo que sí: primero sacas los números del log, des
     sudo fail2ban-client set sshd unbanip <IP de la máquina de pruebas>
     ```
 
-    Cambia el nombre de la tabla y del set por los que dé `nft list tables`. Comprueba al final que `status sshd` ya no lista la IP de pruebas.
+    Cambia el nombre de la tabla y del set por los que dé `nft list tables`.
 
-<span class="et et-com">Comprobación</span> El extracto de log tiene el patrón marcado y una explicación de por qué es esa categoría; la configuración muestra jails activas, `ignoreip`, tiempos y backend; las capturas del bloqueo demuestran que la IP dejó de poder conectar y que al final quedó desbaneada.
+    **Sale bien si:** al final `status sshd` ya no lista la IP de pruebas.
 
-<span class="et et-ent">Entrega</span> `a5.2-accesos.md` en `ut5/` del repositorio, con el extracto clasificado, la configuración anonimizada y la prueba del bloqueo (salida de `fail2ban-client status`, `cscli decisions list` o equivalente, y la regla del firewall). Firma del tutor en la fila A5.2.
+<span class="et et-com">Comprobación</span>
 
-<span class="et et-ext">Si te sobra tiempo</span> Si hay una aplicación propia que registra los logins fallidos y no tiene filtro, escribe uno como el de [fail2ban a fondo](#fail2ban-a-fondo) y pruébalo con `fail2ban-regex` sin activarlo. Si la empresa tiene Loki, escribe la regla `PasswordSprayingSSH` del apartado [Detección en Loki y alerta](#deteccion-en-loki-y-alerta) adaptada a su job y comprueba en Explore que la consulta devuelve algo con el log real.
+- [ ] El extracto de log tiene el patrón marcado y una explicación de por qué es esa categoría.
+- [ ] La configuración anotada muestra las jails activas, `ignoreip`, los tiempos y el backend.
+- [ ] Las capturas demuestran que la IP de pruebas dejó de poder conectar.
+- [ ] `fail2ban-client status sshd` ya no lista la IP de pruebas al terminar.
+
+<span class="et et-ent">Entrega</span>
+
+- **Guarda** `a5.2-accesos.md` en `ut5/` del repositorio, con el extracto clasificado, la configuración anonimizada y la prueba del bloqueo (salida de `fail2ban-client status`, `cscli decisions list` o equivalente, y la regla del firewall). Es la evidencia del criterio 3b.
+- Firma del tutor en la fila A5.2.
+- **Piensa:** ¿qué pasaría si la IP de la sonda de monitorización no estuviera en la lista blanca?
+
+<span class="et et-ext">Si te sobra tiempo</span> Para que fail2ban proteja también la aplicación: si hay una aplicación propia que registra los logins fallidos y no tiene filtro, escribe uno como el de [fail2ban a fondo](#fail2ban-a-fondo) y pruébalo con `fail2ban-regex` sin activarlo. Si la empresa tiene Loki, escribe la regla `PasswordSprayingSSH` del apartado [Detección en Loki y alerta](#deteccion-en-loki-y-alerta) adaptada a su job y comprueba en Explore que la consulta devuelve algo con el log real.
 
 ## Bloque 3 · Fallos y reinicios (CE 3c)
 
@@ -709,61 +766,85 @@ El informe de A5.3 es una página con estos nueve puntos, en el orden del diagra
 
 ### A5.3 Fallos y reinicios (CE 3c)
 
-<span class="et et-obj">Objetivo</span> Un informe de una página, con los nueve puntos de la unidad, sobre un reinicio o fallo real (o reproducido en pruebas) que llegue hasta la corrección y su verificación. Lo que cuenta es el recorrido: datos recogidos antes de opinar, una hipótesis que se comprueba reproduciendo y una corrección del origen que se verifica con un número.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** un informe de una página, con los nueve puntos de la plantilla de la unidad, sobre un fallo o reinicio real (o reproducido en pruebas), que llega hasta la corrección y la comprobación de que no se repite.
+
+**Para qué sirve en un trabajo:** cuando un contenedor se reinicia de madrugada, lo que se espera de ti no es una opinión sino un recorrido: datos recogidos antes de opinar, una hipótesis que se comprueba reproduciendo y una corrección del origen que se verifica con un número.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Autorización del tutor en dos niveles: lectura (`docker inspect`, `docker events`, el journal del kernel y los dumps que ya existan) y, aparte y explícita, cualquier cambio en la máquina de la empresa: instalar herramientas, habilitar volcados de memoria (paso 3) o aplicar la corrección. Si no ha habido ningún fallo en el periodo, acuerda con él un entorno de pruebas (nunca producción) donde reproducir uno, y quién aprueba la corrección si la hay.
-- Un contenedor de pruebas propio con la misma imagen y versión del servicio, en tu equipo o en ese entorno de pruebas. Ahí se hace lo que toca el kernel del host, que en el sistema de la empresa casi nunca se autoriza.
-- Acceso a las métricas del momento del fallo (Grafana o `sar`, que se explica en el bloque 4, en [Cómo se toma y se guarda la línea base](#como-se-toma-y-se-guarda-la-linea-base)).
-- Leídos [Fallos y reinicios](#fallos-y-reinicios-crashdumps-y-registros-de-error-ce-3c), con su diagrama, [Códigos de salida](#codigos-de-salida), [OOM: el kernel y los cgroups](#oom-el-kernel-y-los-cgroups), [Core dumps en contenedores](#core-dumps-en-contenedores), [Registros de error de la aplicación](#registros-de-error-de-la-aplicacion) y [El método y la plantilla de informe](#el-metodo-y-la-plantilla-de-informe).
+- Dos permisos del tutor, por separado: leer (`docker inspect`, `docker events`, el journal del kernel y los volcados que ya existan) y, aparte y explícito, cualquier cambio en la máquina de la empresa: instalar herramientas, habilitar volcados de memoria (paso 3) o aplicar la corrección.
+- Si no ha habido ningún fallo en el periodo, acuerda con el tutor un entorno de pruebas (nunca producción) donde reproducir uno, y quién aprueba la corrección si la hay.
+- Un Linux con Docker donde puedas usar `sudo` y que no sea de la empresa: tu portátil con Linux o una VM de pruebas. Ahí creas en el paso 3 un contenedor de pruebas y haces lo que toca el kernel del host, que en el sistema de la empresa casi nunca se autoriza.
+- Acceso a las métricas del momento del fallo: Grafana o `sar`, que se explica en el bloque 4, en [Cómo se toma y se guarda la línea base](#como-se-toma-y-se-guarda-la-linea-base).
+- Ten a mano la teoría del bloque: [Fallos y reinicios](#fallos-y-reinicios-crashdumps-y-registros-de-error-ce-3c), con su diagrama, [Códigos de salida](#codigos-de-salida), [OOM: el kernel y los cgroups](#oom-el-kernel-y-los-cgroups), [Core dumps en contenedores](#core-dumps-en-contenedores), [Registros de error de la aplicación](#registros-de-error-de-la-aplicacion) y [El método y la plantilla de informe](#el-metodo-y-la-plantilla-de-informe).
 
 <span class="et et-pas">Pasos</span>
 
-Sigues el diagrama del método de arriba abajo: fijas los datos del fallo, reúnes el contexto, buscas la causa dentro del proceso, formulas la hipótesis, la reproduces y corriges, y al final mides que no se repite. Cada paso rellena uno o dos puntos de la plantilla, así que el informe se escribe a la vez que investigas.
+Sigues el diagrama del método de arriba abajo: fijas los datos del fallo (paso 1), reúnes el contexto (paso 2), buscas la causa dentro del proceso (paso 3), formulas la hipótesis, la reproduces y corriges (paso 4), y al final mides que no se repite (paso 5). Cada paso rellena uno o dos puntos de la plantilla, así que el informe se escribe a la vez que investigas.
 
-1. **Fija los datos del fallo.** Son los que antes desaparecen: basta un `compose up` para que el contenedor sea otro. Anota código de salida (con su señal si pasa de 128), `OOMKilled`, `RestartCount`, hora, imagen y versión:
+1. **Fija los datos del fallo.** *En el servidor, o en el entorno de pruebas si reproduces.*
+
+    Son los que antes desaparecen: basta un `compose up` para que el contenedor sea otro. Anota el código de salida (con su señal si pasa de 128), `OOMKilled` (si lo mató el kernel por falta de memoria), `RestartCount`, la hora, la imagen y la versión:
 
     ```bash
     docker inspect <contenedor> --format '{{.Config.Image}} {{.RestartCount}} {{.State.ExitCode}} {{.State.OOMKilled}} {{.State.FinishedAt}}'
     docker events --since 72h --until 0s --filter container=<contenedor> --filter event=die --filter event=oom
     ```
 
-    Si en el periodo no ha habido ningún fallo, reproduce un OOM en el entorno de pruebas con un contenedor limitado a 64 MB que intenta reservar 200:
+    Si en el periodo no ha habido ningún fallo, reproduce un OOM (falta de memoria) en el entorno de pruebas, con un contenedor limitado a 64 MB que intenta reservar 200:
 
     ```bash
     docker run --name oom-prueba -m 64m --memory-swap 64m python:3.12-slim \
       python3 -c "a=[bytearray(1024*1024) for _ in range(200)]"
     ```
 
-    Comprueba que tienes los cinco datos anotados en los puntos 1 y 2 de la plantilla.
+    **Sale bien si:** tienes los cinco datos anotados en los puntos 1 y 2 de la plantilla.
 
-2. **Reúne el contexto del momento.** Recoge el log de los cinco minutos previos (la hora del fallo es `FinishedAt`), el mensaje del kernel o el contador `oom_kill` si hubo OOM, y una captura de Grafana o una tabla de `sar` con memoria, CPU y conexiones de esos minutos:
+2. **Reúne el contexto del momento.** *En el servidor y en Grafana.*
+
+    Recoge el log de los cinco minutos previos (la hora del fallo es `FinishedAt`), el mensaje del kernel o el contador `oom_kill` si hubo OOM, y una captura de Grafana o una tabla de `sar` con memoria, CPU y conexiones de esos minutos:
 
     ```bash
     docker logs --since "<fallo menos 5 min>" --until "<hora del fallo>" <contenedor> > previos.txt 2>&1
     journalctl -k --since "<fallo menos 5 min>" --until "<hora del fallo>" | grep -iE "oom|killed process"
     ```
 
-    Las horas van en formato `2027-05-04T02:36:00`. Comprueba que `previos.txt` tiene líneas y termina en la hora del fallo.
+    Las horas van en formato `2027-05-04T02:36:00`.
 
-3. **Busca la causa dentro del proceso.** Si hay registro de error o dump, analízalo con [Registros de error de la aplicación](#registros-de-error-de-la-aplicacion) y [Core dumps en contenedores](#core-dumps-en-contenedores). Si no lo hay, comprueba cómo se generaría en tu contenedor de pruebas (en la máquina de la empresa, solo con autorización escrita del tutor). Anota antes el `core_pattern`, aplica el patrón y el Compose de [Core dumps en contenedores](#core-dumps-en-contenedores) y provoca un fallo en un proceso hijo, porque el PID 1 del contenedor ignora la señal:
+    **Sale bien si:** `previos.txt` tiene líneas y termina en la hora del fallo.
+
+3. **Busca la causa dentro del proceso.** *En tu contenedor de pruebas.*
+
+    Si hay registro de error o volcado de memoria (core dump: la copia de la memoria del proceso en el momento de morir), analízalo con [Registros de error de la aplicación](#registros-de-error-de-la-aplicacion) y [Core dumps en contenedores](#core-dumps-en-contenedores). Si no lo hay, comprueba cómo se generaría, en tu Linux de pruebas y no en la máquina de la empresa.
+
+    Anota antes el `core_pattern` (dónde deja el kernel los volcados), aplica el patrón, crea un contenedor de pruebas con volcados permitidos y `/var/crash` montado en la misma ruta (es lo mismo que el Compose de [Core dumps en contenedores](#core-dumps-en-contenedores), en una orden) y provoca un fallo en un proceso hijo, porque el PID 1 del contenedor ignora la señal:
 
     ```bash
     cat /proc/sys/kernel/core_pattern                                  # anota el valor
+    sudo mkdir -p /var/crash
     sudo sh -c "echo '/var/crash/core.%e.%p.%t' > /proc/sys/kernel/core_pattern"
-    docker exec <contenedor de pruebas> sh -c 'sleep 60 & kill -SEGV $!'
+    docker run -d --name crash-prueba --ulimit core=-1 -v /var/crash:/var/crash debian:13 sleep infinity
+    docker exec crash-prueba sh -c 'sleep 60 & kill -SEGV $!'
     ls -lh /var/crash/
     sudo sh -c "echo '<valor anotado>' > /proc/sys/kernel/core_pattern"  # deja el host como estaba
+    docker rm -f crash-prueba
     ```
 
-    Comprueba que aparece un `core.sleep...` en `/var/crash`. El informe recoge entonces la propuesta para el host (`core_pattern`, `ulimits` del servicio, espacio en `/var/crash` y retención), que para el punto 4 de la plantilla vale igual que un volcado real.
+    El informe recoge entonces la propuesta para el host (`core_pattern`, `ulimits` del servicio, espacio en `/var/crash` y retención), que para el punto 4 de la plantilla vale igual que un volcado real.
 
-4. **Formula la hipótesis, reprodúcela y corrige el origen.** Escribe una hipótesis principal y las alternativas que descartas, con el motivo: descartar también dice dónde ya no hay que mirar. Reproduce en pruebas, corrige allí el origen y no el síntoma ([El método y la plantilla de informe](#el-metodo-y-la-plantilla-de-informe)), y anota fichero y valor antes y después. Llevar la corrección al sistema de la empresa lo decide el tutor; si no lo aprueba, queda como propuesta en las acciones pendientes.
+    **Sale bien si:** aparece un `core.sleep...` en `/var/crash` y el `core_pattern` vuelve a su valor anotado.
 
-    Comprueba que, con la corrección puesta, la reproducción ya no da el fallo.
+4. **Formula la hipótesis, reprodúcela y corrige el origen.** *En el entorno de pruebas.*
 
-5. **Mide que no se repite.** Verifica la corrección donde se aplicó: en el sistema de la empresa, durante los días que queden de estancia; en pruebas, repitiendo la reproducción. Usa medidas que se puedan comparar:
+    Escribe una hipótesis principal y las alternativas que descartas, con el motivo: descartar también dice dónde ya no hay que mirar. Reproduce en pruebas y corrige allí el origen, no el síntoma ([El método y la plantilla de informe](#el-metodo-y-la-plantilla-de-informe)). Anota fichero y valor antes y después.
+
+    Llevar la corrección al sistema de la empresa lo decide el tutor; si no lo aprueba, queda como propuesta en las acciones pendientes.
+
+    **Sale bien si:** con la corrección puesta, la reproducción ya no da el fallo.
+
+5. **Mide que no se repite.** *Donde se aplicó la corrección.*
+
+    En el sistema de la empresa, la verificas durante los días que queden de estancia; en pruebas, repitiendo la reproducción. Usa medidas que se puedan comparar:
 
     ```bash
     docker inspect <contenedor> --format '{{.RestartCount}}'
@@ -771,13 +852,22 @@ Sigues el diagrama del método de arriba abajo: fijas los datos del fallo, reún
     cat /sys/fs/cgroup$(cut -d: -f3 /proc/$PID/cgroup)/memory.events     # línea oom_kill
     ```
 
-    Indica cuántos días o cuántas repeticiones: una verificación sin duración no demuestra nada.
+    **Sale bien si:** el informe dice cuántos días o cuántas repeticiones duró la verificación. Una verificación sin duración no demuestra nada.
 
-<span class="et et-com">Comprobación</span> El informe cabe en una página, sigue los nueve puntos en orden, incluye el mensaje del kernel o del runtime literal y termina con una verificación medible y con las acciones pendientes.
+<span class="et et-com">Comprobación</span>
 
-<span class="et et-ent">Entrega</span> `a5.3-fallos.md` en `ut5/` del repositorio. Firma del tutor en la fila A5.3.
+- [ ] El informe cabe en una página y sigue los nueve puntos de la plantilla en orden.
+- [ ] Incluye el mensaje del kernel o del runtime copiado literal.
+- [ ] La hipótesis principal va acompañada de las alternativas descartadas y su motivo.
+- [ ] Termina con una verificación medible, con su duración, y con las acciones pendientes.
 
-<span class="et et-ext">Si te sobra tiempo</span> Añade al panel de revisión diaria un gráfico con `container_memory_working_set_bytes` y `container_spec_memory_limit_bytes` superpuestos para el contenedor analizado, y una alerta sobre `container_oom_events_total`.
+<span class="et et-ent">Entrega</span>
+
+- **Guarda** `a5.3-fallos.md` en `ut5/` del repositorio. Es la evidencia del criterio 3c.
+- Firma del tutor en la fila A5.3.
+- **Piensa:** si el contenedor se reinicia solo y sigue funcionando, ¿por qué merece la pena investigar el fallo?
+
+<span class="et et-ext">Si te sobra tiempo</span> Para ver venir el próximo OOM antes de que ocurra, añade al panel de Grafana que uses en la revisión diaria, si la empresa lo tiene, un gráfico con `container_memory_working_set_bytes` y `container_spec_memory_limit_bytes` superpuestos para el contenedor analizado, y una alerta sobre `container_oom_events_total`.
 
 ## Bloque 4 · Rendimiento (CE 3d)
 
@@ -858,19 +948,24 @@ sar -n DEV -f /var/log/sysstat/sa04  # red
 
 ### A5.4 Rendimiento (CE 3d)
 
-<span class="et et-obj">Objetivo</span> Una línea base de CPU, memoria, disco y red de una semana, comparada con un periodo de carga, y una propuesta de acción justificada con su coste y su efecto esperado. Es lo que permite contestar a "va lento" con datos: qué ha cambiado respecto a lo normal, en qué recurso, y qué cuesta arreglarlo.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** saber cómo se comporta un equipo en una semana normal (su línea base de CPU, memoria, disco y red), compararlo con un periodo de carga y proponer una mejora con lo que cuesta y lo que se espera ganar.
+
+**Para qué sirve en un trabajo:** es lo que permite contestar a "va lento" con datos: qué ha cambiado respecto a lo normal, en qué recurso y qué cuesta arreglarlo.
 
 <span class="et et-pre">Antes de empezar</span>
 
-- Autorización del tutor para consultar Prometheus y Grafana o, si no los hay, para activar `sysstat` en el equipo, que es un cambio y por tanto se acuerda. Empieza el primer día de estancia: la semana de datos no se recupera hacia atrás.
-- Acordar con el tutor cuál será el periodo de carga: cierre de mes, campaña, una prueba de carga como las que hiciste con k6 o el día de más tráfico de la semana siguiente.
-- Leídos [Rendimiento del equipo](#rendimiento-del-equipo-ce-3d), [Cómo se toma y se guarda la línea base](#como-se-toma-y-se-guarda-la-linea-base), [USE por recurso: comandos y métricas](#use-por-recurso-comandos-y-metricas), [El steal en máquinas virtuales](#el-steal-en-maquinas-virtuales) si el sistema es una VM, y [Señales de problema y acciones](#senales-de-problema-y-acciones).
+- Permiso del tutor para consultar Prometheus y Grafana o, si no los hay, para activar `sysstat` en el equipo, que es un cambio y por tanto se acuerda.
+- Empieza el primer día de estancia: la semana de datos no se recupera hacia atrás.
+- Acuerda con el tutor cuál será el periodo de carga: cierre de mes, campaña, una prueba de carga como las que hiciste con k6 o el día de más tráfico de la semana siguiente.
+- Ten a mano la teoría del bloque: [Rendimiento del equipo](#rendimiento-del-equipo-ce-3d), [Cómo se toma y se guarda la línea base](#como-se-toma-y-se-guarda-la-linea-base), [USE por recurso: comandos y métricas](#use-por-recurso-comandos-y-metricas), [El steal en máquinas virtuales](#el-steal-en-maquinas-virtuales) si el sistema es una VM, y [Señales de problema y acciones](#senales-de-problema-y-acciones).
 
 <span class="et et-pas">Pasos</span>
 
-El orden lo marca el calendario: lo primero es poner a grabar y, mientras se graba, haces las otras actividades. Con la semana completa construyes la referencia; después mides el periodo de carga con las mismas medidas, pones una frente a la otra y la propuesta sale de la diferencia.
+El orden lo marca el calendario. Lo primero es poner a grabar (paso 1) y, mientras se graba, haces las otras actividades. Con la semana completa construyes la referencia (paso 2); después mides el periodo de carga (paso 3), pones uno frente al otro (paso 4) y la propuesta sale de la diferencia (paso 5).
 
-1. **Pon a grabar desde el primer día.** Si hay Prometheus, consulta `up` en Explore y comprueba que `node_exporter` y cAdvisor dan 1. Si no, activa `sar` con el visto bueno del tutor:
+1. **Pon a grabar desde el primer día.** *En el servidor.*
+
+    Si hay Prometheus, consulta `up` en Explore y comprueba que `node_exporter` y cAdvisor dan 1. Si no, activa `sar` (la herramienta de `sysstat` que guarda una muestra de los recursos cada pocos minutos) con el visto bueno del tutor:
 
     ```bash
     sudo sed -i 's/^ENABLED=.*/ENABLED="true"/' /etc/default/sysstat
@@ -879,17 +974,27 @@ El orden lo marca el calendario: lo primero es poner a grabar y, mientras se gra
     docker inspect <contenedor> --format '{{.Config.Image}}'     # versión desplegada
     ```
 
-    Anota la versión de la aplicación: sin ella, la línea base no sirve para juzgar la siguiente. Comprueba al día siguiente que en `/var/log/sysstat/` hay un fichero `saDD` con la fecha de hoy.
+    Anota la versión de la aplicación: sin ella, la línea base no sirve para juzgar la siguiente.
 
-2. **Construye la referencia.** Tras la semana, rellena la tabla de [Cómo se toma y se guarda la línea base](#como-se-toma-y-se-guarda-la-linea-base), una fila por recurso (CPU, memoria, disco y red), con fecha y versión. Con Prometheus, la consulta del p95 está en ese apartado. `sar` no da percentiles: exporta cada día en CSV y calcula el p95 en una hoja de cálculo:
+    **Sale bien si:** al día siguiente hay en `/var/log/sysstat/` un fichero `saDD` con la fecha de hoy.
+
+2. **Construye la referencia.** *En el servidor y en una hoja de cálculo, tras la semana.*
+
+    Rellena la tabla de [Cómo se toma y se guarda la línea base](#como-se-toma-y-se-guarda-la-linea-base), una fila por recurso (CPU, memoria, disco y red), con fecha y versión. El p95 es el valor que solo supera el 5 % de las muestras: describe lo normal sin dejarse engañar por un pico suelto. Con Prometheus, su consulta está en ese apartado. `sar` no da percentiles, pero esta orden saca la media y el p95 de la CPU en horario laboral (de 8 a 18) de los cinco días; pon en la lista los días del mes que has grabado:
 
     ```bash
-    sadf -d /var/log/sysstat/sa<DD> -- -u > cpu-<DD>.csv
+    for d in <DD1> <DD2> <DD3> <DD4> <DD5>; do sadf -d -t /var/log/sysstat/sa$d -- -u; done \
+      | awk -F';' '!/^#/ {h=substr($3,12,2)+0; if (h>=8 && h<18) print 100-$NF}' \
+      | sort -n | awk '{v[NR]=$1; s+=$1} END {printf "media %.1f  p95 %.1f\n", s/NR, v[int(NR*0.95)]}'
     ```
 
-    Comprueba que cada fila tiene media y p95 laborables, media nocturna y hora del pico.
+    Para la memoria, cambia `-u` por `-r` y `100-$NF` por `$7` (`%memused`). La media nocturna sale igual cambiando la condición de horas, y la hora del pico, de `sar` del día más cargado. Disco y red bastan con media y pico de `sar -d` y `sar -n DEV`.
 
-3. **Mide el periodo de carga, recurso a recurso.** En el periodo de carga, toma las mismas medidas y responde para cada recurso las tres preguntas de USE con los comandos de [USE por recurso](#use-por-recurso-comandos-y-metricas), aunque alguno parezca tranquilo:
+    **Sale bien si:** cada fila tiene media y p95 laborables, media nocturna y hora del pico.
+
+3. **Mide el periodo de carga, recurso a recurso.** *En el servidor, durante el periodo de carga.*
+
+    Toma las mismas medidas y responde para cada recurso las tres preguntas de USE (uso, saturación y errores: cuánto se usa, si hay cola esperando y si falla) con los comandos de [USE por recurso](#use-por-recurso-comandos-y-metricas), aunque alguno parezca tranquilo:
 
     ```bash
     vmstat 1 5
@@ -899,24 +1004,41 @@ El orden lo marca el calendario: lo primero es poner a grabar y, mientras se gra
     docker stats --no-stream
     ```
 
-    Si el sistema es una VM, mira también `%st` ([El steal en máquinas virtuales](#el-steal-en-maquinas-virtuales)). Comprueba que tienes las tres respuestas de los cuatro recursos.
+    Si el sistema es una VM, mira también `%st`, el tiempo que el hipervisor le quita a la VM ([El steal en máquinas virtuales](#el-steal-en-maquinas-virtuales)).
 
-4. **Pon la carga frente a lo normal.** Compara la línea base con el periodo de carga en una tabla antes/después o en una captura del panel con la semana anterior superpuesta con `offset 1w`:
+    **Sale bien si:** tienes las tres respuestas de los cuatro recursos.
+
+4. **Pon la carga frente a lo normal.** *En tu fichero o en Grafana.*
+
+    Compara la línea base con el periodo de carga en una tabla antes/después o en una captura del panel con la semana anterior superpuesta con `offset 1w`:
 
     ```markdown
     | Recurso | Línea base (p95) | Carga | Diferencia | Umbral |
     |---|---|---|---|---|
     ```
 
-    El recurso donde más cambia es por donde va la propuesta.
+    **Sale bien si:** la tabla o la captura deja ver en qué recurso cambia más. Por ahí va la propuesta.
 
-5. **Propón una acción con su coste.** Redacta la propuesta a partir de [Señales de problema y acciones](#senales-de-problema-y-acciones) con estas cuatro líneas: qué se cambia, qué cuesta (gratis, recursos, dinero o tiempo de desarrollo), qué métrica esperas que cambie y cuánto. El valor esperado es lo que permitirá comprobar después si la acción funcionó.
+5. **Propón una acción con su coste.** *En tu fichero.*
 
-<span class="et et-com">Comprobación</span> La línea base cubre cinco días laborables representativos (sin festivos ni vacaciones de medio equipo) y lleva fecha y versión; cada recurso tiene sus tres preguntas USE respondidas; la propuesta nombra una métrica concreta y un valor esperado.
+    Redacta la propuesta a partir de [Señales de problema y acciones](#senales-de-problema-y-acciones) con estas cuatro líneas: qué se cambia, qué cuesta (gratis, recursos, dinero o tiempo de desarrollo), qué métrica esperas que cambie y cuánto.
 
-<span class="et et-ent">Entrega</span> `a5.4-rendimiento.md` en `ut5/` del repositorio, con la tabla o la captura y la propuesta. Firma del tutor en la fila A5.4.
+    **Sale bien si:** la propuesta tiene un valor esperado concreto. Es lo que permitirá comprobar después si la acción funcionó.
 
-<span class="et et-ext">Si te sobra tiempo</span> Propón al tutor una alerta sobre la desviación respecto a la línea base (por ejemplo, CPU por encima del doble del valor de hace una semana durante 30 minutos) en lugar de un umbral fijo.
+<span class="et et-com">Comprobación</span>
+
+- [ ] La línea base cubre cinco días laborables representativos (sin festivos ni vacaciones de medio equipo).
+- [ ] La línea base lleva fecha y versión de la aplicación.
+- [ ] Cada recurso tiene sus tres preguntas USE respondidas.
+- [ ] La propuesta nombra una métrica concreta y un valor esperado.
+
+<span class="et et-ent">Entrega</span>
+
+- **Guarda** `a5.4-rendimiento.md` en `ut5/` del repositorio, con la tabla o la captura y la propuesta. Es la evidencia del criterio 3d.
+- Firma del tutor en la fila A5.4.
+- **Piensa:** ¿por qué la línea base deja de valer cuando cambia la versión de la aplicación?
+
+<span class="et et-ext">Si te sobra tiempo</span> Para que la alerta se adapte a lo que es normal en cada momento, propón al tutor una alerta sobre la desviación respecto a la línea base (por ejemplo, CPU por encima del doble del valor de hace una semana durante 30 minutos) en lugar de un umbral fijo.
 
 ## Práctica evaluable
 
@@ -946,33 +1068,54 @@ Las observaciones del tutor de empresa en la ficha se tienen en cuenta en cada a
 
 ### Actividad de cierre
 
-<span class="et et-obj">Objetivo</span> Un procedimiento de dos páginas, "Rutina de revisión diaria y semanal de logs, accesos, fallos y rendimiento en la empresa", que pueda seguir alguien que llegue nuevo al puesto. Es la prueba de que lo hecho se puede transmitir: si otra persona puede hacer tu revisión con tu documento, la rutina sobrevive a tu marcha.
+<span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** un procedimiento de dos páginas, "Rutina de revisión diaria y semanal de logs, accesos, fallos y rendimiento en la empresa", que pueda seguir alguien que llegue nuevo al puesto.
+
+**Para qué sirve en un trabajo:** demuestra que lo que has hecho se puede transmitir. Si otra persona puede hacer tu revisión con tu documento, la rutina sobrevive a tu marcha.
 
 <span class="et et-pre">Antes de empezar</span>
 
 - Las cuatro actividades hechas y el fichero con fecha, comando y resultado que has ido guardando desde el primer día.
 - Visto bueno del tutor sobre qué comandos y rutas pueden aparecer (anonimizados) en el procedimiento.
-- El diagrama de rutina de [Cómo trabajar en la empresa](#como-trabajar-en-la-empresa) como esqueleto.
+- El diagrama de rutina de [Cómo trabajar en la empresa](#como-trabajar-en-la-empresa), que sirve de esqueleto.
 
 <span class="et et-pas">Pasos</span>
 
-Partes del esqueleto que ya tienes, el diagrama de la rutina, y lo rellenas con lo que has hecho de verdad; después añades lo que necesita quien empieza de cero, y al final lo pruebas con un lector real.
+Partes del esqueleto que ya tienes, el diagrama de la rutina, y lo rellenas con lo que has hecho de verdad (paso 1). Después añades lo que necesita quien empieza de cero (paso 2) y al final lo pruebas con un lector real (paso 3).
 
-1. **Rellena el esqueleto.** Para cada caja del diagrama (cuatro diarias, cuatro semanales) escribe una fila. Los comandos salen de tu fichero de trabajo, y lo normal, de la línea base de la A5.4:
+1. **Rellena el esqueleto.** *En tu fichero.*
+
+    Escribe una fila por cada caja del diagrama (cuatro diarias y cuatro semanales). Los comandos salen de tu fichero de trabajo, y lo normal, de la línea base de la A5.4:
 
     ```markdown
     | Revisión | Qué se mira | Herramienta | Comando o consulta | Tiempo | Normal | Abre incidencia si |
     |---|---|---|---|---|---|---|
     ```
 
-    Comprueba que hay ocho filas y que ningún comando está escrito de memoria.
+    **Sale bien si:** hay ocho filas y ningún comando está escrito de memoria.
 
-2. **Añade lo que necesita quien llega nuevo.** Pon al principio los accesos necesarios (usuario, hosts, paneles) y al final la plantilla de incidencia y a quién se escala. Sin ellos el procedimiento no se puede empezar ni terminar.
-3. **Pruébalo con otra persona.** Pide al tutor o a un compañero que lo lea con el sistema delante y marque lo que no sabría ejecutar sin preguntarte; corrígelo. Cada pregunta es un hueco del documento, y el criterio pide que no quede ninguna pendiente.
+2. **Añade lo que necesita quien llega nuevo.** *En tu fichero.*
 
-<span class="et et-com">Comprobación</span> Dos páginas, todos los comandos son los que has usado de verdad, y las dudas de quien lo ha revisado están resueltas en el texto.
+    Pon al principio los accesos necesarios (usuario, hosts, paneles) y al final la plantilla de incidencia y a quién se escala. Sin ellos el procedimiento no se puede empezar ni terminar.
 
-<span class="et et-ent">Entrega</span> `rutina.md` en `ut5/` del repositorio. Firma del tutor en la fila Cierre.
+    **Sale bien si:** el documento empieza por los accesos y termina con la plantilla y el escalado.
+
+3. **Pruébalo con otra persona.** *Con el tutor o con un compañero.*
+
+    Pide que lo lea con el sistema delante y marque lo que no sabría ejecutar sin preguntarte; corrígelo. Cada pregunta es un hueco del documento, y el criterio pide que no quede ninguna pendiente.
+
+    **Sale bien si:** todas las dudas de quien lo ha revisado están resueltas en el texto.
+
+<span class="et et-com">Comprobación</span>
+
+- [ ] El procedimiento ocupa dos páginas.
+- [ ] Todos los comandos son los que has usado de verdad.
+- [ ] Empieza por los accesos y termina con la plantilla de incidencia y el escalado.
+- [ ] Las dudas de quien lo ha revisado están resueltas en el texto.
+
+<span class="et et-ent">Entrega</span>
+
+- **Guarda** `rutina.md` en `ut5/` del repositorio. Es el procedimiento de cierre de la práctica evaluable.
+- Firma del tutor en la fila Cierre.
 
 ### Ficha de evidencias
 
