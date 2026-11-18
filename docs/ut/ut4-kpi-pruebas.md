@@ -316,11 +316,11 @@ sum by (service)(rate(app_http_requests_total{status=~"5.."}[5m]))
 
 Además, los indicadores necesitan cuatro cosas que el laboratorio todavía no tiene. Prepáralas nada más empezar, porque Prometheus tarda unos minutos en tener muestras:
 
-- **Límites de `app`, en app01.** Sin límite de CPU no hay porcentaje de CPU, y sin límite de memoria la memoria da `+Inf`. Añade al servicio `app` de `/opt/servicio/compose.yml` estas dos líneas, a la altura de `image`:
+- **Límites de `app`, en app01.** Sin límite de CPU no hay porcentaje de CPU, y sin límite de memoria la memoria da `+Inf`. Añade al servicio `app` de `/opt/servicio/compose.yml` estas dos líneas, a la altura de `build` (si `mem_limit` ya está, de la UT1, añade solo `cpus`):
 
     ```yaml
         cpus: "1.0"
-        mem_limit: 256m
+        mem_limit: 512m
     ```
 
     Aplícalo y guárdalo: `cd /opt/servicio && docker compose up -d app && git commit -am "Límites de CPU y memoria de app"`.

@@ -236,25 +236,30 @@ Trabajas entre mon01, app01 y tu VM `puesto`. El recorrido: preparas el reposito
 
 3. **Busca las cadenas en su origen.** *En app01 y en tu VM `puesto`.*
 
-    Una cadena es un texto del log que delata una avería. Saca del código de la API dos mensajes de error distintos que se escriban cuando falla la base de datos, con su fichero y su línea. Para cada uno, escribe una consulta LogQL (el lenguaje de consultas de Loki), al menos una con `| json` (lee la línea como JSON para filtrar por sus campos):
+    Una cadena es un texto del log que delata una avería. Saca del código de la API los dos mensajes que escribe cuando falla la base de datos, con su fichero y su línea: un error (`log.error`), que sale en cada petición que no llega a la base de datos, y un aviso (`log.warning`), que sale cuando la API arranca y no la encuentra. Para cada uno, escribe una consulta LogQL (el lenguaje de consultas de Loki), al menos una con `| json` (lee la línea como JSON para filtrar por sus campos):
 
     ```bash
-    grep -rnE "log(ger)?\.(error|exception)\(" /opt/servicio/api/     # en app01
-    logcli labels service                                               # en el puesto
-    logcli query --since=1h '{service="app", level="error"} |= "<texto del mensaje>"'
-    logcli query --since=1h '{service="app", level="error"} | json | msg=~"<inicio del mensaje>.*"'
+    grep -rnE "log(ger)?\.(warning|error|exception)\(" /opt/servicio/api/     # en app01
+    logcli labels service                                                       # en el puesto
+    logcli query --since=1h '{service="app", level="error"} |= "<texto del error>"'
+    logcli query --since=1h '{service="app", level="warning"} | json | msg=~"<inicio del aviso>.*"'
     ```
+
+    `base de datos lista` también es un `log.warning`, pero dice que todo va bien: no es una cadena.
 
     **Sale bien si:** las dos consultas se ejecutan sin error de sintaxis. Todavía no tienen por qué devolver líneas: aparecen en el paso siguiente.
 
 4. **Provoca un fallo y mira reaccionar números y texto.** *En app01 y en tu VM `puesto`.*
 
-    Una condición que no se ha visto saltar no está probada. Con el bucle corriendo, para `db` dos minutos y vuelve a arrancarla. Mientras está parada, repite la consulta de errores del paso 2 y tus dos consultas LogQL del paso 3:
+    Una condición que no se ha visto saltar no está probada. Con el bucle corriendo, para `db` dos minutos y vuelve a arrancarla. Mientras está parada, reinicia `app` para que escriba el aviso de arranque, y repite la consulta de errores del paso 2 y tus dos consultas LogQL del paso 3:
 
     ```bash
     cd /opt/servicio && docker compose stop db      # en app01
+    docker compose restart app                       # con db parada: la API se queda esperándola
     docker compose start db                          # dos minutos después
     ```
+
+    Mientras `db` está parada, el bucle se queda esperando unos segundos en cada petición: la API tarda en darse cuenta de que el nombre `db` ya no existe.
 
     **Sale bien si:** el ratio de errores sube y tus dos consultas devuelven líneas. Si una no devuelve ninguna, no está probada: cambia el texto o el selector y repite.
 

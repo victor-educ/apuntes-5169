@@ -225,7 +225,7 @@ container_cpu_usage_seconds_total{name="servicio-app-1",cpu="total"} 184.39
 # /opt/agentes/compose.yml, en el host del servicio
 services:
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
     container_name: cadvisor
     privileged: true
     devices:
