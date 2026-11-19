@@ -100,7 +100,7 @@ ss -tlnup
 docker ps --format '{{.Names}} {{.Ports}}'
 nmap -sS -p- -T4 app01
 nmap -sV -p 29100,28081,29102,29080 app01
-tcpdump -i ens18 -n port 23100
+tcpdump -i eth0 -n port 23100
 # nftables del host: el fichero completo es el de la UT3 (tabla inet fw, conjunto mon_ports)
 sudo nft -c -f /etc/nftables.conf && sudo systemctl reload nftables
 sudo nft list table inet fw
@@ -152,7 +152,7 @@ coredumpctl list && coredumpctl info
 cat /proc/sys/kernel/core_pattern
 py-spy dump --pid $(pgrep -f gunicorn | head -1)
 top -o %MEM; mpstat 1 5; vmstat 1 5; iostat -xz 1 5
-ss -s; iftop -i ens18; pidstat 1 5
+ss -s; iftop -i eth0; pidstat 1 5
 ps aux --sort=-%mem | head
 ```
 

@@ -4,7 +4,16 @@
 
 La UT1 dejó mon01 recogiendo los datos del contenedor de referencia: en Prometheus, las métricas de recursos, las de la API y las de PostgreSQL; en Loki, los logs y los eventos del demonio Docker. Pero esos datos solo sirven si alguien mira las gráficas justo cuando algo falla, y a las tres de la madrugada no mira nadie. Esta unidad los convierte en alarmas: condiciones que se evalúan solas, avisan a quien tiene que actuar sin repetirse de más y dejan rastro en un gestor de incidencias.
 
-La unidad monta la cadena en el orden en que la recorre una alarma: qué condiciones vigilar (sesión 12), cómo se calculan los indicadores y se escriben las reglas (sesión 13), a quién se avisa y cómo queda registrada cada alarma (sesión 14). La práctica evaluable monta el registro de incidencias y prueba la cadena entera de punta a punta.
+**Lo que funciona al terminar la unidad.** Se para la base de datos de app01 y, sin que nadie esté mirando, a los pocos minutos llega un mensaje a Telegram y aparece una incidencia en Gitea con la hora, el servicio y la gravedad. Se vuelve a arrancar la base de datos y la incidencia se cierra sola. Eso es la práctica evaluable, y cada hoja de la unidad construye una pieza de ella:
+
+| Hoja | Pieza de la evaluable | Dónde queda |
+|---|---|---|
+| A2.1 | Cuándo es un problema: umbrales y mensajes de error medidos en el servicio | `docs/umbrales.md`, `docs/cadenas.md` |
+| A2.2 | Quién vigila: las diez alarmas cargadas en Prometheus y Loki | `prometheus/`, `loki/` |
+| A2.3 | A quién se avisa: correo y Telegram, agrupados y sin repeticiones | `alertmanager/` |
+| Evaluable | El registro: cada alarma abre y cierra su incidencia, y se comprueban cuatro de punta a punta | `tickets/`, `docs/verificacion.md` |
+
+Todo va al repositorio `alerting`, en `/opt/alerting` de mon01, que es lo que se entrega. La clase del 24 de noviembre es para montar la evaluable, y se entrega el 9 de diciembre, antes del examen.
 
 ## Sesión 12 · Umbrales sobre contadores y cadenas en logs
 
@@ -35,16 +44,6 @@ flowchart TB
 ```
 
 <p class="pie" markdown>El umbral de cada regla no lo decide la herramienta: sale de la documentación del servicio.</p>
-
-Todo lo que se escribe en la unidad va al repositorio `alerting`, en `/opt/alerting` de mon01:
-
-| Eslabón | Dónde se escribe | Cuándo |
-|---|---|---|
-| Umbrales y cadenas, con su justificación | `docs/umbrales.md` y `docs/cadenas.md` | 12 nov |
-| Indicadores (recording rules) | `prometheus/rules.yml` | 17 nov |
-| Reglas de alerta | `prometheus/alerts.yml` y `loki/loki-alerts.yml` | 17 nov |
-| A quién se avisa y cuándo | `alertmanager/alertmanager.yml` | 19 nov |
-| Incidencias | el receptor `tickets/` | 24 nov |
 
 El umbral sale de la documentación del servicio o de un acuerdo de nivel de servicio (lo que el servicio promete a quien lo usa). Alertmanager ya corre en mon01 desde la UT1, pero sin configurar: no avisa a nadie.
 
@@ -168,6 +167,8 @@ El `sum` junta los streams; con `sum by (host)` se conserva la máquina, para qu
 <span class="et et-obj">Objetivo</span> **Qué vas a conseguir:** saber cuándo tu servicio está mal. Al terminar tienes, por escrito, el valor a partir del cual cada indicador es un problema y los mensajes de log que delatan una avería, y los has visto reaccionar a un fallo provocado por ti.
 
 **Para qué sirve en un trabajo:** una alarma con un umbral inventado salta de más o no salta nunca. En una empresa, cada umbral se mide sobre el servicio real y se puede justificar; si no, el equipo acaba ignorando las alarmas.
+
+**Para tu evaluable:** de estos dos ficheros salen los umbrales y las cadenas de todas tus alarmas, y son el 25 % de la nota (criterio b).
 
 <span class="et et-pre">Antes de empezar</span>
 
@@ -324,16 +325,7 @@ Las seis consultas de la [tabla de umbrales](#tabla-de-umbrales-del-contenedor-d
 
 **Qué es.** Una regla que Prometheus evalúa solo, cada cierto tiempo: ejecuta una consulta y guarda el resultado como una serie nueva con nombre propio. Desde ese momento es una métrica más, que se consulta, se grafica y se usa en alertas, pero ya viene calculada.
 
-#### Por qué precalcular
-
-- **Correlar.** El ratio de errores no está en ninguna métrica: sale de dividir dos contadores. La regla lo convierte en una serie con nombre e histórico. Es lo que pide el criterio c: obtener indicadores nuevos a partir de los contadores.
-- **Agregar.** Pasar de una serie por réplica a una por servicio con `sum by (service)`. Con una sola réplica no cambia nada, pero la regla queda preparada para más.
-- **Aligerar.** Un percentil se calcula una vez cada 30 s, no cada vez que alguien abre un panel.
-- **Coherencia.** El panel y la alarma leen la misma serie, así que no pueden dejar de coincidir.
-
-#### Convención de nombres
-
-Las métricas grabadas se nombran `nivel:métrica:operaciones`, con dos puntos, que las métricas normales no usan, así que se reconocen a simple vista. En el laboratorio, `nivel` es el servicio (`app`, `db`), `métrica` lo que se mide (`requests`, `errors`, `latency_p95`) y `operaciones` lo que se le ha hecho con su ventana (`rate5m`, `ratio5m`). `app:errors:ratio5m` se lee "en app, ratio de errores, ventana de 5 minutos".
+**Por qué.** El ratio de errores no está en ninguna métrica: sale de dividir dos contadores, y la regla lo convierte en una serie con nombre e histórico (es lo que pide el criterio c). Además, el panel y la alarma leen la misma serie y no pueden contradecirse. Los nombres llevan dos puntos, `servicio:métrica:operación`: `app:errors:ratio5m` se lee "en app, ratio de errores, ventana de 5 minutos".
 
 #### El fichero rules.yml
 
@@ -566,6 +558,8 @@ La cadena de `AppDbTimeout` es un ejemplo: la buena sale del `docs/cadenas.md` d
 
 **Para qué sirve en un trabajo:** nadie está mirando Grafana a las tres de la madrugada. Una alarma bien escrita es la que avisa por ti, y saber cargarla, probarla y comprobar que salta es el trabajo diario de quien mantiene un servicio.
 
+**Para tu evaluable:** son las alarmas que la evaluable hace saltar de verdad, y `rules.yml` es la evidencia del criterio c.
+
 <span class="et et-pre">Antes de empezar</span>
 
 - De la A2.1: el repositorio `/opt/alerting` con `docs/umbrales.md` y `docs/cadenas.md`, el bucle de tráfico corriendo en tu VM `puesto` y la función `q` en su `~/.bashrc`. Si te falta el repositorio, créalo con el [paso 1 de la A2.1](#a21-umbrales-y-cadenas-sesion-12); si te falta `q`, con el comienzo de su paso 2.
@@ -645,7 +639,7 @@ Hoy trabajas en **mon01** (salvo un momento en app01 para parar la base de datos
     q 'sum by (service)(rate(app_http_requests_total{status=~"5.."}[5m])) / sum by (service)(rate(app_http_requests_total[5m]))'
     ```
 
-    **Sale bien si:** la alarma pasa por amarillo y rojo, y vuelve a verde; las dos consultas dan el mismo número.
+    **Sale bien si:** la alarma pasa por amarillo y rojo, y vuelve a verde; las dos consultas dan el mismo número (durante la avería pueden diferir un poco, porque el nombre corto se recalcula cada 30 s). `AppHighLatency` también puede ponerse amarilla: sin base de datos, cada petición se queda colgada unos segundos.
 
 4. **Prueba la regla sin romper nada.** *En mon01.*
 
@@ -778,7 +772,7 @@ receivers:
         send_resolved: true
   - name: critical
     telegram_configs:
-      - bot_token_file: /etc/alertmanager/secrets/tg_token
+      - bot_token_file: /etc/alertmanager-secrets/tg_token
         chat_id: -100123456789
         parse_mode: HTML
         message: '{{ template "lab.telegram" . }}'
@@ -889,6 +883,7 @@ Desde: {{ .StartsAt.Format "02/01 15:04" }} · Origen: {{ .Labels.origen }}
     environment:
       MP_UI_BIND_ADDR: "0.0.0.0:28025"    # la web escucha en el puerto del curso
       MP_MAX_MESSAGES: 500
+    restart: unless-stopped
 ```
 
 #### Alertas sintéticas
@@ -897,7 +892,7 @@ Desde: {{ .StartsAt.Format "02/01 15:04" }} · Origen: {{ .Labels.origen }}
 
 ```bash
 amtool --alertmanager.url=http://mon01:29093 alert add alertname=PruebaAviso severity=warning service=app \
-  --annotation=summary="Prueba de la ruta warning"
+  --annotation='summary="Prueba de la ruta warning"'
 ```
 
 Para Alertmanager son alertas como las demás: pasan por rutas, grupos, inhibiciones y silencios. No salen en *Alerts* de Prometheus, y se resuelven solas a los 5 minutos (`resolve_timeout`).
@@ -1100,6 +1095,8 @@ Va en los tres para que ninguna alarma se quede sin incidencia; una alerta que p
 
 **Para qué sirve en un trabajo:** una alarma que nadie recibe no sirve, y una que manda cien mensajes por la misma avería hace que se dejen de leer. Decidir quién recibe qué, y callar las alertas durante un mantenimiento, es parte del trabajo diario de guardia.
 
+**Para tu evaluable:** en la evaluable solo añades a estos receptores el webhook de las incidencias; los avisos que pruebas hoy son los que llegan cuando verificas cada alarma.
+
 <span class="et et-pre">Antes de empezar</span>
 
 - Las reglas de la A2.2 cargadas en Prometheus y Loki.
@@ -1131,7 +1128,7 @@ Hoy trabajas en **mon01**. El recorrido: preparas los contenedores (paso 1), car
           - --storage.path=/alertmanager
         volumes:
           - /opt/alerting/alertmanager:/etc/alertmanager:ro
-          - /opt/alerting/secrets:/etc/alertmanager/secrets:ro
+          - /opt/alerting/secrets:/etc/alertmanager-secrets:ro
           - alertmanager_data:/alertmanager
         ports: ["29093:29093"]
         restart: unless-stopped
@@ -1173,9 +1170,9 @@ Hoy trabajas en **mon01**. El recorrido: preparas los contenedores (paso 1), car
     Las alertas sintéticas son de mentira: las lanzas a mano y llegan en segundos, sin esperar a una avería. Llevan `service=app` para que el silencio no las tape. Las dos `PruebaGrupo` tienen que llegar juntas; `HostDown` tiene que tapar a `PruebaInhibida` (eso es una inhibición: si el servidor está caído, no hace falta avisar también de lo que corre en él):
 
     ```bash
-    $AM alert add alertname=PruebaGrupo severity=critical service=app instance=r1 --annotation=summary="Prueba de grupo"
-    $AM alert add alertname=PruebaGrupo severity=critical service=app instance=r2 --annotation=summary="Prueba de grupo"
-    $AM alert add alertname=PruebaAviso severity=warning service=app --annotation=summary="Prueba de la ruta warning"
+    $AM alert add alertname=PruebaGrupo severity=critical service=app instance=r1 --annotation='summary="Prueba de grupo"'
+    $AM alert add alertname=PruebaGrupo severity=critical service=app instance=r2 --annotation='summary="Prueba de grupo"'
+    $AM alert add alertname=PruebaAviso severity=warning service=app --annotation='summary="Prueba de la ruta warning"'
     $AM alert add alertname=HostDown severity=critical service=node host=app01
     $AM alert add alertname=PruebaInhibida severity=warning service=app host=app01
     $AM alert query -i      # las inhibidas
@@ -1211,7 +1208,7 @@ Hoy trabajas en **mon01**. El recorrido: preparas los contenedores (paso 1), car
 
 <p class="ut-meta" markdown>24 de noviembre · Práctica evaluable · <span class="dur" tabindex="0" aria-label="Procedimiento de verificación de una alarma · 10 min&#10;Trabajo en la práctica · 100 min" data-dur="Procedimiento de verificación de una alarma · 10 min&#10;Trabajo en la práctica · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
 
-Cada pieza de la cadena se ha probado ya por separado: las consultas en la A2.1, las reglas en la A2.2, Alertmanager en la A2.3 y el receptor de incidencias en la [demostración](#demostracion-incidencias-en-gitea). Falta montar el receptor en el mon01 de cada uno y seguir alarmas reales de punta a punta, del fallo a la incidencia cerrada, midiendo cuánto tarda cada tramo. Los diez primeros minutos explican el procedimiento con el que se da por buena una alarma; después va el enunciado.
+Cada pieza de la cadena se ha probado ya por separado: las consultas en la A2.1, las reglas en la A2.2, Alertmanager en la A2.3 y el receptor de incidencias en la [demostración](#demostracion-incidencias-en-gitea). Falta montar el receptor en el mon01 de cada uno y seguir alarmas reales de punta a punta, del fallo a la incidencia cerrada, midiendo cuánto tarda cada tramo. Los diez primeros minutos explican el procedimiento con el que se da por buena una alarma; el resto de la clase es para montarla, y lo que falte se termina fuera de clase. **Se entrega el 9 de diciembre**, antes del examen.
 
 ### Procedimiento de verificación de una alarma
 

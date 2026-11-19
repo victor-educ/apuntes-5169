@@ -184,7 +184,7 @@ receivers:
         send_resolved: true
   - name: critical
     telegram_configs:
-      - bot_token_file: /etc/alertmanager/secrets/tg_token
+      - bot_token_file: /etc/alertmanager-secrets/tg_token
         chat_id: -100123456789
         parse_mode: HTML
         send_resolved: true
@@ -193,7 +193,7 @@ receivers:
         send_resolved: true
   - name: dev-chat
     slack_configs:
-      - api_url_file: /etc/alertmanager/secrets/slack_url
+      - api_url_file: /etc/alertmanager-secrets/slack_url
         channel: "#dev-alerts"
         send_resolved: true
   - name: tickets

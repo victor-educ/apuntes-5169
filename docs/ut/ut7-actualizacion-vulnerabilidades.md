@@ -886,7 +886,7 @@ Trabajas sobre todo desde el puesto, con un momento en mon01. Sigues el ciclo en
     [Service]
     Type=oneshot
     RemainAfterExit=yes
-    ExecStart=/sbin/ip route replace 10.20.0.0/16 via 10.10.0.2 dev ens18
+    ExecStart=/sbin/ip route replace 10.20.0.0/16 via 10.10.0.2 dev eth0
 
     [Install]
     WantedBy=multi-user.target

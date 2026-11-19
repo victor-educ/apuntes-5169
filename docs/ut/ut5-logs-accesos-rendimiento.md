@@ -913,7 +913,7 @@ sar -n DEV -f /var/log/sysstat/sa04  # red
 | CPU contenedor app | % de un núcleo | 35 | 80 | 4 | 09:15 |
 | Memoria app | working set / límite | 410 MB / 1 GB | 520 MB | 380 MB | 17:40 |
 | Disco vdb (datos) | %util, await ms | 12, 1.8 | 35, 4.1 | 45 (02:00) | 02:10 |
-| Red ens18 | Mbit/s entrada/salida | 3 / 11 | 9 / 30 | 0.4 / 1 | 12:30 |
+| Red eth0 | Mbit/s entrada/salida | 3 / 11 | 9 / 30 | 0.4 / 1 | 12:30 |
 | Peticiones | req/s, p95 latencia ms | 18, 120 | 45, 260 | 2, 90 | 09:15 |
 
 #### USE por recurso: comandos y métricas

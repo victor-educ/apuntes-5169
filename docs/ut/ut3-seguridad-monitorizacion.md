@@ -30,7 +30,7 @@ Antes de cerrar nada hay que saber qué hay abierto de verdad: lo que dicen los 
 ```text
 node_uname_info{nodename="app01",release="6.12.22-amd64",sysname="Linux",version="#1 SMP PREEMPT_DYNAMIC Debian 6.12.22-1"} 1
 node_os_info{id="debian",name="Debian GNU/Linux",version_id="13"} 1
-node_network_address_info{address="10.10.2.10",device="ens18",netmask="24"} 1
+node_network_address_info{address="10.10.2.10",device="eth0",netmask="24"} 1
 node_filesystem_size_bytes{device="/dev/sda1",mountpoint="/var/lib/docker"} 2.1e+10
 node_systemd_unit_state{name="ssh.service",state="active"} 1
 node_boot_time_seconds 1.763979e+09
@@ -376,7 +376,7 @@ table inet fw {
         type filter hook forward priority filter; policy accept;
 
         # puertos publicados por Docker: mismo criterio, con el puerto de antes de que Docker lo reescriba
-        iifname "ens18" ip saddr != 10.10.0.20 meta l4proto tcp ct original proto-dst @mon_ports log prefix "mon-docker-denegado: " drop
+        iifname "eth0" ip saddr != 10.10.0.20 meta l4proto tcp ct original proto-dst @mon_ports log prefix "mon-docker-denegado: " drop
         # el 28080 de la API no necesita regla: OPNsense solo deja llegar a él desde web01
     }
 
@@ -744,13 +744,13 @@ table inet fw {
 
         ct state established,related accept
         # Loki, tras nginx: el Promtail de app01 y logcli desde gestión
-        iifname "ens18" ip saddr { 10.10.2.10, 10.10.0.0/24 } meta l4proto tcp ct original proto-dst 23100 accept
+        iifname "eth0" ip saddr { 10.10.2.10, 10.10.0.0/24 } meta l4proto tcp ct original proto-dst 23100 accept
         # Grafana, tras nginx: solo la red de gestión
-        iifname "ens18" ip saddr 10.10.0.0/24 meta l4proto tcp ct original proto-dst 443 accept
+        iifname "eth0" ip saddr 10.10.0.0/24 meta l4proto tcp ct original proto-dst 443 accept
         # Gitea provisional: la red de gestión y app01, hasta el 12 de febrero
-        iifname "ens18" ip saddr { 10.10.0.0/24, 10.10.2.10 } meta l4proto tcp ct original proto-dst 23001 accept
+        iifname "eth0" ip saddr { 10.10.0.0/24, 10.10.2.10 } meta l4proto tcp ct original proto-dst 23001 accept
         # cualquier otro origen hacia lo que publica la pila
-        iifname "ens18" meta l4proto tcp ct original proto-dst @mon_pub log prefix "mon-docker-denegado: " drop
+        iifname "eth0" meta l4proto tcp ct original proto-dst @mon_pub log prefix "mon-docker-denegado: " drop
     }
 
     chain output {
