@@ -1,0 +1,64 @@
+# /opt/monitoring/prometheus.yml en mon01 al terminar la UT2: el de la UT1 más rule_files (A2.2)
+# Cambia IP_APP01 e IP_MON01 por las de tus VM, como en la UT1
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files: [ "rules.yml", "alerts.yml" ]   # A2.2: montados junto a este fichero
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:29093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:29090"]
+        labels: { host: mon01 }
+
+  # Lo que está en app01: por su IP y el puerto publicado
+  - job_name: app
+    static_configs:
+      - targets: ["IP_APP01:29102"]
+        labels: { host: app01, service: app }
+
+  - job_name: postgres
+    static_configs:
+      - targets: ["IP_APP01:29187"]
+        labels: { host: app01, service: db }
+
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["IP_APP01:28081"]
+        labels: { host: app01 }
+    metric_relabel_configs:
+      # el servicio de compose pasa a la etiqueta service
+      - source_labels: [container_label_com_docker_compose_service]
+        target_label: service
+      - regex: container_label_.*
+        action: labeldrop
+      # solo las métricas que se usan en el curso
+      - source_labels: [__name__]
+        regex: container_(cpu_usage_seconds_total|memory_working_set_bytes|memory_usage_bytes|spec_memory_limit_bytes|network_(receive|transmit)_bytes_total|fs_(reads|writes)_bytes_total|oom_events_total|last_seen)
+        action: keep
+
+  # La máquina entera: node_exporter viene en la plantilla
+  - job_name: node
+    static_configs:
+      - targets: ["IP_APP01:29100"]
+        labels: { host: app01 }
+      - targets: ["IP_MON01:29100"]
+        labels: { host: mon01 }
+
+  # La propia cadena de logs
+  - job_name: promtail
+    static_configs:
+      - targets: ["IP_APP01:29080"]
+        labels: { host: app01 }
+
+  - job_name: loki
+    static_configs:
+      - targets: ["loki:23100"]
+        labels: { host: mon01 }

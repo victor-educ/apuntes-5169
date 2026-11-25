@@ -189,7 +189,7 @@ Las direcciones que más se usan en esta asignatura, por si hace falta tenerlas 
 | Repositorio | Nace en | Copia de trabajo | Qué le añade esta asignatura |
 |-------------|---------|------------------|------------------------------|
 | `servicio` | A1.1 (1 oct), con el código que se da en Aules | app01, en `/opt/servicio`; en la UT4, un clon en el puesto de administración para las pruebas | Instrumentación (UT1), pruebas y evidencias (UT4), versiones fijadas, Renovate y etapa de escaneo (UT7). Despliegue le añade el Jenkinsfile en su UT6 |
-| `monitoring` | La pila nace en la UT1 (octubre); el repositorio, con `git init`, en la A2.2 (17 nov) | mon01, en `/opt/monitoring` | Loki y Promtail (UT1), TLS y cierre de mon01 (UT3). En marzo la UT7 de Despliegue le añade ficheros propios (`targets/ut7-*.yml`, `rules/ut7-*.yml`) sin tocar los de aquí |
+| `monitoring` | La pila y el repositorio nacen en la A1.1 (1 oct). Los ficheros completos de mon01 al cerrar la UT1 y la UT2 se enlazan desde la [A2.2](ut/ut2-alarmas.md#a22-recording-rules-y-reglas-de-alerta-sesion-13) | mon01, en `/opt/monitoring` | Loki y Promtail (UT1), TLS y cierre de mon01 (UT3). En marzo la UT7 de Despliegue le añade ficheros propios (`targets/ut7-*.yml`, `rules/ut7-*.yml`) sin tocar los de aquí |
 | `alerting` | A2.1 (12 nov) | mon01, en `/opt/alerting` | Recording rules, alarmas, Alertmanager y receptor de incidencias (UT2); alarmas nuevas y runbooks enlazados (UT4) |
 | `operacion` | A4.1 (15 dic) | Puesto de administración | Fichas de métricas, indicadores, catálogo de alarmas, registros de revisión (UT4); plan y acta de baja (UT8) |
 

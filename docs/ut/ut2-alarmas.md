@@ -526,7 +526,7 @@ groups:
           summary: "Más de 10 líneas de error en 5 min en la API"
           runbook: "https://wiki.lab/runbooks/app-log-errors"
       - alert: AppDbTimeout
-        expr: sum(count_over_time({service="app", level="error"} | json | msg=~"timeout.*" [5m])) > 0
+        expr: sum(count_over_time({service="app", level="error"} | json | msg=~"<inicio de tu cadena de error>.*" [5m])) > 0
         for: 0m
         labels:
           severity: critical
@@ -535,7 +535,7 @@ groups:
           origen: loki
           env: dev
         annotations:
-          summary: "La API registra timeouts contra la base de datos"
+          summary: "La API no llega a la base de datos"
       - alert: ContainerOOM
         expr: sum by (host)(count_over_time({service="docker-events", action="oom"} [10m])) > 0
         labels:
@@ -548,7 +548,7 @@ groups:
           summary: "OOM kill en {{ $labels.host }}"
 ```
 
-La cadena de `AppDbTimeout` es un ejemplo: la buena sale del `docs/cadenas.md` de la A2.1. `ContainerOOM` no lleva `for` porque un OOM ya ha pasado.
+En `AppDbTimeout`, lo que va entre `< >` se cambia por el inicio del mensaje de error que escribe la API cuando no llega a la base de datos: el que se busca en su código en la A2.1 y queda en `docs/cadenas.md`. Copiada tal cual, la regla carga sin errores pero no salta nunca. `ContainerOOM` no lleva `for` porque un OOM ya ha pasado.
 
 **Cómo se comprueba.** Antes de cargarlo, `lokitool rules lint -n` (`lokitool` es un binario de la misma release que `logcli`; sin `-n` reescribe el fichero con su propio formato). Las reglas se aplican reiniciando Loki, y las cargadas se ven en `/loki/api/v1/rules`.
 
@@ -563,6 +563,7 @@ La cadena de `AppDbTimeout` es un ejemplo: la buena sale del `docs/cadenas.md` d
 <span class="et et-pre">Antes de empezar</span>
 
 - De la A2.1: el repositorio `/opt/alerting` con `docs/umbrales.md` y `docs/cadenas.md`, el bucle de tráfico corriendo en tu VM `puesto` y la función `q` en su `~/.bashrc`. Si te falta el repositorio, créalo con el [paso 1 de la A2.1](#a21-umbrales-y-cadenas-sesion-12); si te falta `q`, con el comienzo de su paso 2.
+- La pila de mon01 tal como la dejó la A1.4, con todos los targets en UP. Si dudas de algún fichero, compáralo con los completos de la UT1: [`compose.yml`](../descargas/mon01/ut1/compose.yml), [`prometheus.yml`](../descargas/mon01/ut1/prometheus.yml) y [`loki/loki.yml`](../descargas/mon01/ut1/loki.yml). Hoy les añades unas líneas a los tres.
 - La pila de mon01 como repositorio Git, porque hoy cambias su `compose.yml`, `prometheus.yml` y `loki.yml` y esos cambios tienen que quedar registrados. Si `/opt/monitoring` todavía no lo es (`git status` dice `not a git repository`), conviértelo con un primer commit de lo que hay. Las contraseñas no entran: si `git status` enseña un `.env` o un directorio de datos que no esté en la lista, añádelo al `.gitignore` antes del commit:
 
     ```bash
@@ -602,7 +603,7 @@ Hoy trabajas en **mon01** (salvo un momento en app01 para parar la base de datos
           - /opt/alerting/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
     ```
 
-    En `prometheus.yml`, al nivel de `scrape_configs` (sin sangría), añade la lista de ficheros de reglas y, si no está ya, el bloque `alerting`, que dice a Prometheus adónde mandar las alertas:
+    En `prometheus.yml`, al nivel de `scrape_configs` (sin sangría), añade la lista de ficheros de reglas. El bloque `alerting`, que dice a Prometheus adónde mandar las alertas, ya viene en el de Aules: añádelo solo si no lo tienes, porque repetido da error.
 
     ```yaml
     rule_files: [ "rules.yml", "alerts.yml" ]
@@ -619,6 +620,8 @@ Hoy trabajas en **mon01** (salvo un momento en app01 para parar la base de datos
     docker compose run --rm --no-deps --entrypoint promtool prometheus check rules /etc/prometheus/rules.yml /etc/prometheus/alerts.yml
     docker compose up -d prometheus
     ```
+
+    Así queda [`prometheus.yml`](../descargas/mon01/ut2/prometheus.yml) completo. El [`compose.yml`](../descargas/mon01/ut2/compose.yml) completo de la UT2 lleva además lo que añaden la A2.3 y la práctica evaluable; de él, hoy solo te tocan los `volumes` de `prometheus` y `loki`.
 
     **Sale bien si:** `promtool` dice `SUCCESS` y en `http://mon01:29090` → *Alerts* aparecen las siete alarmas en verde (`inactive`, es decir, todo normal).
 
@@ -666,6 +669,8 @@ Hoy trabajas en **mon01** (salvo un momento en app01 para parar la base de datos
     cd /opt/monitoring && docker compose up -d loki
     curl -s http://localhost:23100/loki/api/v1/rules
     ```
+
+    Así queda [`loki.yml`](../descargas/mon01/ut2/loki.yml) completo.
 
     **Sale bien si:** el `lint` no se queja y el `curl` enseña tus tres reglas.
 
@@ -1037,6 +1042,7 @@ Leído de arriba abajo:
       GITEA__server__ROOT_URL: "http://gitea.lab:23001/"
     volumes:
       - gitea_data:/data
+    restart: unless-stopped
 ```
 
 En la primera visita a `http://gitea.lab:23001` se elige SQLite como base de datos y se crea el administrador. Después se crea la organización `ops` con cuatro repositorios vacíos: `incidencias`, para las issues, y `alerting`, `servicio` y `monitoring`, que serán el remoto de los del curso. Por último, en *Configuración → Aplicaciones → Generar token*, un token con permiso de escritura sobre issues.
@@ -1059,6 +1065,7 @@ y entra en la misma pila que Alertmanager, que le llega por la red del compose c
     env_file: /opt/alerting/secrets/tickets.env
     volumes:
       - tickets_data:/data
+    restart: unless-stopped
 ```
 
 `gitea_data` y `tickets_data` se declaran en el bloque `volumes` del compose. `secrets/tickets.env`, con permisos 600, lleva `GITEA_URL=http://gitea:23001` (el nombre del servicio, porque el contenedor no lee el `/etc/hosts` de mon01), `GITEA_REPO=ops/incidencias` y `GITEA_TOKEN`. El 25000 solo se publica en `127.0.0.1`, para la prueba siguiente.
@@ -1134,7 +1141,7 @@ Hoy trabajas en **mon01**. El recorrido: preparas los contenedores (paso 1), car
         restart: unless-stopped
     ```
 
-    Declara `alertmanager_data:` en el bloque `volumes` del final del fichero.
+    Declara `alertmanager_data:` en el bloque `volumes` del final del fichero. El [`compose.yml`](../descargas/mon01/ut2/compose.yml) completo de la UT2 enseña dónde va cada pieza; `gitea` y `tickets` no se añaden hasta la práctica evaluable.
 
     **Sale bien si:** `docker compose config` no da errores.
 
@@ -1245,6 +1252,8 @@ Trabaja en este orden: primero el tratamiento de incidencias, porque sin él la 
     cd /opt/alerting/tickets/tests
     sed 's/"firing"/"resolved"/g; s/0001-01-01T00:00:00Z/2026-11-24T10:00:00Z/' firing.json > resolved.json
     ```
+
+    Al terminar, el compose de mon01 y `alertmanager.yml` tienen que quedar como estos, con tu `chat_id`: [`compose.yml`](../descargas/mon01/ut2/compose.yml) y [`alertmanager.yml`](../descargas/mon01/ut2/alertmanager.yml).
 
     *Pista:* si el receptor responde 500 o no aparece ninguna issue, mira `docker compose logs tickets`: casi siempre es el token o `GITEA_REPO` ([Errores frecuentes](#errores-frecuentes-en-el-laboratorio)).
 

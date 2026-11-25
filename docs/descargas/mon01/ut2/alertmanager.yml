@@ -1,0 +1,60 @@
+# /opt/alerting/alertmanager/alertmanager.yml al terminar la UT2: el de la A2.3 con el webhook
+# de las incidencias en los tres receptores (evaluable). Cambia chat_id por el de tu grupo.
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: mailpit:1025
+  smtp_from: alertmanager@lab
+  smtp_require_tls: false
+
+templates:
+  - /etc/alertmanager/templates/*.tmpl
+
+route:
+  receiver: mail
+  group_by: [alertname, service]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: [severity="critical"]
+      receiver: critical
+      continue: true
+    - matchers: [severity="warning"]
+      receiver: mail
+    - matchers: [team="dev"]
+      receiver: dev-chat
+      group_by: [alertname, service, env]
+
+inhibit_rules:
+  - source_matchers: [alertname="HostDown"]
+    target_matchers: [severity=~"warning|critical"]
+    equal: [host]
+  - source_matchers: [alertname="AppDown"]
+    target_matchers: [service="app"]
+    equal: [env]
+
+receivers:
+  - name: mail
+    email_configs:
+      - to: ops@lab
+        send_resolved: true
+    webhook_configs:
+      - url: http://tickets:25000/alertmanager
+        send_resolved: true
+  - name: critical
+    telegram_configs:
+      - bot_token_file: /etc/alertmanager-secrets/tg_token
+        chat_id: -100123456789
+        parse_mode: HTML
+        message: '{{ template "lab.telegram" . }}'
+        send_resolved: true
+    webhook_configs:
+      - url: http://tickets:25000/alertmanager
+        send_resolved: true
+  - name: dev-chat
+    email_configs:
+      - to: dev@lab
+        send_resolved: true
+    webhook_configs:
+      - url: http://tickets:25000/alertmanager
+        send_resolved: true

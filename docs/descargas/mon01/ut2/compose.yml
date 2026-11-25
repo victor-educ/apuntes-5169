@@ -1,0 +1,92 @@
+# /opt/monitoring/compose.yml en mon01, tal como queda al terminar la UT2 (evaluable, 24 nov)
+# Lo que cambia respecto a la UT1: las reglas montadas en prometheus y loki (A2.2),
+# alertmanager leyendo del repositorio alerting y mailpit (A2.3), y gitea y tickets (evaluable)
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+      - --web.listen-address=:29090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /opt/alerting/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      - /opt/alerting/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus:/prometheus
+    ports: ["29090:29090"]
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --web.listen-address=:29093
+      - --storage.path=/alertmanager
+    volumes:
+      - /opt/alerting/alertmanager:/etc/alertmanager:ro
+      - /opt/alerting/secrets:/etc/alertmanager-secrets:ro
+      - alertmanager_data:/alertmanager
+    ports: ["29093:29093"]
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    environment:
+      GF_SERVER_HTTP_PORT: "23000"
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?falta el fichero .env}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana:/var/lib/grafana
+    ports: ["23000:23000"]
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.5.3
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - /opt/alerting/loki/loki-alerts.yml:/loki/rules/fake/loki-alerts.yml:ro
+      - loki:/loki
+    ports: ["23100:23100"]
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:v1.22.3
+    ports: ["28025:28025"]
+    environment:
+      MP_UI_BIND_ADDR: "0.0.0.0:28025"    # la web escucha en el puerto del curso
+      MP_MAX_MESSAGES: 500
+    restart: unless-stopped
+
+  gitea:
+    image: gitea/gitea:1.24
+    ports: ["23001:23001"]
+    environment:
+      GITEA__server__HTTP_PORT: "23001"
+      GITEA__server__ROOT_URL: "http://gitea.lab:23001/"
+    volumes:
+      - gitea_data:/data
+    restart: unless-stopped
+
+  tickets:
+    build: /opt/alerting/tickets
+    ports: ["127.0.0.1:25000:25000"]
+    env_file: /opt/alerting/secrets/tickets.env
+    volumes:
+      - tickets_data:/data
+    restart: unless-stopped
+
+volumes:
+  prometheus:
+  grafana:
+  loki:
+  alertmanager_data:
+  gitea_data:
+  tickets_data:
+
+networks:
+  default:
+    name: obs
+    external: true
