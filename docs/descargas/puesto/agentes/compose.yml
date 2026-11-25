@@ -1,0 +1,32 @@
+# /opt/agentes/compose.yml en tu puesto al terminar la A1.2 (6 oct): solo cAdvisor
+# En la A1.4 (5 nov) se lleva a app01 y se le añaden promtail y docker-events
+services:
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
+    container_name: cadvisor
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=10s
+      - --port=28081
+      - --store_container_labels=false
+      - --whitelisted_container_labels=com.docker.compose.service,com.docker.compose.project
+      - --disable_metrics=percpu,sched,tcp,udp,hugetlb,referenced_memory,cpu_topology,resctrl
+    environment:
+      CADVISOR_HEALTHCHECK_URL: http://localhost:28081/healthz
+    ports:
+      - "28081:28081"
+    restart: unless-stopped
+
+networks:
+  default:
+    name: obs
+    external: true

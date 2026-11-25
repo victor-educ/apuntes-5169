@@ -366,7 +366,7 @@ Vas a montar la cadena de la teoría de abajo arriba y a comprobar cada eslabón
 
 4. **Haz que Prometheus lo recoja, con las etiquetas limpias.** Añade a Prometheus el job `cadvisor` de [Etiquetas y cardinalidad](#etiquetas-y-cardinalidad), con el target `cadvisor:28081`, y comprueba en su página de targets que está en UP. Antes de dar el job por bueno, mide para qué sirve su bloque `keep`: cuenta las métricas distintas y las series del job con el bloque desactivado, actívalo y vuelve a contar. La diferencia es memoria y disco que mon01 se ahorra durante todo el curso.
 
-    *Pista:* `count(count by (__name__)({job="cadvisor"}))` cuenta métricas distintas, y `count({job="cadvisor"})`, series.
+    *Pista:* `count(count by (__name__)({job="cadvisor"}))` cuenta métricas distintas, y `count({job="cadvisor"})`, series. El compose de agentes completo, con la red `obs`, está en [`agentes/compose.yml`](../descargas/puesto/agentes/compose.yml), y el `prometheus.yml` del puesto, ya con los jobs que añade la A1.3, en [`prometheus.yml`](../descargas/puesto/prometheus.yml).
 
 5. **Dibuja CPU y memoria por servicio y cierra el círculo.** Crea en Grafana un dashboard con dos paneles, CPU en núcleos y working set por servicio, con las consultas de [Las consultas del panel](#las-consultas-del-panel), y añade al de memoria el porcentaje sobre el límite. Genera tráfico contra el servicio un par de minutos: la CPU de `app` tiene que subir con la carga, y su working set tiene que parecerse al número que apuntaste en el paso 1. Si los dos cuadran, la cadena entera funciona.
 
@@ -465,6 +465,13 @@ def instrument(app: Flask) -> None:
     start_http_server(29102)   # sirve /metrics en 0.0.0.0:29102
 ```
 
+El módulo se guarda como `api/metrics.py` y se engancha en `app.py` justo después de crear la aplicación (`app = Flask(__name__)`):
+
+```python
+import metrics
+metrics.instrument(app)
+```
+
 Las decisiones que hay detrás del módulo:
 
 - **Un puerto propio para `/metrics`.** `start_http_server(29102)` abre un servidor aparte solo para las métricas, en lugar de servirlas en el puerto de la API, el 28080. Así el scrape no pasa por nginx, no cuenta como tráfico de usuarios y no queda expuesto al público junto con la API.
@@ -521,7 +528,7 @@ La contraseña de `monitor` no se escribe en el compose: va en un *secret* de co
 ```yaml
 # junto al servicio db, en el mismo compose del servicio
   postgres_exporter:
-    image: quay.io/prometheuscommunity/postgres-exporter:latest
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
     command: ["--extend.query-path=/etc/queries.yaml", "--web.listen-address=:29187"]
     environment:
       DATA_SOURCE_URI: "db:5432/servicio?sslmode=disable"
@@ -577,6 +584,8 @@ Vas a hacer que hablen dos piezas que hasta hoy estaban calladas: primero la API
     *Pista:* el SQL, el servicio con su bloque `secrets` y `queries.yaml` están completos en [Exporters](#exporters-lo-que-no-se-puede-instrumentar). `pgx_pass.txt` es una contraseña: va al `.gitignore`.
 
 3. **Conéctalos a Prometheus con las etiquetas del curso.** Añade a Prometheus los jobs `app` y `postgres`, con la etiqueta `host: puesto` y con `service: app` y `service: db` respectivamente, y comprueba que los dos están en UP. Son las mismas etiquetas que ya llevan las series de cAdvisor, y eso es lo que te permitirá cruzar en un mismo panel, o en una misma alarma, lo que consume un servicio con lo que hace.
+
+    *Pista:* el [`prometheus.yml` del puesto](../descargas/puesto/prometheus.yml) completo trae los dos jobs; cada target se llama por su nombre de servicio de compose (`app:29102` y `postgres_exporter:29187`).
 
 4. **Provoca tráfico y comprueba que las métricas cuentan lo que ha pasado.** Genera un par de minutos de tráfico variado: peticiones correctas, alguna a una ruta que no existe y medio minuto con la base de datos parada. Después calcula en Prometheus el p95 de latencia y el porcentaje de respuestas 5xx con [las dos consultas de la sesión](#las-dos-consultas-de-la-sesion) y compara lo que dicen con lo que tú hiciste: tienes que poder señalar en el resultado cada cosa que provocaste, y explicar por qué las peticiones a la ruta inexistente no suben el porcentaje de errores.
 
@@ -650,7 +659,7 @@ Hay otros drivers (`local`, `journald`, el plugin `loki` y `none`), pero ninguno
 **Por qué cada línea lleva un `request_id`.** Una petición de un usuario pasa por dos servicios, nginx y la API, y cada uno escribe sus propias líneas. Sin algo que las una, encontrar en los logs de la API la línea que corresponde a un error que vio nginx es buscar por la hora y adivinar. El `request_id` es lo que permite esa **correlación**. Lo genera nginx con la variable `$request_id` (32 caracteres hexadecimales, uno por petición), lo pasa a la API en una cabecera, la API lo incluye en todas sus líneas de log y lo devuelve al cliente en la respuesta. Cuando un usuario dice "me ha dado error a las 10:14", se busca ese id y aparece la petición completa. Hasta el 27 de noviembre nginx y la API son dos contenedores del mismo compose en app01, y la correlación es entre dos servicios. Ese día el proxy pasa a web01, y el mecanismo sigue siendo el mismo, solo que entre dos hosts.
 
 ```nginx
-# nginx del servicio: en el fichero de /etc/nginx/conf.d/, que se incluye dentro del bloque http
+# nginx/default.conf del servicio, completo: se monta en /etc/nginx/conf.d/, que se incluye dentro del bloque http
 log_format json escape=json '{"ts":"$time_iso8601","level":"info","msg":"access",'
   '"request_id":"$request_id","method":"$request_method","uri":"$request_uri",'
   '"status":$status,"bytes":$body_bytes_sent,"duration_s":$request_time,'
@@ -659,51 +668,70 @@ log_format json escape=json '{"ts":"$time_iso8601","level":"info","msg":"access"
 server {
     listen 20080;
     access_log /dev/stdout json;     # dentro de server: sustituye al log de fábrica
+
     location / {
-        proxy_set_header X-Request-ID $request_id;
+        proxy_pass http://app:28080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Request-ID $request_id;   # se lo pasa a la API
         proxy_hide_header X-Request-ID;   # la API ya la devuelve: sin esto sale dos veces
         add_header X-Request-ID $request_id always;
-        # ... proxy_pass y demás, como estaban
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 10s;
     }
 }
 ```
 
 En un contenedor el log de acceso va a stdout, no a un fichero: así lo recoge el driver de logs de Docker y lo lee el mismo Promtail que lee la API, sin montar ningún volumen de logs. En la imagen oficial de nginx `/var/log/nginx/access.log` ya es un enlace a stdout, y su `nginx.conf` ya escribe ahí, en el bloque `http`, con el formato de fábrica. Por eso `access_log` va dentro de `server`: a ese nivel sustituye al que hereda. Puesto en el bloque `http`, junto a `log_format`, se suma al de fábrica, y cada petición deja dos líneas, una JSON y otra en texto, con lo que los conteos de la verificación de la práctica evaluable salen al doble.
 
-En la API, con Python, un formateador JSON en la librería `logging` estándar y un filtro que inyecte el id que llega en la cabecera (si no llega, se genera uno):
+En la API, con Python, un módulo `api/jsonlog.py` con un formateador JSON para la librería `logging` estándar y dos *hooks* que recogen el id que llega en la cabecera (si no llega, se genera uno):
 
 ```python
-import json, logging, uuid, sys
-from flask import request, g
+# api/jsonlog.py: cada log, una línea JSON con el request_id que llega de nginx
+import json, logging, sys, time, uuid
+from flask import request, g, has_request_context
 
 class JsonFormatter(logging.Formatter):
+    converter = time.gmtime          # hora UTC, la que indica la Z del final
+
     def format(self, record):
         d = {
             "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S") + f".{int(record.msecs):03d}Z",
             "level": record.levelname.lower(),
             "logger": record.name,
             "msg": record.getMessage(),
-            "request_id": getattr(g, "request_id", None) if request else None,
+            "request_id": getattr(g, "request_id", None) if has_request_context() else None,
         }
         if record.exc_info:
             d["exc"] = self.formatException(record.exc_info)
         return json.dumps(d, ensure_ascii=False)
 
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(JsonFormatter())
-logging.basicConfig(level=logging.INFO, handlers=[handler])
+def setup(app):
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JsonFormatter())
+    logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
+    log = logging.getLogger("api")
 
-@app.before_request
-def _rid():
-    g.request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex)
+    @app.before_request
+    def _rid():
+        g.request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex)
 
-@app.after_request
-def _rid_out(resp):
-    resp.headers["X-Request-ID"] = g.request_id
-    return resp
+    @app.after_request
+    def _rid_out(resp):
+        resp.headers["X-Request-ID"] = g.request_id
+        log.info("request done")     # una línea por petición, con su request_id
+        return resp
 ```
 
-El formateador convierte cada mensaje de la librería `logging` en una línea JSON, y los dos *hooks* de Flask, los mismos que usa la [instrumentación de la API](#python-con-prometheus_client), recogen el id al empezar la petición y lo devuelven en la respuesta. Tres normas para que esto funcione después en Loki: una línea por evento (nada de trazas multilínea sueltas; van dentro del campo `exc`), siempre a stdout (no a un fichero dentro del contenedor, que nadie va a leer y que llena el disco), y el mismo nombre de campo en todos los servicios (`request_id`, no `requestId` en uno y `rid` en otro).
+Se engancha en `app.py` como el de métricas, justo después de crear la aplicación, y las dos líneas de enganche quedan juntas:
+
+```python
+import jsonlog, metrics
+jsonlog.setup(app)
+metrics.instrument(app)
+```
+
+El formateador convierte cada mensaje de la librería `logging` en una línea JSON, con la hora en UTC (`time.gmtime`), que es la que anuncia la `Z` final. Los dos *hooks* de Flask, los mismos que usa la [instrumentación de la API](#python-con-prometheus_client), recogen el id al empezar la petición y lo devuelven en la respuesta, y el segundo escribe una línea `request done` por petición, que es la que se cruza con la de nginx. El `Dockerfile` de la API que se da en Aules arranca gunicorn con `--access-logfile -`, que escribe además una línea de texto por petición: con nginx escribiendo ya el acceso en JSON sobra, y se quita del `CMD` antes de reconstruir la imagen. Si se deja, cada petición deja en Loki una línea marcada como `malformed`. Tres normas para que esto funcione después en Loki: una línea por evento (nada de trazas multilínea sueltas; van dentro del campo `exc`), siempre a stdout (no a un fichero dentro del contenedor, que nadie va a leer y que llena el disco), y el mismo nombre de campo en todos los servicios (`request_id`, no `requestId` en uno y `rid` en otro).
 
 #### Promtail
 
@@ -785,6 +813,7 @@ Por partes:
   promtail:
     image: grafana/promtail:3.5.3
     container_name: promtail
+    user: root                    # para poder leer el socket de Docker
     command: -config.file=/etc/promtail/promtail.yml
     volumes:
       - ./promtail.yml:/etc/promtail/promtail.yml:ro
@@ -984,15 +1013,15 @@ La hoja tiene tres partes. En la primera trasladas lo que ya funciona en tu pues
 
 2. **Haz que Prometheus encuentre cada pieza en su nuevo sitio.** Los targets ya no están en la red de Docker de Prometheus, sino en otra máquina: se llaman por la IP de app01 y el puerto publicado, el mismo número de antes. Cambia en los jobs `app`, `postgres` y `cadvisor` el nombre por esa IP y su etiqueta a `host: app01`, para que cada serie diga de qué máquina viene. Añade además el job `node`, con el node_exporter de las dos VM, que da lo que cAdvisor no ve (el disco o la memoria de la máquina entera), y los de `promtail` y `loki`, que vigilan la propia cadena de logs. Al terminar, `app`, `postgres`, `cadvisor` y los dos de `node` tienen que estar en UP; `loki` y `promtail` seguirán en DOWN hasta el paso 4.
 
-    *Pista:* el `metric_relabel_configs` de cAdvisor de la A1.2 se conserva sin tocar, y Loki se llama por su nombre porque comparte compose con Prometheus.
+    *Pista:* el `metric_relabel_configs` de cAdvisor de la A1.2 se conserva sin tocar, y Loki se llama por su nombre porque comparte compose con Prometheus. El fichero completo, tal como queda hoy, es [`prometheus.yml`](../descargas/mon01/ut1/prometheus.yml): cambia `IP_APP01` e `IP_MON01` por las de tus VM.
 
 3. **Haz que una petición deje el mismo rastro en nginx y en la API.** nginx tiene que generar un `request_id` para cada petición, pasárselo a la API y escribir su log de acceso en JSON por stdout; la API tiene que escribir sus logs en JSON con ese mismo identificador. Las dos piezas están completas en [Logs estructurados: JSON con request_id](#logs-estructurados-json-con-request_id). Cuando esté, una petición tiene que devolver la cabecera `X-Request-ID` y el mismo valor tiene que aparecer en el log de los dos contenedores.
 
-    *Pista:* en nginx, `log_format` va fuera del bloque `server` y `access_log`, dentro: fuera, se suma al log de fábrica y cada petición sale dos veces. Para que cada petición deje una línea en la API, añade un `info("request done")` en el `after_request`.
+    *Pista:* en nginx, `log_format` va fuera del bloque `server` y `access_log`, dentro: fuera, se suma al log de fábrica y cada petición sale dos veces. En la API, quita `--access-logfile -` del `CMD` del `Dockerfile` y reconstruye la imagen: si no, cada petición deja además una línea de texto que no es JSON.
 
 4. **Monta la cadena: Loki en mon01, y Promtail y los eventos en app01.** Añade Loki al compose de monitorización con el `loki.yml` de [Loki](#loki), publicado en el 23100 y con sus datos en un volumen llamado `loki` (con el proyecto `monitoring` queda como `monitoring_loki`, el nombre que mira la verificación de la práctica evaluable). Cuando su ruta `/ready` responda `ready`, añade al compose de agentes de app01 Promtail, con la configuración de [Promtail](#promtail) más el `match` de los eventos de [Eventos del demonio Docker](#eventos-del-demonio-docker), y el contenedor `docker-events` del mismo apartado; lo único que cambias es la IP de mon01. Promtail descubre solo los contenedores de la máquina, y sus propios logs dicen si funciona: no tiene que haber errores al leer el socket de Docker ni respuestas 4xx de Loki.
 
-    *Pista:* Loki es la imagen `grafana/loki:3.5.3`, arrancada con `-config.file=` apuntando al fichero montado, y tarda unos 15 s en estar listo. Promtail necesita `user: root` en el servicio, o `group_add` con el gid del grupo `docker`, para leer el socket.
+    *Pista:* Loki es la imagen `grafana/loki:3.5.3`, arrancada con `-config.file=` apuntando al fichero montado, y tarda unos 15 s en estar listo. Promtail necesita `user: root` en el servicio, o `group_add` con el gid del grupo `docker`, para leer el socket. Los ficheros completos, tal como quedan hoy: en mon01, [`compose.yml`](../descargas/mon01/ut1/compose.yml) y [`loki/loki.yml`](../descargas/mon01/ut1/loki.yml); en app01, [`agentes/compose.yml`](../descargas/app01/ut1/agentes/compose.yml) y [`agentes/promtail.yml`](../descargas/app01/ut1/agentes/promtail.yml), donde cambias `IP_MON01` por la IP de mon01.
 
 5. **Sigue una petición de punta a punta.** En Grafana, añade Loki como fuente de datos. Haz una petición al servicio, toma el `request_id` de la cabecera de la respuesta y búscalo en Explore: tienen que salir sus dos líneas, la de nginx y la de la API. Es la prueba de que funciona la cadena entera.
 

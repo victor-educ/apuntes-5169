@@ -1,0 +1,47 @@
+# /opt/monitoring/prometheus.yml en tu puesto al terminar la A1.3 (13 oct)
+# La pila de Aules más los jobs de la UT1. En el puesto todo comparte la red de Docker obs,
+# así que cada target se llama por su nombre de servicio de compose y lleva host: puesto.
+# La A1.4 (5 nov) cambia esos nombres por la IP de app01 y añade node, promtail y loki.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:29093"]
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:29090"]
+        labels: { host: puesto }
+
+  # A1.2: CPU y memoria de los contenedores
+  - job_name: cadvisor
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["cadvisor:28081"]
+        labels: { host: puesto }
+    metric_relabel_configs:
+      # el servicio de compose pasa a la etiqueta service
+      - source_labels: [container_label_com_docker_compose_service]
+        target_label: service
+      - regex: container_label_.*
+        action: labeldrop
+      # solo las métricas que se usan en el curso
+      - source_labels: [__name__]
+        regex: container_(cpu_usage_seconds_total|memory_working_set_bytes|memory_usage_bytes|spec_memory_limit_bytes|network_(receive|transmit)_bytes_total|fs_(reads|writes)_bytes_total|oom_events_total|last_seen)
+        action: keep
+
+  # A1.3: las métricas de la API y de PostgreSQL
+  - job_name: app
+    static_configs:
+      - targets: ["app:29102"]
+        labels: { host: puesto, service: app }
+
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres_exporter:29187"]
+        labels: { host: puesto, service: db }

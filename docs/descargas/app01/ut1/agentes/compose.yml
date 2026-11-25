@@ -1,0 +1,56 @@
+# /opt/agentes/compose.yml en app01 al terminar la UT1 (A1.4, 5 nov)
+services:
+  cadvisor:                       # CPU y memoria de cada contenedor
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
+    container_name: cadvisor
+    privileged: true
+    devices: [/dev/kmsg]
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=10s
+      - --port=28081
+      - --store_container_labels=false
+      - --whitelisted_container_labels=com.docker.compose.service,com.docker.compose.project
+      - --disable_metrics=percpu,sched,tcp,udp,hugetlb,referenced_memory,cpu_topology,resctrl
+    environment:
+      CADVISOR_HEALTHCHECK_URL: http://localhost:28081/healthz
+    ports: ["28081:28081"]
+    restart: unless-stopped
+
+  promtail:                       # lee los logs de los contenedores y los lleva a Loki
+    image: grafana/promtail:3.5.3
+    container_name: promtail
+    user: root                    # para poder leer el socket de Docker
+    command: -config.file=/etc/promtail/promtail.yml
+    volumes:
+      - ./promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - promtail-positions:/var/lib/promtail
+    ports: ["29080:29080"]
+    restart: unless-stopped
+
+  docker-events:                  # escribe los eventos de Docker como si fueran logs
+    image: docker:28-cli
+    container_name: docker-events
+    command: >-
+      docker events --filter type=container
+      --filter event=start --filter event=die --filter event=kill --filter event=oom
+      --filter event=stop --filter event=restart --filter event=health_status
+      --format '{{json .}}'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+
+volumes:
+  promtail-positions:
+
+networks:
+  default:
+    name: obs
+    external: true
