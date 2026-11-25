@@ -1,0 +1,107 @@
+# /opt/monitoring/compose.yml en mon01 al terminar la UT3 (evaluable, 3 dic)
+# Lo que cambia respecto a la UT2: nada en 0.0.0.0. Prometheus, Alertmanager y Mailpit solo en
+# 127.0.0.1 (por túnel SSH), Gitea solo en la 10.10.0.20, Grafana y Loki sin publicar y detrás
+# del nginx nuevo, y Grafana con sus variables GF_*. Los montajes de tls/ y secrets/ de
+# Prometheus van en compose.override.yml (A3.2).
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+      - --web.listen-address=:29090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - /opt/alerting/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      - /opt/alerting/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus:/prometheus
+    ports: ["127.0.0.1:29090:29090"]
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --web.listen-address=:29093
+      - --storage.path=/alertmanager
+    volumes:
+      - /opt/alerting/alertmanager:/etc/alertmanager:ro
+      - /opt/alerting/secrets:/etc/alertmanager-secrets:ro
+      - alertmanager_data:/alertmanager
+    ports: ["127.0.0.1:29093:29093"]
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    environment:
+      GF_SERVER_HTTP_PORT: "23000"            # el puerto al que reenvía nginx; sin él, 502
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?falta el fichero .env}
+      GF_SERVER_ROOT_URL: https://grafana.lab/
+      GF_SECURITY_COOKIE_SECURE: "true"       # la cookie de sesión solo viaja por HTTPS
+      GF_AUTH_ANONYMOUS_ENABLED: "false"      # nadie entra sin usuario
+      GF_USERS_ALLOW_SIGN_UP: "false"         # los usuarios los da de alta un administrador
+      GF_USERS_AUTO_ASSIGN_ORG_ROLE: Viewer   # un usuario nuevo solo mira
+      GF_AUTH_BASIC_ENABLED: "false"          # la API no acepta usuario y contraseña
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana:/var/lib/grafana
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.5.3
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - /opt/alerting/loki/loki-alerts.yml:/loki/rules/fake/loki-alerts.yml:ro
+      - loki:/loki
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:v1.22.3
+    ports: ["127.0.0.1:28025:28025"]
+    environment:
+      MP_UI_BIND_ADDR: "0.0.0.0:28025"    # la web escucha en el puerto del curso
+      MP_MAX_MESSAGES: 500
+    restart: unless-stopped
+
+  gitea:
+    image: gitea/gitea:1.24
+    ports: ["10.10.0.20:23001:23001"]
+    environment:
+      GITEA__server__HTTP_PORT: "23001"
+      GITEA__server__ROOT_URL: "http://gitea.lab:23001/"
+    volumes:
+      - gitea_data:/data
+    restart: unless-stopped
+
+  tickets:
+    build: /opt/alerting/tickets
+    ports: ["127.0.0.1:25000:25000"]
+    env_file: /opt/alerting/secrets/tickets.env
+    volumes:
+      - tickets_data:/data
+    restart: unless-stopped
+
+  nginx:                          # termina el TLS de Grafana y el mTLS de Loki
+    image: nginx:1.28
+    ports: ["10.10.0.20:443:443", "10.10.0.20:23100:23100"]
+    volumes:
+      - ./nginx/mon01.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./tls:/etc/nginx/tls:ro
+    depends_on: [grafana, loki]
+    restart: unless-stopped
+
+volumes:
+  prometheus:
+  grafana:
+  loki:
+  alertmanager_data:
+  gitea_data:
+  tickets_data:
+
+networks:
+  default:
+    name: obs
+    external: true

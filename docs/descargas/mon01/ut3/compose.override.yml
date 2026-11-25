@@ -1,0 +1,7 @@
+# /opt/monitoring/compose.override.yml en mon01 (A3.2, 1 dic): Docker Compose lo lee solo,
+# junto a compose.yml. tls/ y secrets/ van al .gitignore.
+services:
+  prometheus:
+    volumes:
+      - ./tls:/etc/prometheus/tls:ro
+      - ./secrets:/etc/prometheus/secrets:ro

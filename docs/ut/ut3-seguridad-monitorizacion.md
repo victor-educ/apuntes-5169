@@ -558,6 +558,8 @@ Trabajas en mon01, app01 y el puesto de administración. El recorrido: recuperas
     cd /opt/agentes && docker compose restart promtail
     ```
 
+    Si dudas de cómo queda, compáralo con el [`prometheus.yml`](../descargas/mon01/ut3/prometheus.yml) completo de la UT3: es el de hoy al terminar, con el job `node-tls` del paso 4 ya puesto.
+
     **Sale bien si:** la sexta orden de [Verificar](#verificar-que-de-verdad-esta-protegido), en la shell de mon01, da todos los targets en UP, incluidos los dos de db01. Eso prueba también que las filas 11 a 13 de OPNsense funcionan.
 
 2. **Cierra app01 sin cortar lo legítimo.** *En mon01 y en app01.*
@@ -617,6 +619,8 @@ Trabajas en mon01, app01 y el puesto de administración. El recorrido: recuperas
     sed -i 's/up{job="node"} == 0/up{job=~"node|node-tls"} == 0/' /opt/alerting/prometheus/alerts.yml
     docker compose up -d prometheus # recrea el contenedor: monta los volúmenes y relee reglas
     ```
+
+    Los dos ficheros completos, tal como quedan: [`prometheus.yml`](../descargas/mon01/ut3/prometheus.yml) y [`compose.override.yml`](../descargas/mon01/ut3/compose.override.yml).
 
     Después haz desde mon01, con `ca.crt` en el directorio de trabajo, las tres primeras comprobaciones de [Verificar](#verificar-que-de-verdad-esta-protegido): sin CA, sin credenciales y con las dos.
 
@@ -707,7 +711,7 @@ Tras la A3.2, app01 está cerrado, pero mon01 sigue abierta: Grafana en HTTP, Pr
     restart: unless-stopped
 ```
 
-`nginx/mon01.conf` lleva dos bloques `server`, el de [Grafana](#grafana-detras-de-nginx-con-tls-y-roles) y el de [Loki](#mtls-entre-promtail-y-loki). En `tls/` van `ca.crt` y los certificados `mon01-nginx` y `mon01-loki`, con las claves de root y en 600. Al levantar, `docker ps` enseña siete flechas y ninguna en `0.0.0.0`: cuatro en `127.0.0.1` (las tres de la tabla y el receptor de incidencias, que ya estaba ahí) y tres en la 10.10.0.20.
+`nginx/mon01.conf` lleva dos bloques `server`, el de [Grafana](#grafana-detras-de-nginx-con-tls-y-roles) y el de [Loki](#mtls-entre-promtail-y-loki). Los dos ficheros completos, con la tabla de `ports`, el servicio `nginx` y las variables `GF_*` ya aplicados, son el [`compose.yml`](../descargas/mon01/ut3/compose.yml) de mon01 al terminar la UT3 y su [`nginx/mon01.conf`](../descargas/mon01/ut3/nginx/mon01.conf); los montajes de `tls/` y `secrets/` de Prometheus siguen en el [`compose.override.yml`](../descargas/mon01/ut3/compose.override.yml) de la A3.2. En `tls/` van `ca.crt` y los certificados `mon01-nginx` y `mon01-loki`, con las claves de root y en 600. Al levantar, `docker ps` enseña siete flechas y ninguna en `0.0.0.0`: cuatro en `127.0.0.1` (las tres de la tabla y el receptor de incidencias, que ya estaba ahí) y tres en la 10.10.0.20.
 
 **El cortafuegos de mon01.** Las mismas dos cadenas que en app01: en `input`, SSH y node_exporter; en `forward`, un `accept` por cada origen legítimo de lo que publica Docker y un `drop` final. La primera regla de `forward` deja pasar las respuestas a conexiones que abren los contenedores (como Alertmanager hacia Telegram).
 
@@ -802,6 +806,8 @@ clients:
     # external_labels, batchwait, batchsize, backoff_config y timeout, igual que estaban
 ```
 
+El [`promtail.yml`](../descargas/app01/ut3/agentes/promtail.yml) y el [`compose.yml` de agentes](../descargas/app01/ut3/agentes/compose.yml) completos, tal como quedan en app01 al terminar la UT3, llevan ya los dos cambios (y los puertos solo en la 10.10.2.10, de [Publicar solo donde hace falta](#publicar-solo-donde-hace-falta)).
+
 El certificado de `logcli` se emite en el puesto de administración con la función `cli` de [Certificados con la CA del curso](#certificados-con-la-ca-del-curso): `cli logcli`.
 
 ### Grafana detrás de nginx con TLS y roles
@@ -846,6 +852,8 @@ environment:
   GF_USERS_AUTO_ASSIGN_ORG_ROLE: Viewer   # un usuario nuevo solo mira
   GF_AUTH_BASIC_ENABLED: "false"          # la API no acepta usuario y contraseña: para automatizar, tokens
 ```
+
+En el servicio `grafana` van junto a `GF_SECURITY_ADMIN_PASSWORD`, que se conserva del compose de Aules, y el servicio se queda sin `ports`.
 
 **Roles y usuarios.** Cada persona con su usuario nominal, Viewer por defecto, Editor para quien mantiene dashboards y un solo Admin, el `admin` de fábrica, que no se usa a diario. Su contraseña no se cambia con variables de entorno (solo cuentan en el primer arranque), sino con `docker compose exec grafana grafana cli admin reset-admin-password '<nueva>'`.
 
@@ -895,11 +903,11 @@ Toma la pila tal como la dejó la A3.2 y déjala conforme a la política de esta
 
 Los tres primeros bloques son trabajo en las máquinas y ocupan los cien minutos de hoy, en este orden: el bloque 1 cierra mon01 y deja a Promtail sin poder enviar (el 23100 ya pide certificado), el bloque 2 se lo arregla y el bloque 3 mide el estado final. La matriz y el documento de política se terminan antes del examen.
 
-1. **Cerrar mon01: publicación, nginx y nftables, 40 minutos.** Todo está en [Cerrar mon01](#cerrar-mon01-publicacion-y-cortafuegos) y en los apartados que lo siguen.
+1. **Cerrar mon01: publicación, nginx y nftables, 40 minutos.** Todo está en [Cerrar mon01](#cerrar-mon01-publicacion-y-cortafuegos) y en los apartados que lo siguen. El resultado son el [`compose.yml`](../descargas/mon01/ut3/compose.yml) y el [`nginx/mon01.conf`](../descargas/mon01/ut3/nginx/mon01.conf) completos de la UT3.
     - Publica la pila como dice la tabla, sin nada en `0.0.0.0`, con el servicio `nginx` y sus dos bloques `server`, y Grafana con las variables `GF_*`. Los certificados `mon01-nginx` y `mon01-loki` van con `ca.crt` en `/opt/monitoring/tls/`.
     - Cierra mon01 con su `nftables.conf`, validado y persistente, como el de app01 en la A3.2.
     - Cambia la contraseña del `admin` de Grafana, entra desde tu VM `puesto` en `https://grafana.lab:28443` con el túnel de [Cómo se llega a la pila](#como-se-llega-a-la-pila-desde-hoy) y crea tu usuario nominal con rol Editor. Con él, comprueba en Explore que las fuentes Prometheus y Loki siguen devolviendo datos.
-2. **Certificado de cliente en Promtail, 20 minutos.** Haz que el Promtail de app01 vuelva a enviar con su certificado `promtail-app01`, con el bloque `clients` y el volumen de [mTLS entre Promtail y Loki](#mtls-entre-promtail-y-loki), hasta que en Explore vuelvan las líneas de app01 (un volumen nuevo exige recrear el contenedor, no basta `restart`). Emite también el certificado de `logcli`: lo usa la quinta comprobación del bloque 3.
+2. **Certificado de cliente en Promtail, 20 minutos.** Haz que el Promtail de app01 vuelva a enviar con su certificado `promtail-app01`, con el bloque `clients` y el volumen de [mTLS entre Promtail y Loki](#mtls-entre-promtail-y-loki), hasta que en Explore vuelvan las líneas de app01 (un volumen nuevo exige recrear el contenedor, no basta `restart`). Los ficheros completos: [`promtail.yml`](../descargas/app01/ut3/agentes/promtail.yml) y [`compose.yml` de agentes](../descargas/app01/ut3/agentes/compose.yml). Emite también el certificado de `logcli`: lo usa la quinta comprobación del bloque 3.
 3. **Auditoría final, 35 minutos.** Repite las medidas de la A3.1 sobre el estado final, ahora también desde web01, todo en `monitoring/audit/despues/` con la fecha en el nombre:
     - Las seis comprobaciones de [Verificar que de verdad está protegido](#verificar-que-de-verdad-esta-protegido), con su salida.
     - Los escaneos con los mismos doce puertos desde cada origen (`22,443,23000,23001,23100,28025,28081,29080,29090,29093,29100,29102`): app01 y mon01 desde el puesto de administración (`escaneo-desde-admin-<fecha>.txt`) y desde web01 (`escaneo-desde-web01-<fecha>.txt`), y desde app01, con `nc`, los puertos 443, 23000, 23001, 23100, 28025, 29090 y 29093 de mon01 (`nc-mon01-desde-app01-<fecha>.txt`).
