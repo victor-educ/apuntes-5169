@@ -659,7 +659,7 @@ Primero investigas y decides en el puesto (pasos 1 a 3), y solo después tocas l
 
 4. **Reconstruye la imagen sobre la base slim.** *En OPNsense y en app01.*
 
-    app01 necesita salir a Internet solo mientras dura el build. En OPNsense, abre en la pestaña DMZINT la fila temporal: Pass, origen `srv_app`, destino any, puertos `p_web`, descripción `TEMPORAL alta 09-02 baja 09-02 build en app01`. En app01, usa la misma Debian de la A7.1 para que solo cambie la variante:
+    app01 necesita salir a Internet solo mientras dura el build. En OPNsense, abre con Interface `DMZINT` la fila temporal: Pass, origen `srv_app`, destino any, puertos `p_web`, descripción `TEMPORAL alta 09-02 baja 09-02 build en app01`. En app01, usa la misma Debian de la A7.1 para que solo cambie la variante:
 
     ```bash
     cd /opt/servicio
