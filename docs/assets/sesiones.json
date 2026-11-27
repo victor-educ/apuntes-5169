@@ -238,8 +238,8 @@
    "titulo": "Práctica evaluable UT2",
    "tipo": "Práctica evaluable",
    "teoria": "Procedimiento de verificación de una alarma (10 min).",
-   "practica": "Montar Gitea y el receptor de incidencias, verificar cuatro alarmas de punta a punta, dar remoto a los repositorios y cerrar el repositorio alerting. Se entrega antes del examen.",
-   "que": "Montar Gitea y el receptor de incidencias, verificar cuatro alarmas de punta a punta, dar remoto a los repositorios y cerrar el repositorio alerting. Se entrega antes del examen.",
+   "practica": "Montar Gitea y el receptor de incidencias, verificar cuatro alarmas de punta a punta, dar remoto a los repositorios y cerrar el repositorio alerting. Se entrega el 4 de diciembre.",
+   "que": "Montar Gitea y el receptor de incidencias, verificar cuatro alarmas de punta a punta, dar remoto a los repositorios y cerrar el repositorio alerting. Se entrega el 4 de diciembre.",
    "entregable": "Repositorio alerting + informe (RA1 b, c, d, e)",
    "url": "../ut/ut2-alarmas/#sesion-15-practica-evaluable",
    "evaluable": true

@@ -13,7 +13,7 @@ La UT1 dejó mon01 recogiendo los datos del contenedor de referencia: en Prometh
 | A2.3 | A quién se avisa: correo y Telegram, agrupados y sin repeticiones | `alertmanager/` |
 | Evaluable | El registro: cada alarma abre y cierra su incidencia, y se comprueban cuatro de punta a punta | `tickets/`, `docs/verificacion.md` |
 
-Todo va al repositorio `alerting`, en `/opt/alerting` de mon01, que es lo que se entrega. La clase del 24 de noviembre es para montar la evaluable, y se entrega el 9 de diciembre, antes del examen.
+Todo va al repositorio `alerting`, en `/opt/alerting` de mon01, que es lo que se entrega. La clase del 24 de noviembre es para montar la evaluable, y se entrega el 4 de diciembre.
 
 ## Sesión 12 · Umbrales sobre contadores y cadenas en logs
 
@@ -1215,7 +1215,7 @@ Hoy trabajas en **mon01**. El recorrido: preparas los contenedores (paso 1), car
 
 <p class="ut-meta" markdown>24 de noviembre · Práctica evaluable · <span class="dur" tabindex="0" aria-label="Procedimiento de verificación de una alarma · 10 min&#10;Trabajo en la práctica · 100 min" data-dur="Procedimiento de verificación de una alarma · 10 min&#10;Trabajo en la práctica · 100 min">:material-school:<i class="dur-barra" style="--teoria:9%"></i>:material-flask:</span></p>
 
-Cada pieza de la cadena se ha probado ya por separado: las consultas en la A2.1, las reglas en la A2.2, Alertmanager en la A2.3 y el receptor de incidencias en la [demostración](#demostracion-incidencias-en-gitea). Falta montar el receptor en el mon01 de cada uno y seguir alarmas reales de punta a punta, del fallo a la incidencia cerrada, midiendo cuánto tarda cada tramo. Los diez primeros minutos explican el procedimiento con el que se da por buena una alarma; el resto de la clase es para montarla, y lo que falte se termina fuera de clase. **Se entrega el 9 de diciembre**, antes del examen.
+Cada pieza de la cadena se ha probado ya por separado: las consultas en la A2.1, las reglas en la A2.2, Alertmanager en la A2.3 y el receptor de incidencias en la [demostración](#demostracion-incidencias-en-gitea). Falta montar el receptor en el mon01 de cada uno y seguir alarmas reales de punta a punta, del fallo a la incidencia cerrada, midiendo cuánto tarda cada tramo. Los diez primeros minutos explican el procedimiento con el que se da por buena una alarma; el resto de la clase es para montarla, y lo que falte se termina fuera de clase. **Se entrega el 4 de diciembre**.
 
 ### Procedimiento de verificación de una alarma
 
